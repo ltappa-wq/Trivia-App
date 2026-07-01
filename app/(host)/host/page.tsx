@@ -106,7 +106,7 @@ function HostView() {
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
-    <main>
+    <main className="host-view">
       <header>
         <h1>Room {game.code}</h1>
         <p>{game.status === "lobby" ? "Waiting to start" : `Question ${game.current_index + 1} of ${game.question_count}`}</p>
@@ -182,6 +182,7 @@ function HostView() {
         </section>
       )}
 
+      <div className="host-live">
       {started && !ended && !game.paused && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
@@ -225,6 +226,7 @@ function HostView() {
           )}
         </section>
       )}
+      </div>
 
       {ended && (
         <section aria-live="polite">
