@@ -1,0 +1,97 @@
+"use client";
+// U6. Player view — phone-first (UI conventions). Shows the lobby wait, the
+// active question with a server-anchored countdown (KTD9), and the between-
+// question leaderboard. State hydrates from Postgres and reconciles on every
+// Broadcast delta (KTD8). Answer submission is wired in U7 and the challenge
+// affordance in U8; this unit establishes the question/timer/leaderboard shell.
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { loadPlayerCredential } from "@/lib/clientSession";
+import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+
+function PlayView() {
+  const params = useSearchParams();
+  const code = (params.get("code") ?? "").toUpperCase();
+  const cred = loadPlayerCredential(code);
+  const token = cred?.token ?? null;
+
+  const { state, offset, error, loading } = useRoomState(code, token);
+
+  const game = state?.game ?? null;
+  const timerMs = game ? ANSWER_TIMER_MS[game.answer_mode] : null;
+  const remaining = useCountdown(
+    game?.reveal_at ?? null,
+    game && game.current_index >= 0 ? timerMs : null,
+    offset,
+    game?.paused ?? false,
+  );
+
+  if (!cred) {
+    return (
+      <main>
+        <h1>Not in this game</h1>
+        <p>Join from the code screen to play.</p>
+      </main>
+    );
+  }
+  if (loading) return <main aria-busy="true"><p>Loading…</p></main>;
+  if (error) return <main><p role="alert">{error}</p></main>;
+  if (!game) return <main><p>Game not found.</p></main>;
+
+  const question = state?.current_question ?? null;
+  const started = game.current_index >= 0;
+
+  return (
+    <main>
+      <header>
+        <h1>{cred.username}</h1>
+        <p>Room {game.code}</p>
+      </header>
+
+      {!started && <p>Waiting for the host to start…</p>}
+
+      {started && question && (
+        <section aria-live="polite">
+          <h2>{question.prompt}</h2>
+          {remaining !== null && (
+            <p aria-label={`${Math.ceil(remaining / 1000)} seconds remaining`}>
+              {Math.ceil(remaining / 1000)}s
+            </p>
+          )}
+          {question.mode === "multiple_choice" ? (
+            <ul>
+              {(question.options ?? []).map((opt, i) => (
+                <li key={i}>{opt}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>Type your answer when submission is enabled.</p>
+          )}
+        </section>
+      )}
+
+      {started && (
+        <section>
+          <h2>Leaderboard</h2>
+          <ol>
+            {(state?.leaderboard ?? []).map((p) => (
+              <li key={p.id}>
+                {p.username} — {p.score}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </main>
+  );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense>
+      <PlayView />
+    </Suspense>
+  );
+}

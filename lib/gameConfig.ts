@@ -27,6 +27,19 @@ export const QUESTION_COUNT_MAX = 20;
 export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer"];
 export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
 
+/**
+ * Per-mode answer window (R7): type-the-answer gets a longer timer because it is
+ * inherently slower to answer, so it is not penalized versus multiple choice.
+ * The countdown clients render (U6) and the speed score the server computes
+ * (U7) both read these, so display and scoring stay in agreement. Tunable
+ * constant — behavior is verified through the U7 scenarios, not hardcoded
+ * assertions (Verification Contract).
+ */
+export const ANSWER_TIMER_MS: Record<AnswerMode, number> = {
+  multiple_choice: 20_000,
+  type_answer: 35_000,
+};
+
 export interface SetupInput {
   categories: string[];
   questionCount: number;
