@@ -4,11 +4,11 @@
 // rate limit + concurrent-generation bound protecting the paid xAI budget. On
 // any failure it leaves no half-initialized game.
 
-import { headers } from "next/headers";
 import { getServiceClient } from "@/lib/supabase/server";
 import { generateAndPersistQuestions } from "@/app/actions/generate";
 import { generateRoomCode, generateToken, hashToken } from "@/lib/codes";
 import { RateLimiter } from "@/lib/rateLimit";
+import { callerIp } from "@/lib/serverRequest";
 import { validateSetupInput, type SetupInput } from "@/lib/gameConfig";
 
 // Module-scoped guards (best-effort per serverless instance, KTD10).
@@ -21,15 +21,6 @@ export interface CreateGameResult {
   code: string;
   /** Plaintext host token — returned once, only the hash is stored (KTD7). */
   hostToken: string;
-}
-
-async function callerIp(): Promise<string> {
-  const h = await headers();
-  return (
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "unknown"
-  );
 }
 
 export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
