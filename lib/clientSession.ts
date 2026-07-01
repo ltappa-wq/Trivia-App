@@ -8,6 +8,9 @@ export interface HostCredential {
   gameId: string;
   code: string;
   token: string;
+  /** The host's own player token — the host plays too (submits answers). */
+  playerToken: string;
+  username: string;
 }
 
 export interface PlayerCredential {

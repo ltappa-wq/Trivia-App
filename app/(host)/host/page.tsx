@@ -15,6 +15,7 @@ import { listOpenChallenges } from "@/lib/realtime/channel";
 import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { isLastIndex } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
+import { AnswerPanel } from "@/components/AnswerPanel";
 import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
@@ -191,13 +192,12 @@ function HostView() {
               {Math.ceil(remaining / 1000)}s
             </p>
           )}
-          {state.current_question.mode === "multiple_choice" && (
-            <ol>
-              {(state.current_question.options ?? []).map((opt, i) => (
-                <li key={i}>{opt}</li>
-              ))}
-            </ol>
-          )}
+          <AnswerPanel
+            token={cred.playerToken}
+            question={state.current_question}
+            currentIndex={game.current_index}
+            timeUp={remaining !== null && remaining <= 0}
+          />
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game

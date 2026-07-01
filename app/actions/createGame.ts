@@ -10,6 +10,7 @@ import { generateRoomCode, generateToken, hashToken } from "@/lib/codes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { validateSetupInput, type SetupInput } from "@/lib/gameConfig";
+import { normalizeUsername, validateUsername } from "@/lib/join";
 
 // Module-scoped guards (best-effort per serverless instance, KTD10).
 const createLimiter = new RateLimiter(5, 60_000); // 5 games / minute / IP
@@ -21,12 +22,23 @@ export interface CreateGameResult {
   code: string;
   /** Plaintext host token — returned once, only the hash is stored (KTD7). */
   hostToken: string;
+  /** The host's own player token — the host plays too. */
+  hostPlayerToken: string;
+  username: string;
 }
 
-export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
+export async function createGame(
+  raw: SetupInput,
+  rawHostName: string,
+): Promise<CreateGameResult> {
   const validated = validateSetupInput(raw);
   if (!validated.ok) throw new Error(validated.error);
   const input = validated.value;
+
+  // The host plays too, so they need a name like any player.
+  const username = normalizeUsername(rawHostName);
+  const nameCheck = validateUsername(username);
+  if (!nameCheck.ok) throw new Error(nameCheck.error);
 
   if (!createLimiter.check(await callerIp())) {
     throw new Error("Too many games created — please wait a moment.");
@@ -91,5 +103,24 @@ export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
     activeGenerations--;
   }
 
-  return { gameId, code, hostToken };
+  // Seat the host as a player (the host plays too). Their own player token lets
+  // them submit answers and appear on the leaderboard.
+  const hostPlayerToken = generateToken();
+  const { error: seatError } = await supabase.from("players").insert({
+    game_id: gameId,
+    username,
+    token: hostPlayerToken,
+    is_spectator: false,
+  });
+  if (seatError) {
+    // Don't leave a game the host can pace but not play — roll back.
+    await supabase.from("games").delete().eq("id", gameId);
+    throw new Error(
+      seatError.code === "23505"
+        ? "Could not seat the host — please retry."
+        : `Could not seat the host: ${seatError.message}`,
+    );
+  }
+
+  return { gameId, code, hostToken, hostPlayerToken, username };
 }
