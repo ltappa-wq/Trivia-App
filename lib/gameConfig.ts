@@ -1,0 +1,91 @@
+// Shared game configuration: the category seed list, question-count bounds, and
+// setup-input validation. Consumed by the setup UI (U4), createGame (U4), and
+// generation (U3). The category list is a static seed for v1 (Open Question:
+// configurable set deferred).
+
+import type { AnswerMode, Difficulty } from "@/lib/db/types";
+
+export const CATEGORIES = [
+  "General Knowledge",
+  "History",
+  "Science",
+  "Geography",
+  "Sports",
+  "Movies & TV",
+  "Music",
+  "Art & Literature",
+  "Technology",
+  "Food & Drink",
+] as const;
+
+export const QUESTION_COUNT_MIN = 1;
+// KTD10: whole-set generation runs in one server action, so the count is capped
+// to a ceiling that fits Vercel's function-duration budget. Raising this is the
+// trigger to move generation to a background route handler (Open Question).
+export const QUESTION_COUNT_MAX = 20;
+
+export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer"];
+export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
+
+export interface SetupInput {
+  categories: string[];
+  questionCount: number;
+  answerMode: AnswerMode;
+  difficulty: Difficulty;
+}
+
+export type SetupValidation =
+  | { ok: true; value: SetupInput }
+  | { ok: false; error: string };
+
+/**
+ * Validate raw setup input before it reaches generation or the database.
+ * Rejects an out-of-range count (KTD10 ceiling) and unknown categories/modes so
+ * the abuse guard and the DB check constraints are never the first line of
+ * defense.
+ */
+export function validateSetupInput(raw: unknown): SetupValidation {
+  if (typeof raw !== "object" || raw === null) {
+    return { ok: false, error: "Invalid setup input" };
+  }
+  const r = raw as Record<string, unknown>;
+
+  const categories = r.categories;
+  if (
+    !Array.isArray(categories) ||
+    categories.length === 0 ||
+    !categories.every((c) => (CATEGORIES as readonly string[]).includes(c as string))
+  ) {
+    return { ok: false, error: "Select at least one valid category" };
+  }
+
+  const questionCount = r.questionCount;
+  if (
+    typeof questionCount !== "number" ||
+    !Number.isInteger(questionCount) ||
+    questionCount < QUESTION_COUNT_MIN ||
+    questionCount > QUESTION_COUNT_MAX
+  ) {
+    return {
+      ok: false,
+      error: `Question count must be between ${QUESTION_COUNT_MIN} and ${QUESTION_COUNT_MAX}`,
+    };
+  }
+
+  if (!ANSWER_MODES.includes(r.answerMode as AnswerMode)) {
+    return { ok: false, error: "Choose an answer mode" };
+  }
+  if (!DIFFICULTIES.includes(r.difficulty as Difficulty)) {
+    return { ok: false, error: "Choose a difficulty" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      categories: categories as string[],
+      questionCount,
+      answerMode: r.answerMode as AnswerMode,
+      difficulty: r.difficulty as Difficulty,
+    },
+  };
+}
