@@ -120,7 +120,7 @@ function HostView() {
           {challenges.length === 0 ? (
             <p>Loading challenge…</p>
           ) : (
-            <ol>
+            <ol className="adjudication">
               {challenges.map((c) => {
                 const q = c.question;
                 const answerKey =
@@ -136,10 +136,20 @@ function HostView() {
                     <p>Q{q.index + 1}: {q.prompt}</p>
                     <p>Accepted answer: {answerKey}</p>
                     {c.type === "answer" && <p>Their answer: {c.submitted_text}</p>}
-                    <button type="button" disabled={busy} onClick={() => rule(c.id, "uphold")}>
+                    <button
+                      type="button"
+                      className="uphold"
+                      disabled={busy}
+                      onClick={() => rule(c.id, "uphold")}
+                    >
                       Uphold
                     </button>
-                    <button type="button" disabled={busy} onClick={() => rule(c.id, "reject")}>
+                    <button
+                      type="button"
+                      className="reject"
+                      disabled={busy}
+                      onClick={() => rule(c.id, "reject")}
+                    >
                       Reject
                     </button>
                   </li>
