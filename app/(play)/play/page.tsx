@@ -117,7 +117,9 @@ function PlayView() {
           )}
           {submitError && <p role="alert">{submitError}</p>}
 
-          {paused ? (
+          {question.voided ? (
+            <p aria-live="assertive">This question was voided — waiting for the host.</p>
+          ) : paused ? (
             <p aria-live="assertive">⏸ Paused for review — answering is disabled.</p>
           ) : locked ? (
             <p aria-live="assertive">
@@ -153,7 +155,7 @@ function PlayView() {
             </form>
           )}
 
-          {!paused && (
+          {!paused && !question.voided && (
             <div>
               {challengeError && <p role="alert">{challengeError}</p>}
               <button

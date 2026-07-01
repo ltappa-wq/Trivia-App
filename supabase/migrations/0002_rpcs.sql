@@ -87,12 +87,15 @@ begin
       where g.id = v_game_id and g.current_index >= 0
     ),
     'leaderboard', coalesce((
-      select jsonb_agg(row order by row->>'score' desc)
+      -- Order the aggregate by the numeric score (not row->>'score', which sorts
+      -- lexically so 90 would rank above 100), tie-broken by join time.
+      select jsonb_agg(row order by sort_score desc, sort_joined asc)
       from (
-        select jsonb_build_object('username', p.username, 'score', p.score, 'id', p.id) as row
+        select jsonb_build_object('username', p.username, 'score', p.score, 'id', p.id) as row,
+               p.score as sort_score,
+               p.joined_at as sort_joined
         from public.players p
         where p.game_id = v_game_id and p.is_spectator = false
-        order by p.score desc, p.joined_at asc
       ) ranked
     ), '[]'::jsonb)
   ) into v_result;

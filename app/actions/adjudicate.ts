@@ -43,9 +43,14 @@ export async function adjudicate(
     .select("id, type, player_id, question_id, status, questions!inner(id, game_id, voided)")
     .eq("id", challengeId)
     .maybeSingle();
-  const question = (challenge?.questions ?? null) as
+  // PostgREST may embed a to-one relation as an object or a single-element
+  // array depending on the client version — normalize both.
+  const embedded = challenge?.questions as
     | { id: string; game_id: string; voided: boolean }
-    | null;
+    | { id: string; game_id: string; voided: boolean }[]
+    | null
+    | undefined;
+  const question = Array.isArray(embedded) ? (embedded[0] ?? null) : (embedded ?? null);
   if (!challenge || !question || question.game_id !== game.id) {
     throw new Error("Challenge not found");
   }
