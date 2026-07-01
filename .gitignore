@@ -1,0 +1,30 @@
+# Compound Engineering machine-local config
+.compound-engineering/*.local.yaml
+
+# Dependencies
+/node_modules
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts.bak
+
+# Production build
+/build
+
+# Env
+.env
+.env.local
+.env*.local
+
+# Testing
+/coverage
+/playwright-report
+/test-results
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+*.tsbuildinfo

@@ -1,0 +1,93 @@
+"use server";
+// U7. Answer submission, judging & speed scoring (R7, R9; AE1, AE2; KTD4, KTD7).
+// The acting player is resolved from their server-issued token — never a
+// client-supplied player_id (KTD7). The server stamps the submit time, judges,
+// and computes the speed score from submit-minus-reveal (KTD4); clients never
+// compute their own score. One answer per player per question (dup-submit guard,
+// enforced by the unique constraint in U2).
+
+import { getServiceClient } from "@/lib/supabase/server";
+import { resolvePlayerByToken } from "@/lib/serverAuth";
+import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
+import { computeScore } from "@/lib/scoring/speed";
+import { broadcastToRoom } from "@/lib/realtime/broadcast";
+import { ROOM_EVENTS } from "@/lib/realtime/events";
+
+export interface SubmitResult {
+  correct: boolean;
+  points: number;
+  /** True when a mid-game spectator can't score the in-progress question. */
+  spectating?: boolean;
+}
+
+export async function submitAnswer(token: string, rawAnswer: string): Promise<SubmitResult> {
+  // Server-side submit time — the honest input to the speed score (KTD4).
+  const submitAtMs = Date.now();
+  const supabase = getServiceClient();
+
+  const player = await resolvePlayerByToken(supabase, token);
+
+  const { data: game } = await supabase
+    .from("games")
+    .select("id, code, current_index, reveal_at, answer_mode, paused, status")
+    .eq("id", player.gameId)
+    .single();
+  if (!game || game.status !== "active" || game.current_index < 0 || !game.reveal_at) {
+    throw new Error("No active question");
+  }
+  if (game.paused) throw new Error("The game is paused");
+
+  // A spectator joined during this question — seated but not scored on it (U5).
+  if (player.isSpectator) return { correct: false, points: 0, spectating: true };
+
+  const { data: question } = await supabase
+    .from("questions")
+    .select("id, mode, correct_option, accepted_variants, voided")
+    .eq("game_id", game.id)
+    .eq("index", game.current_index)
+    .single();
+  if (!question || question.voided) throw new Error("No active question");
+
+  const correct =
+    question.mode === "multiple_choice"
+      ? judgeMultipleChoice(Number.parseInt(rawAnswer, 10), question.correct_option ?? -1)
+      : judgeTypeAnswer(rawAnswer, question.accepted_variants ?? []);
+
+  const points = computeScore({
+    correct,
+    mode: game.answer_mode,
+    revealAtMs: new Date(game.reveal_at).getTime(),
+    submitAtMs,
+  });
+
+  const { error: insertError } = await supabase.from("answers").insert({
+    question_id: question.id,
+    player_id: player.playerId,
+    raw_answer: rawAnswer,
+    is_correct: correct,
+    awarded_points: points,
+    submitted_at: new Date(submitAtMs).toISOString(),
+  });
+  if (insertError) {
+    if (insertError.code === "23505") {
+      throw new Error("You already answered this question");
+    }
+    throw new Error(`Could not record answer: ${insertError.message}`);
+  }
+
+  if (points > 0) {
+    // Only this player's own submit touches their row, and the dup guard above
+    // serializes it, so read-modify-write on the score is safe here.
+    const { error: scoreError } = await supabase
+      .from("players")
+      .update({ score: player.score + points })
+      .eq("id", player.playerId);
+    // The answer row is already persisted; if the score write fails, surface it
+    // rather than reporting a success that never landed on the leaderboard.
+    if (scoreError) throw new Error(`Failed to record score: ${scoreError.message}`);
+  }
+
+  await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, { by: player.playerId });
+
+  return { correct, points };
+}
