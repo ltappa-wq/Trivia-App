@@ -78,10 +78,13 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   if (points > 0) {
     // Only this player's own submit touches their row, and the dup guard above
     // serializes it, so read-modify-write on the score is safe here.
-    await supabase
+    const { error: scoreError } = await supabase
       .from("players")
       .update({ score: player.score + points })
       .eq("id", player.playerId);
+    // The answer row is already persisted; if the score write fails, surface it
+    // rather than reporting a success that never landed on the leaderboard.
+    if (scoreError) throw new Error(`Failed to record score: ${scoreError.message}`);
   }
 
   await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, { by: player.playerId });

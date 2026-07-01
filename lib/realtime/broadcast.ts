@@ -23,7 +23,10 @@ export async function broadcastToRoom(
   const url = config.url ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = config.serviceKey ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   const fetchImpl = config.fetchImpl ?? fetch;
-  if (!url || !serviceKey) return false;
+  if (!url || !serviceKey) {
+    console.warn(`[broadcast] skipped ${event} for ${code}: missing Supabase URL/service key`);
+    return false;
+  }
 
   try {
     const res = await fetchImpl(`${url}/realtime/v1/api/broadcast`, {
@@ -37,9 +40,13 @@ export async function broadcastToRoom(
         messages: [{ topic: roomChannel(code), event, payload }],
       }),
     });
+    // Log a persistent failure so a rotated key / dead endpoint is diagnosable —
+    // a single dropped delta still self-heals on the next hydrate (KTD8).
+    if (!res.ok) console.warn(`[broadcast] ${event} for ${code} returned ${res.status}`);
     return res.ok;
-  } catch {
+  } catch (err) {
     // Delta lost; the next hydrate reconciles it (KTD8).
+    console.warn(`[broadcast] ${event} for ${code} failed:`, err);
     return false;
   }
 }

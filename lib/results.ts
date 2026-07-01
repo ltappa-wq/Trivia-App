@@ -15,3 +15,21 @@ export function winners(players: LeaderboardEntry[]): LeaderboardEntry[] {
   if (top <= 0) return [];
   return players.filter((p) => p.score === top);
 }
+
+/**
+ * Winner summary for the results views (host + player): the set of winner ids to
+ * highlight, and a banner label (null when nobody scored). Computed once so the
+ * host and player screens don't each re-derive it.
+ */
+export function describeWinners(standings: LeaderboardEntry[]): {
+  winnerIds: Set<string>;
+  label: string | null;
+} {
+  const champs = winners(standings);
+  const winnerIds = new Set(champs.map((w) => w.id));
+  const label =
+    champs.length === 0
+      ? null
+      : `${champs.length > 1 ? "Co-winners" : "Winner"}: ${champs.map((w) => w.username).join(", ")}`;
+  return { winnerIds, label };
+}

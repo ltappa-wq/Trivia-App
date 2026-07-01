@@ -85,4 +85,15 @@ describe("generateQuestions", () => {
       GenerationError,
     );
   });
+
+  it("reports an aborted request as a timeout", async () => {
+    const fetchImpl = vi.fn(async () => {
+      const err = new Error("The operation was aborted");
+      err.name = "AbortError";
+      throw err;
+    });
+    await expect(
+      generateQuestions(mcParams, { apiKey: "k", fetchImpl, timeoutMs: 5 }),
+    ).rejects.toThrow(/timed out/);
+  });
 });

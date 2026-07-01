@@ -16,6 +16,10 @@ const rpcs = readFileSync(
   fileURLToPath(new URL("../../../supabase/migrations/0002_rpcs.sql", import.meta.url)),
   "utf8",
 );
+const challenges = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0003_challenges.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -60,5 +64,33 @@ describe("hydrate RPC invariants", () => {
 
   it("keeps resolve_token off-limits to anonymous callers", () => {
     expect(rpcs).toMatch(/revoke execute on function public\.resolve_token\(text\) from anon/);
+  });
+
+  it("revokes resolve_token from PUBLIC (a revoke from anon alone is a no-op)", () => {
+    // Postgres grants EXECUTE to PUBLIC by default, so without this the function
+    // stays callable by anonymous clients despite the anon-revoke.
+    expect(rpcs).toMatch(/revoke execute on function public\.resolve_token\(text\) from public/i);
+  });
+});
+
+describe("list_open_challenges RPC invariants (U8)", () => {
+  it("is a security-definer function executable by anon", () => {
+    expect(challenges).toMatch(/create or replace function public\.list_open_challenges/);
+    expect(challenges).toMatch(/security definer/);
+    expect(challenges).toMatch(
+      /grant execute on function public\.list_open_challenges\(text\) to anon/,
+    );
+  });
+
+  it("returns answer keys only behind a host-role gate", () => {
+    // It DOES surface correct_option/accepted_variants (the host adjudicates),
+    // but only after rejecting any non-host token.
+    expect(challenges).toMatch(/role is distinct from 'host'|v_role\s*<>\s*'host'/);
+    expect(challenges).toMatch(/correct_option/);
+    expect(challenges).toMatch(/accepted_variants/);
+  });
+
+  it("pins search_path including extensions so nested digest() resolves", () => {
+    expect(challenges).toMatch(/set search_path = public, extensions/);
   });
 });

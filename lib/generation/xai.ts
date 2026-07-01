@@ -16,6 +16,9 @@ const DEFAULT_MODEL = "grok-2-latest";
 // Bound on the regenerate-the-tail loop so a persistently short/garbage model
 // response fails loudly instead of looping forever (KTD10).
 const DEFAULT_MAX_ATTEMPTS = 4;
+// Per-attempt timeout so a hung xAI connection can't block createGame (and the
+// gamemaster) indefinitely — it aborts and surfaces a handled GenerationError.
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 export interface XaiConfig {
   apiKey: string;
@@ -24,6 +27,7 @@ export interface XaiConfig {
   /** Injectable for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
   maxAttempts?: number;
+  timeoutMs?: number;
 }
 
 /** Thrown on any generation failure so callers surface a handled error state
@@ -64,9 +68,12 @@ async function requestBatch(
   count: number,
   config: Required<Pick<XaiConfig, "apiKey" | "baseUrl" | "model">> & {
     fetchImpl: typeof fetch;
+    timeoutMs: number;
   },
 ): Promise<unknown[]> {
   let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), config.timeoutMs);
   try {
     res = await config.fetchImpl(`${config.baseUrl}/chat/completions`, {
       method: "POST",
@@ -80,11 +87,17 @@ async function requestBatch(
         response_format: { type: "json_object" },
         temperature: 0.7,
       }),
+      signal: controller.signal,
     });
   } catch (err) {
+    const aborted = err instanceof Error && err.name === "AbortError";
     throw new GenerationError(
-      `xAI request failed: ${err instanceof Error ? err.message : String(err)}`,
+      aborted
+        ? `xAI request timed out after ${config.timeoutMs}ms`
+        : `xAI request failed: ${err instanceof Error ? err.message : String(err)}`,
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok) {
@@ -130,10 +143,14 @@ export async function generateQuestions(
     baseUrl: config.baseUrl ?? DEFAULT_BASE_URL,
     model: config.model ?? DEFAULT_MODEL,
     fetchImpl: config.fetchImpl ?? fetch,
+    timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
   const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 
   const collected: GeneratedQuestion[] = [];
+  // Track why questions were rejected so an exhausted-attempts failure reports
+  // the actual cause instead of only a bare count (diagnosability).
+  const rejections = new Set<string>();
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const remaining = params.count - collected.length;
     if (remaining <= 0) break;
@@ -143,12 +160,14 @@ export async function generateQuestions(
       if (collected.length >= params.count) break;
       const result = validateGeneratedQuestion(raw, params);
       if (result.ok) collected.push(result.question);
+      else rejections.add(result.reason);
     }
   }
 
   if (collected.length < params.count) {
+    const detail = rejections.size > 0 ? ` (rejections: ${[...rejections].join("; ")})` : "";
     throw new GenerationError(
-      `Generated only ${collected.length} of ${params.count} valid questions`,
+      `Generated only ${collected.length} of ${params.count} valid questions${detail}`,
     );
   }
   return collected;

@@ -1,6 +1,9 @@
 // U8. Pure challenge/adjudication helpers (R12, R13). The per-player cap and the
-// void-recompute math are DB-independent so they are unit-testable; the actions
-// apply them against Postgres.
+// recompute math are DB-independent so they are unit-testable; the actions apply
+// them against Postgres.
+
+import type { AnswerMode } from "@/lib/db/types";
+import { computeScore } from "@/lib/scoring/speed";
 
 export type ChallengeKind = "question" | "answer";
 
@@ -27,4 +30,24 @@ export function voidScoreDeltas(
     }
   }
   return deltas;
+}
+
+/**
+ * Rescore an upheld disputed answer as correct (R12, AE4): the new speed score
+ * for the answer and the delta to add to the player's total (new minus what was
+ * already awarded). Uses the same server-side scoring as live submission (KTD4).
+ */
+export function disputedAnswerDelta(params: {
+  mode: AnswerMode;
+  revealAtMs: number;
+  submitAtMs: number;
+  currentAwarded: number;
+}): { newPoints: number; delta: number } {
+  const newPoints = computeScore({
+    correct: true,
+    mode: params.mode,
+    revealAtMs: params.revealAtMs,
+    submitAtMs: params.submitAtMs,
+  });
+  return { newPoints, delta: newPoints - params.currentAwarded };
 }

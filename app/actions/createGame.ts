@@ -78,7 +78,14 @@ export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
     });
   } catch (err) {
     // Roll back so a generation failure never leaves a joinable-but-empty game.
-    await supabase.from("games").delete().eq("id", gameId);
+    const { error: rollbackError } = await supabase.from("games").delete().eq("id", gameId);
+    if (rollbackError) {
+      // The rollback itself failed — an orphaned lobby game may exist. Log it so
+      // it's detectable rather than silently stranded.
+      console.error(
+        `[createGame] rollback delete failed for game ${gameId}: ${rollbackError.message}`,
+      );
+    }
     throw err instanceof Error ? err : new Error("Generation failed");
   } finally {
     activeGenerations--;

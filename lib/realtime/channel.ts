@@ -30,8 +30,18 @@ export type RoomHandlers = Partial<
   Record<RoomEvent, (payload: Record<string, unknown>) => void>
 >;
 
-/** Subscribe to a room's Broadcast channel. Returns an unsubscribe function. */
-export function subscribeToRoom(code: string, handlers: RoomHandlers): () => void {
+/**
+ * Subscribe to a room's Broadcast channel. `onSubscribed` fires on every
+ * SUBSCRIBED transition — including after a dropped connection reconnects — so
+ * the caller re-hydrates authoritative state and recovers any deltas missed
+ * while offline (KTD8; plan DoD: hydrate on subscribe/reconnect). Returns an
+ * unsubscribe function.
+ */
+export function subscribeToRoom(
+  code: string,
+  handlers: RoomHandlers,
+  onSubscribed?: () => void,
+): () => void {
   const supabase = getBrowserClient();
   const channel = supabase.channel(roomChannel(code));
   for (const [event, handler] of Object.entries(handlers)) {
@@ -42,7 +52,9 @@ export function subscribeToRoom(code: string, handlers: RoomHandlers): () => voi
       (message: { payload: Record<string, unknown> }) => handler(message.payload),
     );
   }
-  channel.subscribe();
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") onSubscribed?.();
+  });
   return () => {
     void supabase.removeChannel(channel);
   };

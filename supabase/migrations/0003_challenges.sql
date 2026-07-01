@@ -9,7 +9,8 @@ create or replace function public.list_open_challenges(p_token text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+-- `extensions` on the path so the nested resolve_token digest() resolves.
+set search_path = public, extensions
 as $$
 declare
   v_game_id uuid;

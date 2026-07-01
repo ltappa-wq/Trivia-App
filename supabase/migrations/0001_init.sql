@@ -90,10 +90,16 @@ create table if not exists public.challenges (
   created_at     timestamptz not null default now()
 );
 
-create index if not exists idx_questions_game on public.questions(game_id);
-create index if not exists idx_players_game on public.players(game_id);
-create index if not exists idx_answers_question on public.answers(question_id);
+-- FK-lookup index. The composite unique constraints already cover the
+-- (game_id,index), (game_id,username), and (question_id,player_id) prefixes, so
+-- only challenges needs a dedicated index here.
 create index if not exists idx_challenges_question on public.challenges(question_id);
+
+-- At most one OPEN challenge per player per question: closes the rapid-fire
+-- duplicate-open race and complements the per-player challenge cap (R13, KTD7).
+create unique index if not exists uniq_open_challenge_per_player_question
+  on public.challenges(question_id, player_id)
+  where status = 'open';
 
 -- Default-deny RLS: enable RLS with no permissive policies for anon/authenticated.
 -- Service-role bypasses RLS entirely; client reads go through RPCs (0002).

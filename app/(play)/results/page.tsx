@@ -7,7 +7,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { useRoomState } from "@/lib/realtime/hooks";
-import { sortStandings, winners } from "@/lib/results";
+import { describeWinners, sortStandings } from "@/lib/results";
 
 function ResultsView() {
   const params = useSearchParams();
@@ -22,23 +22,13 @@ function ResultsView() {
   if (error) return <main><p role="alert">{error}</p></main>;
 
   const standings = sortStandings(state?.leaderboard ?? []);
-  const winnerIds = new Set(winners(standings).map((w) => w.id));
+  const { winnerIds, label } = describeWinners(standings);
   const myId = state?.player?.id;
 
   return (
     <main>
       <h1>Final results</h1>
-      {winnerIds.size === 0 ? (
-        <p>No winner this time — nobody scored.</p>
-      ) : (
-        <p>
-          {winnerIds.size > 1 ? "Co-winners: " : "Winner: "}
-          {winners(standings)
-            .map((w) => w.username)
-            .join(", ")}
-          🎉
-        </p>
-      )}
+      <p>{label ? `${label} 🎉` : "No winner this time — nobody scored."}</p>
       <ol>
         {standings.map((p, i) => (
           <li key={p.id}>

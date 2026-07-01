@@ -31,6 +31,13 @@ export async function advance(
   const supabase = getServiceClient();
   const game = await authorizeHostByCode(supabase, code, hostToken);
 
+  // Refuse to advance while an open challenge has the game paused — advancing
+  // would orphan the challenge and make a later disputed-answer ruling rescore
+  // against a stale reveal_at. The host must adjudicate first.
+  if (game.paused) {
+    throw new Error("Resolve the open challenge before advancing");
+  }
+
   const next = computeNextIndex(expectedIndex, game.question_count);
   if (next === null) {
     return { status: "ended" };

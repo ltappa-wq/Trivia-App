@@ -10,8 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { challenge } from "@/app/actions/challenge";
 import { loadPlayerCredential } from "@/lib/clientSession";
-import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import type { ChallengeKind } from "@/lib/challenge";
 
 function PlayView() {
@@ -37,13 +36,7 @@ function PlayView() {
   const [submitting, setSubmitting] = useState(false);
 
   const game = state?.game ?? null;
-  const timerMs = game ? ANSWER_TIMER_MS[game.answer_mode] : null;
-  const remaining = useCountdown(
-    game?.reveal_at ?? null,
-    game && game.current_index >= 0 ? timerMs : null,
-    offset,
-    game?.paused ?? false,
-  );
+  const remaining = useQuestionCountdown(game, offset);
 
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challenging, setChallenging] = useState(false);
@@ -52,7 +45,10 @@ function PlayView() {
   const locked = answeredIndex === currentIndex;
   const timeUp = remaining !== null && remaining <= 0;
   const paused = game?.paused ?? false;
-  const markedWrong = locked && result !== null && !result.correct;
+  // Mid-game joiners are seated as spectators until the next question (U5) and
+  // can't score the in-progress one — the server returns { spectating: true }.
+  const spectating = state?.role === "spectator";
+  const markedWrong = locked && result !== null && !result.correct && !result.spectating;
 
   async function raiseChallenge(type: ChallengeKind) {
     if (!token) return;
@@ -119,6 +115,10 @@ function PlayView() {
 
           {question.voided ? (
             <p aria-live="assertive">This question was voided — waiting for the host.</p>
+          ) : spectating ? (
+            <p aria-live="polite">
+              You joined mid-game — sitting out this question. You’ll play from the next one.
+            </p>
           ) : paused ? (
             <p aria-live="assertive">⏸ Paused for review — answering is disabled.</p>
           ) : locked ? (
@@ -155,7 +155,7 @@ function PlayView() {
             </form>
           )}
 
-          {!paused && !question.voided && (
+          {!paused && !question.voided && !spectating && (
             <div>
               {challengeError && <p role="alert">{challengeError}</p>}
               <button

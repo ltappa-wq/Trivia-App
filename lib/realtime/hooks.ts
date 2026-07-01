@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { serverNow } from "@/app/actions/serverTime";
+import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
 import { hydrate, subscribeToRoom } from "./channel";
 import { measureClockOffset, remainingMs } from "./clock";
@@ -56,15 +57,20 @@ export function useRoomState(code: string, token: string | null): RoomState {
     const reconcile = () => {
       if (active) void refresh();
     };
-    const unsubscribe = subscribeToRoom(code, {
-      [ROOM_EVENTS.playerJoined]: reconcile,
-      [ROOM_EVENTS.question]: reconcile,
-      [ROOM_EVENTS.leaderboard]: reconcile,
-      [ROOM_EVENTS.pause]: reconcile,
-      [ROOM_EVENTS.resume]: reconcile,
-      [ROOM_EVENTS.void]: reconcile,
-      [ROOM_EVENTS.results]: reconcile,
-    });
+    const unsubscribe = subscribeToRoom(
+      code,
+      {
+        [ROOM_EVENTS.playerJoined]: reconcile,
+        [ROOM_EVENTS.question]: reconcile,
+        [ROOM_EVENTS.leaderboard]: reconcile,
+        [ROOM_EVENTS.pause]: reconcile,
+        [ROOM_EVENTS.resume]: reconcile,
+        [ROOM_EVENTS.void]: reconcile,
+        [ROOM_EVENTS.results]: reconcile,
+      },
+      // Re-hydrate on every (re)subscribe so a reconnect recovers missed deltas.
+      reconcile,
+    );
     return () => {
       active = false;
       unsubscribe();
@@ -72,6 +78,20 @@ export function useRoomState(code: string, token: string | null): RoomState {
   }, [code, token, refresh]);
 
   return { state, offset, error, loading, refresh };
+}
+
+/**
+ * Countdown for the current question, shared by the host and play views. Derives
+ * the per-mode timer from the game and only ticks once a question is live
+ * (current_index >= 0), server-anchored and offset-corrected (KTD9).
+ */
+export function useQuestionCountdown(
+  game: HydratedState["game"] | null,
+  offset: number,
+): number | null {
+  const active = !!game && game.current_index >= 0;
+  const timerMs = game && active ? ANSWER_TIMER_MS[game.answer_mode] : null;
+  return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);
 }
 
 /** Ticking remaining-milliseconds for the current question, or null when no

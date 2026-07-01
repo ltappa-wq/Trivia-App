@@ -67,11 +67,22 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
     })
     .select("id")
     .single();
-  if (error) throw new Error(`Could not raise challenge: ${error.message}`);
+  if (error) {
+    // Partial unique index (question_id, player_id) where status='open' — a
+    // rapid-fire second open challenge on the same question is rejected here.
+    if (error.code === "23505") {
+      throw new Error("You already have an open challenge on this question");
+    }
+    throw new Error(`Could not raise challenge: ${error.message}`);
+  }
 
   // Pause play for all devices; the host's panel reads authoritative detail via
   // list_open_challenges (KTD8).
-  await supabase.from("games").update({ paused: true }).eq("id", game.id);
+  const { error: pauseError } = await supabase
+    .from("games")
+    .update({ paused: true })
+    .eq("id", game.id);
+  if (pauseError) throw new Error(`Could not pause the game: ${pauseError.message}`);
   await broadcastToRoom(game.code, ROOM_EVENTS.pause, { challengeId: inserted.id });
 
   return { id: inserted.id as string };

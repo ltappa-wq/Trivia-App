@@ -14,7 +14,9 @@ create or replace function public.resolve_token(p_token text)
 returns table (game_id uuid, role text, player_id uuid)
 language sql
 security definer
-set search_path = public
+-- Include `extensions`: pgcrypto's digest() lives there on Supabase, and a bare
+-- `search_path = public` would fail to resolve digest() at runtime.
+set search_path = public, extensions
 as $$
   select p.game_id,
          case when p.is_spectator then 'spectator' else 'player' end as role,
@@ -104,6 +106,10 @@ begin
 end;
 $$;
 
--- Anonymous clients may execute the RPCs but nothing else.
+-- Anonymous clients may execute the hydrate RPC but nothing else.
 grant execute on function public.hydrate_game_state(text) to anon, authenticated;
+-- resolve_token is an internal helper (returns role/player mapping) — keep it
+-- off-limits to clients. Postgres grants EXECUTE to PUBLIC by default, so
+-- revoking only from anon/authenticated is a no-op; revoke from PUBLIC.
+revoke execute on function public.resolve_token(text) from public;
 revoke execute on function public.resolve_token(text) from anon, authenticated;

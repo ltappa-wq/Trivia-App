@@ -12,10 +12,9 @@ import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
 import { listOpenChallenges } from "@/lib/realtime/channel";
-import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { isLastIndex } from "@/lib/gameFlow";
-import { sortStandings, winners } from "@/lib/results";
+import { describeWinners, sortStandings } from "@/lib/results";
 import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
@@ -61,13 +60,7 @@ function HostView() {
       setBusy(false);
     }
   }
-  const timerMs = game ? ANSWER_TIMER_MS[game.answer_mode] : null;
-  const remaining = useCountdown(
-    game?.reveal_at ?? null,
-    game && game.current_index >= 0 ? timerMs : null,
-    offset,
-    game?.paused ?? false,
-  );
+  const remaining = useQuestionCountdown(game, offset);
 
   async function handleAdvance(expectedIndex: number) {
     if (!token) return;
@@ -179,7 +172,7 @@ function HostView() {
         </section>
       )}
 
-      {started && !ended && state?.current_question && (
+      {started && !ended && !game.paused && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -228,18 +221,10 @@ function HostView() {
           <h2>Final results</h2>
           {(() => {
             const standings = sortStandings(leaderboard);
-            const winnerIds = new Set(winners(standings).map((w) => w.id));
-            const champs = winners(standings);
+            const { winnerIds, label } = describeWinners(standings);
             return (
               <>
-                {champs.length === 0 ? (
-                  <p>No winner — nobody scored.</p>
-                ) : (
-                  <p>
-                    {champs.length > 1 ? "Co-winners: " : "Winner: "}
-                    {champs.map((w) => w.username).join(", ")} 🎉
-                  </p>
-                )}
+                <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
                 <ol>
                   {standings.map((p) => (
                     <li key={p.id}>
