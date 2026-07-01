@@ -9,10 +9,13 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
+import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
 import { listOpenChallenges } from "@/lib/realtime/channel";
 import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { isLastIndex } from "@/lib/gameFlow";
+import { sortStandings, winners } from "@/lib/results";
 import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
@@ -79,6 +82,19 @@ function HostView() {
     }
   }
 
+  async function handleFinish() {
+    if (!token) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await endGame(code, token);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not end game");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!cred) {
     return (
       <main>
@@ -93,6 +109,8 @@ function HostView() {
 
   const leaderboard = state?.leaderboard ?? [];
   const started = game.current_index >= 0;
+  const ended = game.status === "ended";
+  const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
     <main>
@@ -161,7 +179,7 @@ function HostView() {
         </section>
       )}
 
-      {started && state?.current_question && (
+      {started && !ended && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -176,13 +194,19 @@ function HostView() {
               ))}
             </ol>
           )}
-          <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
-            Next question
-          </button>
+          {onLastQuestion ? (
+            <button type="button" disabled={busy} onClick={handleFinish}>
+              Finish game
+            </button>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
+              Next question
+            </button>
+          )}
         </section>
       )}
 
-      {started && (
+      {started && !ended && (
         <section>
           <h2>Leaderboard</h2>
           {leaderboard.length === 0 ? (
@@ -196,6 +220,37 @@ function HostView() {
               ))}
             </ol>
           )}
+        </section>
+      )}
+
+      {ended && (
+        <section aria-live="polite">
+          <h2>Final results</h2>
+          {(() => {
+            const standings = sortStandings(leaderboard);
+            const winnerIds = new Set(winners(standings).map((w) => w.id));
+            const champs = winners(standings);
+            return (
+              <>
+                {champs.length === 0 ? (
+                  <p>No winner — nobody scored.</p>
+                ) : (
+                  <p>
+                    {champs.length > 1 ? "Co-winners: " : "Winner: "}
+                    {champs.map((w) => w.username).join(", ")} 🎉
+                  </p>
+                )}
+                <ol>
+                  {standings.map((p) => (
+                    <li key={p.id}>
+                      {p.username} — {p.score}
+                      {winnerIds.has(p.id) && " ★"}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            );
+          })()}
         </section>
       )}
     </main>

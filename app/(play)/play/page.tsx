@@ -5,8 +5,8 @@
 // Broadcast delta (KTD8). Answer submission is wired in U7 and the challenge
 // affordance in U8; this unit establishes the question/timer/leaderboard shell.
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { challenge } from "@/app/actions/challenge";
 import { loadPlayerCredential } from "@/lib/clientSession";
@@ -15,12 +15,19 @@ import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { ChallengeKind } from "@/lib/challenge";
 
 function PlayView() {
+  const router = useRouter();
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
   const cred = loadPlayerCredential(code);
   const token = cred?.token ?? null;
 
   const { state, offset, error, loading } = useRoomState(code, token);
+
+  // When the host ends the game, send players to the results view.
+  const ended = state?.game?.status === "ended";
+  useEffect(() => {
+    if (ended) router.push(`/results?code=${code}`);
+  }, [ended, code, router]);
 
   // Answer lifecycle, reset per question by keying on the current index.
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
