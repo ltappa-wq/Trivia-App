@@ -104,3 +104,20 @@ export interface HydratedState {
   current_question: ClientQuestion | null;
   leaderboard: LeaderboardEntry[];
 }
+
+// --- Host adjudication view (list_open_challenges; host-only, includes keys) ---
+
+export interface OpenChallenge {
+  id: string;
+  type: ChallengeType;
+  submitted_text: string | null;
+  challenger: string;
+  question: {
+    index: number;
+    prompt: string;
+    mode: AnswerMode;
+    options: string[] | null;
+    correct_option: number | null;
+    accepted_variants: string[] | null;
+  };
+}

@@ -8,9 +8,11 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
+import { challenge } from "@/app/actions/challenge";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import type { ChallengeKind } from "@/lib/challenge";
 
 function PlayView() {
   const params = useSearchParams();
@@ -36,9 +38,27 @@ function PlayView() {
     game?.paused ?? false,
   );
 
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challenging, setChallenging] = useState(false);
+
   const currentIndex = game?.current_index ?? -1;
   const locked = answeredIndex === currentIndex;
   const timeUp = remaining !== null && remaining <= 0;
+  const paused = game?.paused ?? false;
+  const markedWrong = locked && result !== null && !result.correct;
+
+  async function raiseChallenge(type: ChallengeKind) {
+    if (!token) return;
+    setChallenging(true);
+    setChallengeError(null);
+    try {
+      await challenge(token, type);
+    } catch (err) {
+      setChallengeError(err instanceof Error ? err.message : "Could not challenge");
+    } finally {
+      setChallenging(false);
+    }
+  }
 
   async function submit(answer: string) {
     if (!token || locked) return;
@@ -90,7 +110,9 @@ function PlayView() {
           )}
           {submitError && <p role="alert">{submitError}</p>}
 
-          {locked ? (
+          {paused ? (
+            <p aria-live="assertive">⏸ Paused for review — answering is disabled.</p>
+          ) : locked ? (
             <p aria-live="assertive">
               {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
               {result && result.points > 0 ? ` — +${result.points}` : ""}
@@ -122,6 +144,28 @@ function PlayView() {
                 Submit
               </button>
             </form>
+          )}
+
+          {!paused && (
+            <div>
+              {challengeError && <p role="alert">{challengeError}</p>}
+              <button
+                type="button"
+                disabled={challenging}
+                onClick={() => raiseChallenge("question")}
+              >
+                Challenge this question
+              </button>
+              {markedWrong && (
+                <button
+                  type="button"
+                  disabled={challenging}
+                  onClick={() => raiseChallenge("answer")}
+                >
+                  My answer was wrongly marked
+                </button>
+              )}
+            </div>
           )}
         </section>
       )}

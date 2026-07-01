@@ -5,12 +5,15 @@
 // and start/advance controls. State is hydrated from Postgres and reconciled on
 // every Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { loadHostCredential } from "@/lib/clientSession";
+import { listOpenChallenges } from "@/lib/realtime/channel";
 import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
   const params = useSearchParams();
@@ -21,8 +24,40 @@ function HostView() {
   const { state, offset, error, loading } = useRoomState(code, token);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
 
   const game = state?.game ?? null;
+
+  // While paused, load authoritative open challenges (KTD8) and refresh whenever
+  // room state reconciles (after a ruling broadcasts leaderboard/resume).
+  useEffect(() => {
+    if (!token || !game?.paused) {
+      setChallenges([]);
+      return;
+    }
+    let active = true;
+    listOpenChallenges(token)
+      .then((c) => {
+        if (active) setChallenges(c);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token, game?.paused, state]);
+
+  async function rule(challengeId: string, ruling: Ruling) {
+    if (!token) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await adjudicate(code, token, challengeId, ruling);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Adjudication failed");
+    } finally {
+      setBusy(false);
+    }
+  }
   const timerMs = game ? ANSWER_TIMER_MS[game.answer_mode] : null;
   const remaining = useCountdown(
     game?.reveal_at ?? null,
@@ -67,6 +102,42 @@ function HostView() {
       </header>
 
       {actionError && <p role="alert">{actionError}</p>}
+
+      {game.paused && (
+        <section aria-live="assertive">
+          <h2>Paused — challenge{challenges.length === 1 ? "" : "s"} to review</h2>
+          {challenges.length === 0 ? (
+            <p>Loading challenge…</p>
+          ) : (
+            <ol>
+              {challenges.map((c) => {
+                const q = c.question;
+                const answerKey =
+                  q.mode === "multiple_choice"
+                    ? q.options?.[q.correct_option ?? -1] ?? "—"
+                    : (q.accepted_variants ?? []).join(", ");
+                return (
+                  <li key={c.id}>
+                    <p>
+                      <strong>{c.challenger}</strong> disputes{" "}
+                      {c.type === "answer" ? "their marked-wrong answer" : "this question"}.
+                    </p>
+                    <p>Q{q.index + 1}: {q.prompt}</p>
+                    <p>Accepted answer: {answerKey}</p>
+                    {c.type === "answer" && <p>Their answer: {c.submitted_text}</p>}
+                    <button type="button" disabled={busy} onClick={() => rule(c.id, "uphold")}>
+                      Uphold
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => rule(c.id, "reject")}>
+                      Reject
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
+      )}
 
       {!started && (
         <section>

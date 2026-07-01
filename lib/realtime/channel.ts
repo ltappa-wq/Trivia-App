@@ -7,7 +7,7 @@
 
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { roomChannel, type RoomEvent } from "./events";
-import type { HydratedState } from "@/lib/db/types";
+import type { HydratedState, OpenChallenge } from "@/lib/db/types";
 
 export async function hydrate(token: string): Promise<HydratedState | null> {
   const { data, error } = await getBrowserClient().rpc("hydrate_game_state", {
@@ -15,6 +15,15 @@ export async function hydrate(token: string): Promise<HydratedState | null> {
   });
   if (error) throw new Error(error.message);
   return (data as HydratedState | null) ?? null;
+}
+
+/** Host-only: authoritative open challenges for the adjudication panel (U8). */
+export async function listOpenChallenges(token: string): Promise<OpenChallenge[]> {
+  const { data, error } = await getBrowserClient().rpc("list_open_challenges", {
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
+  return (data as OpenChallenge[] | null) ?? [];
 }
 
 export type RoomHandlers = Partial<
