@@ -401,3 +401,52 @@ section p.overlay {
   border: 1px solid #f3dca6;
   color: #92610a;
 }
+
+/* --- Host "shared screen" view: wider + readable from a distance -------- */
+.host-view {
+  width: min(1120px, 95vw);
+}
+
+.host-view h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.host-view header p {
+  font-size: 1.15rem;
+}
+
+.host-view h2 {
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+/* The live question prompt (an h2 inside the live grid) reads largest. */
+.host-view .host-live > section[aria-live="polite"] h2 {
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+}
+
+.host-view p[aria-label*="seconds remaining"] {
+  font-size: clamp(3rem, 9vw, 5rem);
+}
+
+.host-view section ol li,
+.host-view section ul li {
+  font-size: 1.25rem;
+  padding: 0.9rem 1.15rem;
+}
+
+/* Two columns on a large display: question on the left, live standings right. */
+.host-live {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 880px) {
+  .host-live:has(> section[aria-live="polite"]) {
+    grid-template-columns: 1.5fr 1fr;
+    align-items: start;
+  }
+
+  .host-live > section {
+    margin-top: 0;
+  }
+}
