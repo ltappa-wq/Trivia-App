@@ -57,6 +57,15 @@ export async function advance(
     return { status: "noop", index: game.current_index };
   }
 
+  // Promote any mid-game spectators to full players now that a fresh question is
+  // starting — they "play from the next question" (U5 mid-game join rule) and
+  // become eligible for the leaderboard.
+  await supabase
+    .from("players")
+    .update({ is_spectator: false })
+    .eq("game_id", game.id)
+    .eq("is_spectator", true);
+
   const timerMs = ANSWER_TIMER_MS[game.answer_mode];
 
   // Client-safe question shape — answer keys stay server-side (KTD4).

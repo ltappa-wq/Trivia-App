@@ -5,8 +5,9 @@
 // Broadcast delta (KTD8). Answer submission is wired in U7 and the challenge
 // affordance in U8; this unit establishes the question/timer/leaderboard shell.
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { useCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
@@ -19,6 +20,13 @@ function PlayView() {
 
   const { state, offset, error, loading } = useRoomState(code, token);
 
+  // Answer lifecycle, reset per question by keying on the current index.
+  const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
+  const [typed, setTyped] = useState("");
+  const [result, setResult] = useState<SubmitResult | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const game = state?.game ?? null;
   const timerMs = game ? ANSWER_TIMER_MS[game.answer_mode] : null;
   const remaining = useCountdown(
@@ -27,6 +35,26 @@ function PlayView() {
     offset,
     game?.paused ?? false,
   );
+
+  const currentIndex = game?.current_index ?? -1;
+  const locked = answeredIndex === currentIndex;
+  const timeUp = remaining !== null && remaining <= 0;
+
+  async function submit(answer: string) {
+    if (!token || locked) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await submitAnswer(token, answer);
+      setResult(res);
+      setAnsweredIndex(currentIndex);
+      setTyped("");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Could not submit");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (!cred) {
     return (
@@ -60,14 +88,40 @@ function PlayView() {
               {Math.ceil(remaining / 1000)}s
             </p>
           )}
-          {question.mode === "multiple_choice" ? (
+          {submitError && <p role="alert">{submitError}</p>}
+
+          {locked ? (
+            <p aria-live="assertive">
+              {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
+              {result && result.points > 0 ? ` — +${result.points}` : ""}
+            </p>
+          ) : timeUp ? (
+            <p>Time’s up — waiting for the next question.</p>
+          ) : question.mode === "multiple_choice" ? (
             <ul>
               {(question.options ?? []).map((opt, i) => (
-                <li key={i}>{opt}</li>
+                <li key={i}>
+                  <button type="button" disabled={submitting} onClick={() => submit(String(i))}>
+                    {opt}
+                  </button>
+                </li>
               ))}
             </ul>
           ) : (
-            <p>Type your answer when submission is enabled.</p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (typed.trim()) void submit(typed.trim());
+              }}
+            >
+              <label>
+                Your answer
+                <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+              </label>
+              <button type="submit" disabled={submitting || !typed.trim()}>
+                Submit
+              </button>
+            </form>
           )}
         </section>
       )}

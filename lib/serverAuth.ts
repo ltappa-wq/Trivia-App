@@ -40,6 +40,7 @@ export interface ResolvedPlayer {
   playerId: string;
   gameId: string;
   isSpectator: boolean;
+  score: number;
 }
 
 /** Resolve the acting player from their server-issued token (KTD7). Throws on an
@@ -50,7 +51,7 @@ export async function resolvePlayerByToken(
 ): Promise<ResolvedPlayer> {
   const { data, error } = await supabase
     .from("players")
-    .select("id, game_id, is_spectator")
+    .select("id, game_id, is_spectator, score")
     .eq("token", token)
     .maybeSingle();
   if (error) throw new Error(`Lookup failed: ${error.message}`);
@@ -59,5 +60,6 @@ export async function resolvePlayerByToken(
     playerId: data.id as string,
     gameId: data.game_id as string,
     isSpectator: data.is_spectator as boolean,
+    score: data.score as number,
   };
 }
