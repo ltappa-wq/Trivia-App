@@ -1,0 +1,323 @@
+/* AI Trivia — global styling.
+   Framework-free: styles the semantic HTML the pages already render (main,
+   header, form, fieldset, buttons, lists, states) so the whole app is themed
+   from one file. Phone-first tap targets and visible focus rings per the plan's
+   accessibility conventions. */
+
+:root {
+  --bg: #0f0b1e;
+  --bg-grad-1: #1b1440;
+  --bg-grad-2: #0f0b1e;
+  --surface: #ffffff;
+  --surface-2: #f6f5fb;
+  --text: #1e1b2e;
+  --muted: #6b7280;
+  --border: #e6e3f0;
+  --accent: #6d5efc;
+  --accent-strong: #574bd6;
+  --accent-soft: #efedff;
+  --success: #16a34a;
+  --success-soft: #e7f6ec;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 10px 30px rgba(20, 12, 50, 0.12);
+  --ring: 0 0 0 3px rgba(109, 94, 252, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  color: var(--text);
+  min-height: 100vh;
+  background: radial-gradient(1200px 600px at 50% -10%, var(--bg-grad-1), var(--bg-grad-2));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Each page's <main> is a centered card column. */
+main {
+  width: min(720px, 92vw);
+  margin: clamp(1.5rem, 5vh, 4rem) auto;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+}
+
+main[aria-busy="true"] {
+  text-align: center;
+}
+
+header {
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  line-height: 1.15;
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+p {
+  line-height: 1.55;
+  color: var(--text);
+}
+
+header p,
+main > p:first-of-type {
+  color: var(--muted);
+  margin-top: 0;
+}
+
+section {
+  margin-top: 1.5rem;
+}
+
+/* --- Buttons ------------------------------------------------------------- */
+button {
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 1.15rem;
+  min-height: 44px;
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  margin: 0.25rem 0.5rem 0.25rem 0;
+}
+
+button:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 16px rgba(109, 94, 252, 0.35);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  background: #cfcbe4;
+  color: #f4f3fb;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+
+/* --- Answer options & list-based actions (full-width tap targets) -------- */
+ul,
+ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.9rem 1.1rem;
+  font-weight: 600;
+}
+
+li button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+/* --- Leaderboard / roster / results lists ------------------------------- */
+section ol li,
+section ul li {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+/* Option-button rows shouldn't get the row chrome twice. */
+section ul li:has(button),
+section ol li:has(button) {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* --- Forms -------------------------------------------------------------- */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem 0.85rem;
+  margin: 0;
+}
+
+legend {
+  font-weight: 700;
+  padding: 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Category / mode choices become tappable chips. */
+fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0.5rem 0.85rem;
+  margin: 0.3rem 0.4rem 0.1rem 0;
+  cursor: pointer;
+  font-weight: 500;
+  min-height: 40px;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+fieldset label:hover {
+  border-color: var(--accent);
+}
+
+fieldset label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+/* Direct form labels (count, difficulty) stack their control. */
+form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-weight: 600;
+  max-width: 220px;
+}
+
+input[type="text"],
+input[type="number"],
+input:not([type]),
+select {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text);
+  width: 100%;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+/* --- Countdown timer (attribute hook, no markup change) ----------------- */
+p[aria-label*="seconds remaining"] {
+  display: inline-block;
+  font-size: clamp(2rem, 8vw, 3rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-strong);
+  margin: 0.25rem 0 1rem;
+}
+
+/* --- States ------------------------------------------------------------- */
+p[role="alert"] {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid #f5c6c6;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  font-weight: 600;
+}
+
+/* Answer result line: ✓ correct / ✗ locked in. */
+section p[aria-live="assertive"] {
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+a {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Landing links read as stacked buttons. */
+main > ul > li > a {
+  display: inline-block;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-sm);
+  min-width: 180px;
+  text-align: center;
+}
+
+main > ul > li > a:hover {
+  text-decoration: none;
+  filter: brightness(1.05);
+}
+
+main > ul > li {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
