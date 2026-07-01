@@ -18,12 +18,17 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
+  // Generation + first-route compiles are slow, so give the suite room.
+  timeout: 90_000,
+  expect: { timeout: 20_000 },
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "npm run start",
+        // `dev` so the suite runs without a separate build; set E2E_BASE_URL to
+        // point at an already-running server (e.g. `npm run start`) instead.
+        command: "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 180_000,
       },
 });

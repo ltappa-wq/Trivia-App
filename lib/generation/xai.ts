@@ -12,7 +12,10 @@ import {
 } from "./schema";
 
 const DEFAULT_BASE_URL = "https://api.x.ai/v1";
-const DEFAULT_MODEL = "grok-2-latest";
+// Non-reasoning model: structured trivia generation needs no chain-of-thought,
+// so this is markedly cheaper/faster than the reasoning variants (protects the
+// paid xAI budget, KTD10). Override per-account with XAI_MODEL if unavailable.
+const DEFAULT_MODEL = "grok-4.20-0309-non-reasoning";
 // Bound on the regenerate-the-tail loop so a persistently short/garbage model
 // response fails loudly instead of looping forever (KTD10).
 const DEFAULT_MAX_ATTEMPTS = 4;
