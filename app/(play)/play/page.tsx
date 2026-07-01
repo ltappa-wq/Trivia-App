@@ -114,15 +114,19 @@ function PlayView() {
           {submitError && <p role="alert">{submitError}</p>}
 
           {question.voided ? (
-            <p aria-live="assertive">This question was voided — waiting for the host.</p>
+            <p className="overlay" aria-live="assertive">
+              This question was voided — waiting for the host.
+            </p>
           ) : spectating ? (
-            <p aria-live="polite">
+            <p className="overlay" aria-live="polite">
               You joined mid-game — sitting out this question. You’ll play from the next one.
             </p>
           ) : paused ? (
-            <p aria-live="assertive">⏸ Paused for review — answering is disabled.</p>
+            <p className="overlay" aria-live="assertive">
+              ⏸ Paused for review — answering is disabled.
+            </p>
           ) : locked ? (
-            <p aria-live="assertive">
+            <p className={`result ${result?.correct ? "correct" : "wrong"}`} aria-live="assertive">
               {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
               {result && result.points > 0 ? ` — +${result.points}` : ""}
             </p>
@@ -160,6 +164,7 @@ function PlayView() {
               {challengeError && <p role="alert">{challengeError}</p>}
               <button
                 type="button"
+                className="ghost"
                 disabled={challenging}
                 onClick={() => raiseChallenge("question")}
               >
@@ -168,6 +173,7 @@ function PlayView() {
               {markedWrong && (
                 <button
                   type="button"
+                  className="ghost"
                   disabled={challenging}
                   onClick={() => raiseChallenge("answer")}
                 >
