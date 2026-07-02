@@ -8,7 +8,9 @@ import { ROOM_CODE_LENGTH } from "@/lib/codes";
 export const USERNAME_MAX = 20;
 
 export function normalizeCode(code: string): string {
-  return code.trim().toUpperCase();
+  // Numeric codes (R6.1): trim and strip any stray non-digits (e.g. spaces a
+  // user typed between digits). Upper-casing is unnecessary for digits.
+  return code.trim().replace(/\D/g, "");
 }
 
 export function normalizeUsername(name: string): string {
@@ -26,7 +28,7 @@ export function validateUsername(name: string): UsernameValidation {
 }
 
 export function isValidCodeShape(code: string): boolean {
-  return new RegExp(`^[A-Z0-9]{${ROOM_CODE_LENGTH}}$`).test(code);
+  return new RegExp(`^[0-9]{${ROOM_CODE_LENGTH}}$`).test(code);
 }
 
 export interface Seat {

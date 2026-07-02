@@ -2,21 +2,24 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { generateRoomCode, generateToken, hashToken, ROOM_CODE_LENGTH } from "../codes";
 
-describe("generateRoomCode (KTD7)", () => {
-  it("is the configured length and uses only the unambiguous alphabet", () => {
+describe("generateRoomCode (KTD7, R6)", () => {
+  it("is exactly 5 digits, numeric only (R6.1)", () => {
     for (let i = 0; i < 200; i++) {
       const code = generateRoomCode();
       expect(code).toHaveLength(ROOM_CODE_LENGTH);
-      // No ambiguous glyphs (I, L, O, 0, 1) and no lowercase.
-      expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]+$/);
+      expect(ROOM_CODE_LENGTH).toBe(5);
+      expect(code).toMatch(/^[0-9]+$/);
     }
   });
 
-  it("is effectively unique across many draws (high entropy, not sequential)", () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 1000; i++) seen.add(generateRoomCode());
-    // Collisions in 1000 draws over 31^6 space should be vanishingly unlikely.
-    expect(seen.size).toBeGreaterThan(995);
+  it("draws roughly uniformly across the digit alphabet (not sequential, R6.3)", () => {
+    // Over many draws every digit should appear — a sequential or biased
+    // generator would leave gaps.
+    const digits = new Set<string>();
+    for (let i = 0; i < 500; i++) {
+      for (const ch of generateRoomCode()) digits.add(ch);
+    }
+    expect(digits.size).toBe(10);
   });
 });
 
