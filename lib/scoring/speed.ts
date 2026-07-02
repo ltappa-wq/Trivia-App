@@ -1,22 +1,20 @@
-// U7. Speed-based scoring (R7, KTD4). A correct answer earns a flat base plus a
-// time bonus that decays across the answer window. The window length is per-mode
-// (ANSWER_TIMER_MS), and the bonus is computed against a fraction of *that* mode's
-// own timer, so an equally-prompt answer earns a comparable bonus regardless of
-// mode — type-the-answer is not penalized for being inherently slower (AE2). The
-// per-mode decay exponent is gentler for type-the-answer, so at equal fraction it
-// is never scored below multiple choice. All timestamps are server-side (KTD4).
+// U7. Speed-based scoring (R7, R4, KTD4, KTD1). A correct in-window answer earns
+// a guaranteed floor plus a time bonus that decays linearly across the answer
+// window. The bonus is normalized against a fraction of *that* mode's own timer
+// (ANSWER_TIMER_MS), so an equally-prompt answer earns a comparable score
+// regardless of mode — type-the-answer is not penalized for being inherently
+// slower (AE2), and its longer window makes the absolute per-second drop gentler.
+// A correct answer at the reveal instant scores MAX_POINTS; at the deadline it
+// scores FLOOR_POINTS and never less. All timestamps are server-side (KTD4).
 
 import type { AnswerMode } from "@/lib/db/types";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 
-export const BASE_POINTS = 100;
-export const MAX_TIME_BONUS = 100;
-
-// Lower exponent = gentler decay = more bonus retained as time passes.
-export const DECAY_EXPONENT: Record<AnswerMode, number> = {
-  multiple_choice: 1.0,
-  type_answer: 0.7,
-};
+// Range 100–1000: any correct in-window answer earns at least FLOOR_POINTS, and
+// the time bonus (MAX_POINTS - FLOOR_POINTS) decays to 0 at the deadline.
+export const FLOOR_POINTS = 100;
+export const MAX_POINTS = 1000;
+export const TIME_BONUS = MAX_POINTS - FLOOR_POINTS;
 
 export interface ScoreInput {
   correct: boolean;
@@ -27,8 +25,9 @@ export interface ScoreInput {
 
 /**
  * Points for one answer. Wrong, late (past the window), or missing answers score
- * 0. Otherwise base + a time bonus in [0, MAX_TIME_BONUS] that is largest at the
- * reveal instant and reaches 0 at the deadline.
+ * 0. Otherwise FLOOR_POINTS plus a linear time bonus in [0, TIME_BONUS] that is
+ * largest at the reveal instant and reaches 0 at the deadline — so a correct
+ * answer is worth MAX_POINTS at reveal and exactly FLOOR_POINTS at the deadline.
  */
 export function computeScore({ correct, mode, revealAtMs, submitAtMs }: ScoreInput): number {
   if (!correct) return 0;
@@ -39,6 +38,6 @@ export function computeScore({ correct, mode, revealAtMs, submitAtMs }: ScoreInp
   const clamped = Math.max(0, elapsed); // guard clock skew before reveal
 
   const fraction = clamped / timerMs; // 0 at reveal, 1 at deadline
-  const bonus = Math.round(MAX_TIME_BONUS * (1 - fraction) ** DECAY_EXPONENT[mode]);
-  return BASE_POINTS + bonus;
+  const bonus = Math.round(TIME_BONUS * (1 - fraction));
+  return FLOOR_POINTS + bonus;
 }
