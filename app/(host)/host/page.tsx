@@ -14,10 +14,11 @@ import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
 import { listOpenChallenges } from "@/lib/realtime/channel";
-import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { isLastIndex } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { AnswerPanel } from "@/components/AnswerPanel";
+import { JoinToast } from "@/components/JoinToast";
 import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
@@ -27,6 +28,9 @@ function HostView() {
   const token = cred?.token ?? null;
 
   const { state, offset, error, loading } = useRoomState(code, token);
+  // Lobby join announcements (U9): active only before the game starts.
+  const inLobby = !!token && (state?.game?.current_index ?? -1) < 0 && state?.game?.status !== "ended";
+  const joinAnnouncements = useJoinAnnouncements(code, inLobby);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
@@ -179,6 +183,7 @@ function HostView() {
 
       {!started && (
         <section>
+          <JoinToast items={joinAnnouncements} />
           <h2>Players</h2>
           {leaderboard.length === 0 ? (
             <p>No players yet — share code {game.code} to invite them.</p>

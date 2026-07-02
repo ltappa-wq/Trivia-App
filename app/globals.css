@@ -398,6 +398,52 @@ section p.result.correct {
   }
 }
 
+/* --- Host lobby join announcements (U9, R2) ---------------------------- */
+.join-toasts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+.join-toast {
+  align-self: flex-start;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transform-origin: left center;
+  animation: join-bounce 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.join-toast__name {
+  font-weight: 800;
+}
+@keyframes join-bounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(-8px);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.12) translateY(0);
+  }
+  60% {
+    transform: scale(0.96);
+  }
+  80% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .join-toast {
+    animation: none;
+  }
+}
+
 /* --- Host adjudication panel (stacked cards, not leaderboard rows) ------ */
 .adjudication {
   gap: 0.9rem;

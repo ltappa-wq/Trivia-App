@@ -81,6 +81,44 @@ export function useRoomState(code: string, token: string | null): RoomState {
   return { state, offset, error, loading, refresh };
 }
 
+export interface JoinAnnouncement {
+  key: number;
+  username: string;
+}
+
+/**
+ * U9/R2. Transient "X joined" announcements for the host lobby, sourced from the
+ * player_joined Broadcast payload (KTD6) rather than diffing the roster. Each
+ * join is queued and auto-expires after a short window, so rapid joins stack
+ * instead of overwriting one another (R2.3). Enabled only while `enabled` is
+ * true (the host lobby, pre-start) so it does nothing mid-game.
+ */
+export function useJoinAnnouncements(code: string, enabled: boolean): JoinAnnouncement[] {
+  const [items, setItems] = useState<JoinAnnouncement[]>([]);
+
+  useEffect(() => {
+    if (!enabled || !code) return;
+    let seq = 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const unsubscribe = subscribeToRoom(code, {
+      [ROOM_EVENTS.playerJoined]: (payload) => {
+        const username = typeof payload.username === "string" ? payload.username : "A player";
+        const key = ++seq;
+        setItems((prev) => [...prev, { key, username }]);
+        timers.push(
+          setTimeout(() => setItems((prev) => prev.filter((it) => it.key !== key)), 1600),
+        );
+      },
+    });
+    return () => {
+      unsubscribe();
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [code, enabled]);
+
+  return items;
+}
+
 /**
  * Countdown for the current question, shared by the host and play views. Derives
  * the per-mode timer from the game and only ticks once a question is live
