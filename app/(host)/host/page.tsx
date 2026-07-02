@@ -6,9 +6,10 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
@@ -64,6 +65,19 @@ function HostView() {
   }
   const remaining = useQuestionCountdown(game, offset);
 
+  // R5.1 timer path: when the answer window elapses without everyone answering,
+  // the host (the pacing authority) closes the question into review. Fired once
+  // per question via a ref keyed on current_index; the server CAS makes a race
+  // with the all-answered path in submitAnswer a safe no-op.
+  const closedForIndex = useRef<number | null>(null);
+  useEffect(() => {
+    if (!token || !game || game.status === "ended" || game.paused || game.reviewing) return;
+    if (game.current_index < 0 || remaining === null || remaining > 0) return;
+    if (closedForIndex.current === game.current_index) return;
+    closedForIndex.current = game.current_index;
+    void closeQuestion(code, token, game.current_index).catch(() => {});
+  }, [remaining, token, code, game]);
+
   async function handleAdvance(expectedIndex: number) {
     if (!token) return;
     setBusy(true);
@@ -105,6 +119,7 @@ function HostView() {
   const leaderboard = state?.leaderboard ?? [];
   const started = game.current_index >= 0;
   const ended = game.status === "ended";
+  const reviewing = game.reviewing;
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
@@ -185,7 +200,7 @@ function HostView() {
       )}
 
       <div className="host-live">
-      {started && !ended && !game.paused && state?.current_question && (
+      {started && !ended && !game.paused && !reviewing && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -212,6 +227,22 @@ function HostView() {
               </ol>
             )
           )}
+          {onLastQuestion ? (
+            <button type="button" disabled={busy} onClick={handleFinish}>
+              Finish game
+            </button>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
+              Next question
+            </button>
+          )}
+        </section>
+      )}
+
+      {started && !ended && reviewing && !game.paused && (
+        <section aria-live="polite" className="review">
+          <h2>Time&apos;s up — Question {game.current_index + 1} review</h2>
+          <p>Answers are locked. Here&apos;s where things stand.</p>
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game

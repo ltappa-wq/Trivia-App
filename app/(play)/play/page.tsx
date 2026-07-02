@@ -37,6 +37,7 @@ function PlayView() {
   const remaining = useQuestionCountdown(game, offset);
 
   const paused = game?.paused ?? false;
+  const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
   const timeUp = remaining !== null && remaining <= 0;
   // The player was marked wrong on their answer -> offer the "wrongly marked"
@@ -101,6 +102,10 @@ function PlayView() {
             <p className="overlay" aria-live="assertive">
               ⏸ Paused for review — answering is disabled.
             </p>
+          ) : reviewing ? (
+            <p className="overlay" aria-live="polite">
+              ⏱ Answers locked — see the standings below.
+            </p>
           ) : (
             <AnswerPanel
               token={cred.token}
@@ -111,7 +116,7 @@ function PlayView() {
             />
           )}
 
-          {!paused && !question.voided && !spectating && (
+          {!paused && !reviewing && !question.voided && !spectating && (
             <div>
               {challengeError && <p role="alert">{challengeError}</p>}
               <button
