@@ -1,16 +1,17 @@
 "use client";
 // U6. Player view — phone-first (UI conventions). Shows the lobby wait, the
 // active question with a server-anchored countdown (KTD9), and the between-
-// question leaderboard. State hydrates from Postgres and reconciles on every
-// Broadcast delta (KTD8). Answer submission is wired in U7 and the challenge
-// affordance in U8; this unit establishes the question/timer/leaderboard shell.
+// question leaderboard. Answering is delegated to the shared AnswerPanel; the
+// challenge affordance (U8) reacts to that panel's result. State hydrates from
+// Postgres and reconciles on every Broadcast delta (KTD8).
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { challenge } from "@/app/actions/challenge";
+import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { AnswerPanel } from "@/components/AnswerPanel";
 import type { ChallengeKind } from "@/lib/challenge";
 
 function PlayView() {
@@ -28,27 +29,19 @@ function PlayView() {
     if (ended) router.push(`/results?code=${code}`);
   }, [ended, code, router]);
 
-  // Answer lifecycle, reset per question by keying on the current index.
-  const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
-  const [typed, setTyped] = useState("");
   const [result, setResult] = useState<SubmitResult | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challenging, setChallenging] = useState(false);
 
   const game = state?.game ?? null;
   const remaining = useQuestionCountdown(game, offset);
 
-  const [challengeError, setChallengeError] = useState<string | null>(null);
-  const [challenging, setChallenging] = useState(false);
-
-  const currentIndex = game?.current_index ?? -1;
-  const locked = answeredIndex === currentIndex;
-  const timeUp = remaining !== null && remaining <= 0;
   const paused = game?.paused ?? false;
-  // Mid-game joiners are seated as spectators until the next question (U5) and
-  // can't score the in-progress one — the server returns { spectating: true }.
   const spectating = state?.role === "spectator";
-  const markedWrong = locked && result !== null && !result.correct && !result.spectating;
+  const timeUp = remaining !== null && remaining <= 0;
+  // The player was marked wrong on their answer -> offer the "wrongly marked"
+  // challenge variant. A spectator's non-scoring result doesn't count.
+  const markedWrong = result !== null && !result.correct && !result.spectating;
 
   async function raiseChallenge(type: ChallengeKind) {
     if (!token) return;
@@ -60,22 +53,6 @@ function PlayView() {
       setChallengeError(err instanceof Error ? err.message : "Could not challenge");
     } finally {
       setChallenging(false);
-    }
-  }
-
-  async function submit(answer: string) {
-    if (!token || locked) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const res = await submitAnswer(token, answer);
-      setResult(res);
-      setAnsweredIndex(currentIndex);
-      setTyped("");
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Could not submit");
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -111,7 +88,6 @@ function PlayView() {
               {Math.ceil(remaining / 1000)}s
             </p>
           )}
-          {submitError && <p role="alert">{submitError}</p>}
 
           {question.voided ? (
             <p className="overlay" aria-live="assertive">
@@ -125,38 +101,14 @@ function PlayView() {
             <p className="overlay" aria-live="assertive">
               ⏸ Paused for review — answering is disabled.
             </p>
-          ) : locked ? (
-            <p className={`result ${result?.correct ? "correct" : "wrong"}`} aria-live="assertive">
-              {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
-              {result && result.points > 0 ? ` — +${result.points}` : ""}
-            </p>
-          ) : timeUp ? (
-            <p>Time’s up — waiting for the next question.</p>
-          ) : question.mode === "multiple_choice" ? (
-            <ul>
-              {(question.options ?? []).map((opt, i) => (
-                <li key={i}>
-                  <button type="button" disabled={submitting} onClick={() => submit(String(i))}>
-                    {opt}
-                  </button>
-                </li>
-              ))}
-            </ul>
           ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (typed.trim()) void submit(typed.trim());
-              }}
-            >
-              <label>
-                Your answer
-                <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
-              </label>
-              <button type="submit" disabled={submitting || !typed.trim()}>
-                Submit
-              </button>
-            </form>
+            <AnswerPanel
+              token={cred.token}
+              question={question}
+              currentIndex={game.current_index}
+              timeUp={timeUp}
+              onResult={setResult}
+            />
           )}
 
           {!paused && !question.voided && !spectating && (

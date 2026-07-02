@@ -10,6 +10,7 @@ import { generateRoomCode, generateToken, hashToken } from "@/lib/codes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { validateSetupInput, type SetupInput } from "@/lib/gameConfig";
+import { normalizeUsername, validateUsername } from "@/lib/join";
 
 // Module-scoped guards (best-effort per serverless instance, KTD10).
 const createLimiter = new RateLimiter(5, 60_000); // 5 games / minute / IP
@@ -21,12 +22,34 @@ export interface CreateGameResult {
   code: string;
   /** Plaintext host token — returned once, only the hash is stored (KTD7). */
   hostToken: string;
+  /** The host's own player token — present only when the host plays too. */
+  hostPlayerToken?: string;
+  /** The host's player name — present only when the host plays too. */
+  username?: string;
 }
 
-export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
+/** How the gamemaster participates: playing (with a name) or hosting only. */
+export interface HostPlayOption {
+  plays: boolean;
+  name: string;
+}
+
+export async function createGame(
+  raw: SetupInput,
+  host: HostPlayOption,
+): Promise<CreateGameResult> {
   const validated = validateSetupInput(raw);
   if (!validated.ok) throw new Error(validated.error);
   const input = validated.value;
+
+  // When the host plays too, they need a valid name like any player. A
+  // host-only gamemaster skips this entirely.
+  let username: string | undefined;
+  if (host.plays) {
+    username = normalizeUsername(host.name);
+    const nameCheck = validateUsername(username);
+    if (!nameCheck.ok) throw new Error(nameCheck.error);
+  }
 
   if (!createLimiter.check(await callerIp())) {
     throw new Error("Too many games created — please wait a moment.");
@@ -91,5 +114,29 @@ export async function createGame(raw: SetupInput): Promise<CreateGameResult> {
     activeGenerations--;
   }
 
-  return { gameId, code, hostToken };
+  // A host-only gamemaster paces the room without answering — nothing to seat.
+  if (!host.plays) {
+    return { gameId, code, hostToken };
+  }
+
+  // Seat the host as a player (the host plays too). Their own player token lets
+  // them submit answers and appear on the leaderboard.
+  const hostPlayerToken = generateToken();
+  const { error: seatError } = await supabase.from("players").insert({
+    game_id: gameId,
+    username,
+    token: hostPlayerToken,
+    is_spectator: false,
+  });
+  if (seatError) {
+    // Don't leave a game the host can pace but not play — roll back.
+    await supabase.from("games").delete().eq("id", gameId);
+    throw new Error(
+      seatError.code === "23505"
+        ? "Could not seat the host — please retry."
+        : `Could not seat the host: ${seatError.message}`,
+    );
+  }
+
+  return { gameId, code, hostToken, hostPlayerToken, username };
 }

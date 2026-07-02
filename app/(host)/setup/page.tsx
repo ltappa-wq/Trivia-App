@@ -29,6 +29,8 @@ export default function SetupPage() {
   const [status, setStatus] = useState<Status>("editing");
   const [error, setError] = useState<string | null>(null);
 
+  const [hostPlays, setHostPlays] = useState(true);
+  const [hostName, setHostName] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const [questionCount, setQuestionCount] = useState(10);
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
@@ -44,16 +46,21 @@ export default function SetupPage() {
     setStatus("generating");
     setError(null);
     try {
-      const result = await createGame({
-        categories,
-        questionCount,
-        answerMode,
-        difficulty,
-      });
+      const result = await createGame(
+        {
+          categories,
+          questionCount,
+          answerMode,
+          difficulty,
+        },
+        { plays: hostPlays, name: hostName },
+      );
       saveHostCredential({
         gameId: result.gameId,
         code: result.code,
         token: result.hostToken,
+        playerToken: result.hostPlayerToken,
+        username: result.username,
       });
       router.push(`/host?code=${result.code}`);
     } catch (err) {
@@ -86,7 +93,8 @@ export default function SetupPage() {
     );
   }
 
-  const canSubmit = categories.length > 0;
+  const canSubmit =
+    categories.length > 0 && (!hostPlays || hostName.trim().length > 0);
 
   return (
     <main>
@@ -97,6 +105,28 @@ export default function SetupPage() {
           if (canSubmit) void submit();
         }}
       >
+        <label>
+          <input
+            type="checkbox"
+            checked={hostPlays}
+            onChange={(e) => setHostPlays(e.target.checked)}
+          />
+          I&rsquo;ll play too
+        </label>
+
+        {hostPlays && (
+          <label>
+            Your name
+            <input
+              value={hostName}
+              onChange={(e) => setHostName(e.target.value)}
+              maxLength={20}
+              autoComplete="off"
+              required
+            />
+          </label>
+        )}
+
         <fieldset>
           <legend>Categories</legend>
           {CATEGORIES.map((cat) => (
