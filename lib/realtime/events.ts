@@ -14,6 +14,8 @@ export const ROOM_EVENTS = {
   question: "question",
   /** Leaderboard changed between questions or after a recompute (U6, U8). */
   leaderboard: "leaderboard",
+  /** Question closed for answers — clients show the review leaderboard (R5). */
+  review: "review",
   /** A challenge paused play (U8). */
   pause: "pause",
   /** Play resumed after adjudication (U8). */

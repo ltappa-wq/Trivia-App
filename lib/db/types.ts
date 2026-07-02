@@ -21,6 +21,8 @@ export interface GameRow {
   current_index: number;
   reveal_at: string | null;
   paused: boolean;
+  // True while the room is showing the post-question review leaderboard (R5).
+  reviewing: boolean;
   created_at: string;
 }
 
@@ -95,6 +97,8 @@ export interface ClientGame {
   current_index: number;
   reveal_at: string | null;
   paused: boolean;
+  // Post-question review phase (R5): answering locked, leaderboard shown.
+  reviewing: boolean;
 }
 
 export interface HydratedState {
