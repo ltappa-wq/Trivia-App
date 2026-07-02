@@ -19,6 +19,7 @@ import { isLastIndex } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { JoinToast } from "@/components/JoinToast";
+import { Podium } from "@/components/Podium";
 import type { OpenChallenge } from "@/lib/db/types";
 
 function HostView() {
@@ -286,6 +287,7 @@ function HostView() {
             const { winnerIds, label } = describeWinners(standings);
             return (
               <>
+                <Podium standings={standings} />
                 <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
                 <ol>
                   {standings.map((p) => (
