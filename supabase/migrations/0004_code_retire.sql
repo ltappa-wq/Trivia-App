@@ -15,3 +15,9 @@ alter table public.games drop constraint if exists games_code_key;
 create unique index if not exists games_code_live_unique
   on public.games (code)
   where status in ('lobby', 'active');
+
+-- Dropping the unique constraint also dropped its implicit btree index on `code`.
+-- authorizeHostByCode looks up by code with no status filter (it must match ended
+-- rows to disambiguate a reused code by host-token hash) and runs on every host
+-- action, so keep a plain index to avoid a growing sequential scan.
+create index if not exists games_code_idx on public.games (code);

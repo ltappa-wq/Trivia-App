@@ -28,10 +28,9 @@ function HostView() {
   const cred = loadHostCredential(code);
   const token = cred?.token ?? null;
 
-  const { state, offset, error, loading } = useRoomState(code, token);
-  // Lobby join announcements (U9): active only before the game starts.
-  const inLobby = !!token && (state?.game?.current_index ?? -1) < 0 && state?.game?.status !== "ended";
-  const joinAnnouncements = useJoinAnnouncements(code, inLobby);
+  // Lobby join announcements (U9): fed by the single room channel via onPlayerJoined.
+  const { items: joinAnnouncements, announce: announceJoin } = useJoinAnnouncements();
+  const { state, offset, error, loading } = useRoomState(code, token, announceJoin);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
@@ -80,7 +79,11 @@ function HostView() {
     if (game.current_index < 0 || remaining === null || remaining > 0) return;
     if (closedForIndex.current === game.current_index) return;
     closedForIndex.current = game.current_index;
-    void closeQuestion(code, token, game.current_index).catch(() => {});
+    // Reset on failure so the next countdown tick retries rather than leaving the
+    // question stuck out of review.
+    void closeQuestion(code, token, game.current_index).catch(() => {
+      closedForIndex.current = null;
+    });
   }, [remaining, token, code, game]);
 
   async function handleAdvance(expectedIndex: number) {

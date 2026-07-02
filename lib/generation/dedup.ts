@@ -14,7 +14,9 @@
 export function normalizePrompt(prompt: string): string {
   return prompt
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    // Punctuation becomes a space (not removed) so "co-operate" and "cooperate"
+    // stay distinct rather than colliding into one banked entry.
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

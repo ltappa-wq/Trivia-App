@@ -132,6 +132,8 @@ async function maybeEnterReview(
     .eq("id", gameId)
     .eq("current_index", currentIndex)
     .eq("reviewing", false)
+    // Don't enter review on a game a challenge just paused (atomic guard).
+    .eq("paused", false)
     .select("id")
     .maybeSingle();
 

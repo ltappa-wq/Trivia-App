@@ -9,6 +9,7 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { hashToken } from "@/lib/codes";
+import { normalizeCode } from "@/lib/join";
 import type { GameRow } from "@/lib/db/types";
 
 function constantTimeEqualHex(a: string, b: string): boolean {
@@ -33,7 +34,7 @@ export async function authorizeHostByCode(
   const { data, error } = await supabase
     .from("games")
     .select("*")
-    .eq("code", code.toUpperCase());
+    .eq("code", normalizeCode(code));
   if (error) throw new Error(`Lookup failed: ${error.message}`);
   const rows = (data ?? []) as GameRow[];
   if (rows.length === 0) throw new Error("Game not found");

@@ -39,6 +39,9 @@ export async function closeQuestion(
     .eq("status", "active")
     .eq("current_index", expectedIndex)
     .eq("reviewing", false)
+    // Atomic pause-suppression: a challenge landing between the read above and
+    // this update must not let review start on a paused game.
+    .eq("paused", false)
     .select("current_index")
     .maybeSingle();
 
