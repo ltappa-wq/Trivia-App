@@ -10,6 +10,7 @@ import {
   type GeneratedQuestion,
   type GenerationParams,
 } from "./schema";
+import { normalizePrompt } from "./dedup";
 
 const DEFAULT_BASE_URL = "https://api.x.ai/v1";
 // Non-reasoning model: structured trivia generation needs no chain-of-thought,
@@ -130,13 +131,20 @@ async function requestBatch(
 }
 
 /**
- * Generate a validated set of exactly `params.count` questions. Invalid or
- * missing questions from one attempt are re-requested (tail regeneration) up to
- * `maxAttempts`; if the set still can't be filled, throws GenerationError.
+ * Generate a validated set of exactly `params.count` questions. Invalid,
+ * missing, or duplicate questions from one attempt are re-requested (tail
+ * regeneration) up to `maxAttempts`; if the set still can't be filled, throws
+ * GenerationError.
+ *
+ * `seen` holds normalized prompts already in the question bank (R7.2); any
+ * generated question whose normalized prompt is in `seen` — or that repeats a
+ * prompt already accepted this run — is rejected like an invalid one, which
+ * drives tail regeneration until `count` unique questions are produced (R7.3).
  */
 export async function generateQuestions(
   params: GenerationParams,
   config: XaiConfig,
+  seen: ReadonlySet<string> = new Set(),
 ): Promise<GeneratedQuestion[]> {
   if (!config.apiKey) throw new GenerationError("Missing xAI API key");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
@@ -151,6 +159,9 @@ export async function generateQuestions(
   const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 
   const collected: GeneratedQuestion[] = [];
+  // Normalized prompts we must not emit: the bank's existing prompts plus the
+  // ones accepted so far this run (so a single batch can't self-duplicate).
+  const usedNorms = new Set<string>(seen);
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
@@ -162,8 +173,17 @@ export async function generateQuestions(
     for (const raw of batch) {
       if (collected.length >= params.count) break;
       const result = validateGeneratedQuestion(raw, params);
-      if (result.ok) collected.push(result.question);
-      else rejections.add(result.reason);
+      if (!result.ok) {
+        rejections.add(result.reason);
+        continue;
+      }
+      const norm = normalizePrompt(result.question.prompt);
+      if (usedNorms.has(norm)) {
+        rejections.add("duplicate");
+        continue;
+      }
+      usedNorms.add(norm);
+      collected.push(result.question);
     }
   }
 
