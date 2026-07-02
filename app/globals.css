@@ -350,6 +350,54 @@ section p.result.wrong {
   color: var(--danger);
 }
 
+/* --- Correct-answer fireworks (U8, R1) --------------------------------- */
+/* Non-blocking burst anchored to the (position:relative) result line. */
+section p.result.correct {
+  position: relative;
+}
+.fireworks {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.fireworks__particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--success);
+  opacity: 0;
+  transform: rotate(var(--angle)) translateY(0);
+  animation: fireworks-burst 1000ms ease-out forwards;
+}
+.fireworks__particle:nth-child(3n) {
+  background: var(--accent);
+}
+.fireworks__particle:nth-child(3n + 1) {
+  background: #f5b301;
+}
+@keyframes fireworks-burst {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(-64px) scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fireworks {
+    display: none;
+  }
+}
+
 /* --- Host adjudication panel (stacked cards, not leaderboard rows) ------ */
 .adjudication {
   gap: 0.9rem;
