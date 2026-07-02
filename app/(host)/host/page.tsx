@@ -1,9 +1,10 @@
 "use client";
-// U6. Host view — the pacing authority (KTD3). Host-only for v1 (resolved Open
-// Question: the gamemaster hosts, does not also play), so this view is optimized
-// for a larger, possibly shared screen: big room code, live roster/leaderboard,
-// and start/advance controls. State is hydrated from Postgres and reconciled on
-// every Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
+// U6. Host view — the pacing authority (KTD3). Optimized for a larger, possibly
+// shared screen: big room code, live roster/leaderboard, and start/advance
+// controls. The gamemaster may optionally play too (chosen at setup): when they
+// do, this view shows an AnswerPanel; when they host only, it shows the current
+// question read-only. State is hydrated from Postgres and reconciled on every
+// Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -192,12 +193,25 @@ function HostView() {
               {Math.ceil(remaining / 1000)}s
             </p>
           )}
-          <AnswerPanel
-            token={cred.playerToken}
-            question={state.current_question}
-            currentIndex={game.current_index}
-            timeUp={remaining !== null && remaining <= 0}
-          />
+          {cred.playerToken ? (
+            <AnswerPanel
+              token={cred.playerToken}
+              question={state.current_question}
+              currentIndex={game.current_index}
+              timeUp={remaining !== null && remaining <= 0}
+            />
+          ) : (
+            // Host-only gamemaster: show the question read-only on the shared
+            // screen. Multiple-choice options are listed; type-answer shows just
+            // the prompt/timer above.
+            state.current_question.mode === "multiple_choice" && (
+              <ol>
+                {(state.current_question.options ?? []).map((opt, i) => (
+                  <li key={i}>{opt}</li>
+                ))}
+              </ol>
+            )
+          )}
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game

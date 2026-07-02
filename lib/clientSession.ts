@@ -8,9 +8,12 @@ export interface HostCredential {
   gameId: string;
   code: string;
   token: string;
-  /** The host's own player token — the host plays too (submits answers). */
-  playerToken: string;
-  username: string;
+  /**
+   * The host's own player token — present only when the host plays too. A
+   * host-only gamemaster paces the room without answering, so it's absent.
+   */
+  playerToken?: string;
+  username?: string;
 }
 
 export interface PlayerCredential {

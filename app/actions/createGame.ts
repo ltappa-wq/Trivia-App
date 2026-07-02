@@ -22,23 +22,34 @@ export interface CreateGameResult {
   code: string;
   /** Plaintext host token — returned once, only the hash is stored (KTD7). */
   hostToken: string;
-  /** The host's own player token — the host plays too. */
-  hostPlayerToken: string;
-  username: string;
+  /** The host's own player token — present only when the host plays too. */
+  hostPlayerToken?: string;
+  /** The host's player name — present only when the host plays too. */
+  username?: string;
+}
+
+/** How the gamemaster participates: playing (with a name) or hosting only. */
+export interface HostPlayOption {
+  plays: boolean;
+  name: string;
 }
 
 export async function createGame(
   raw: SetupInput,
-  rawHostName: string,
+  host: HostPlayOption,
 ): Promise<CreateGameResult> {
   const validated = validateSetupInput(raw);
   if (!validated.ok) throw new Error(validated.error);
   const input = validated.value;
 
-  // The host plays too, so they need a name like any player.
-  const username = normalizeUsername(rawHostName);
-  const nameCheck = validateUsername(username);
-  if (!nameCheck.ok) throw new Error(nameCheck.error);
+  // When the host plays too, they need a valid name like any player. A
+  // host-only gamemaster skips this entirely.
+  let username: string | undefined;
+  if (host.plays) {
+    username = normalizeUsername(host.name);
+    const nameCheck = validateUsername(username);
+    if (!nameCheck.ok) throw new Error(nameCheck.error);
+  }
 
   if (!createLimiter.check(await callerIp())) {
     throw new Error("Too many games created — please wait a moment.");
@@ -101,6 +112,11 @@ export async function createGame(
     throw err instanceof Error ? err : new Error("Generation failed");
   } finally {
     activeGenerations--;
+  }
+
+  // A host-only gamemaster paces the room without answering — nothing to seat.
+  if (!host.plays) {
+    return { gameId, code, hostToken };
   }
 
   // Seat the host as a player (the host plays too). Their own player token lets

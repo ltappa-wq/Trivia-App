@@ -11,14 +11,27 @@ export function questionPrompt(page: Page) {
 
 /**
  * Drive the setup form to create a game. Uses a small question count to keep
- * real xAI generation fast/cheap. Returns the host page and the issued code.
+ * real xAI generation fast/cheap. By default the host plays too (with a name);
+ * pass `hostPlays: false` to create a host-only game. Returns the host page and
+ * the issued code.
  */
 export async function hostCreateGame(
   context: BrowserContext,
-  opts: { category?: string; count?: number } = {},
+  opts: {
+    category?: string;
+    count?: number;
+    hostPlays?: boolean;
+    hostName?: string;
+  } = {},
 ): Promise<{ page: Page; code: string }> {
   const page = await context.newPage();
   await page.goto("/setup");
+  const hostPlays = opts.hostPlays ?? true;
+  if (hostPlays) {
+    await page.getByLabel("Your name").fill(opts.hostName ?? "Gamemaster");
+  } else {
+    await page.getByLabel("I’ll play too").uncheck();
+  }
   await page.getByLabel(opts.category ?? "Geography").check();
   await page.getByLabel("Number of questions").fill(String(opts.count ?? 2));
   await page.getByRole("button", { name: "Create game" }).click();
