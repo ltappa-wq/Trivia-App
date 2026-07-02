@@ -17,7 +17,14 @@ function constantTimeEqualHex(a: string, b: string): boolean {
 }
 
 /** Authorize a host-only action by room code; throws if the token doesn't match
- * the stored hash. Returns the game row for the action to act on. */
+ * the stored hash. Returns the game row for the action to act on.
+ *
+ * A code is not globally unique: once a game ends its 5-digit code is freed for
+ * reuse (KTD2, migration 0004), so several rows (past ended games + one live
+ * game) can share a code. We therefore fetch all matches and select the one
+ * whose stored host-token hash matches the presented token — the host token is
+ * unique per game, so at most one row matches. The hash comparison stays
+ * constant-time to preserve the timing posture. */
 export async function authorizeHostByCode(
   supabase: SupabaseClient,
   code: string,
@@ -26,14 +33,14 @@ export async function authorizeHostByCode(
   const { data, error } = await supabase
     .from("games")
     .select("*")
-    .eq("code", code.toUpperCase())
-    .maybeSingle();
+    .eq("code", code.toUpperCase());
   if (error) throw new Error(`Lookup failed: ${error.message}`);
-  if (!data) throw new Error("Game not found");
-  if (!constantTimeEqualHex(data.host_token_hash, hashToken(hostToken))) {
-    throw new Error("Not authorized");
-  }
-  return data as GameRow;
+  const rows = (data ?? []) as GameRow[];
+  if (rows.length === 0) throw new Error("Game not found");
+  const presented = hashToken(hostToken);
+  const game = rows.find((g) => constantTimeEqualHex(g.host_token_hash, presented));
+  if (!game) throw new Error("Not authorized");
+  return game;
 }
 
 export interface ResolvedPlayer {

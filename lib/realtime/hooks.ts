@@ -63,6 +63,7 @@ export function useRoomState(code: string, token: string | null): RoomState {
         [ROOM_EVENTS.playerJoined]: reconcile,
         [ROOM_EVENTS.question]: reconcile,
         [ROOM_EVENTS.leaderboard]: reconcile,
+        [ROOM_EVENTS.review]: reconcile,
         [ROOM_EVENTS.pause]: reconcile,
         [ROOM_EVENTS.resume]: reconcile,
         [ROOM_EVENTS.void]: reconcile,
