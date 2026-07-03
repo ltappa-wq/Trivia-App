@@ -10,9 +10,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
+import { revealAnswer } from "@/lib/realtime/channel";
 import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { AnswerPanel } from "@/components/AnswerPanel";
+import { AnswerReveal } from "@/components/AnswerReveal";
 import type { ChallengeKind } from "@/lib/challenge";
+import type { RevealedAnswer } from "@/lib/db/types";
 
 function PlayView() {
   const router = useRouter();
@@ -32,6 +35,7 @@ function PlayView() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challenging, setChallenging] = useState(false);
+  const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
 
   const game = state?.game ?? null;
   const remaining = useQuestionCountdown(game, offset);
@@ -40,9 +44,34 @@ function PlayView() {
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
   const timeUp = remaining !== null && remaining <= 0;
+  const currentIndex = game?.current_index ?? -1;
   // The player was marked wrong on their answer -> offer the "wrongly marked"
   // challenge variant. A spectator's non-scoring result doesn't count.
   const markedWrong = result !== null && !result.correct && !result.spectating;
+
+  // R1. Once the room enters review, fetch the correct answer (gated RPC) to show
+  // it; clear it when the question changes or review ends so it never bleeds into
+  // the next question. R5: reset the persisted submit result on a new question so
+  // `markedWrong` reflects this question, not a stale prior answer.
+  useEffect(() => {
+    if (!token || !reviewing) {
+      setReveal(null);
+      return;
+    }
+    let active = true;
+    revealAnswer(token)
+      .then((r) => {
+        if (active) setReveal(r);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token, reviewing, currentIndex]);
+
+  useEffect(() => {
+    setResult(null);
+  }, [currentIndex]);
 
   async function raiseChallenge(type: ChallengeKind) {
     if (!token) return;
@@ -84,7 +113,7 @@ function PlayView() {
       {started && question && (
         <section aria-live="polite">
           <h2>{question.prompt}</h2>
-          {remaining !== null && (
+          {!reviewing && remaining !== null && (
             <p aria-label={`${Math.ceil(remaining / 1000)} seconds remaining`}>
               {Math.ceil(remaining / 1000)}s
             </p>
@@ -103,9 +132,12 @@ function PlayView() {
               ⏸ Paused for review — answering is disabled.
             </p>
           ) : reviewing ? (
-            <p className="overlay" aria-live="polite">
-              ⏱ Answers locked — see the standings below.
-            </p>
+            <>
+              <p className="overlay" aria-live="polite">
+                ⏱ Answers locked — here’s the correct answer.
+              </p>
+              <AnswerReveal reveal={reveal} />
+            </>
           ) : (
             <AnswerPanel
               token={cred.token}
@@ -116,7 +148,7 @@ function PlayView() {
             />
           )}
 
-          {!paused && !reviewing && !question.voided && !spectating && (
+          {!paused && !question.voided && !spectating && (
             <div>
               {challengeError && <p role="alert">{challengeError}</p>}
               <button

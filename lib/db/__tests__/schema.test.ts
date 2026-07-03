@@ -24,6 +24,10 @@ const reviewPhase = readFileSync(
   fileURLToPath(new URL("../../../supabase/migrations/0006_review_phase.sql", import.meta.url)),
   "utf8",
 );
+const revealAnswer = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0007_reveal_answer.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -88,6 +92,28 @@ describe("review phase migration invariants (U5, R5)", () => {
     const questionBlock = reviewPhase.slice(reviewPhase.indexOf("'current_question'"));
     expect(questionBlock).not.toContain("correct_option");
     expect(questionBlock).not.toContain("accepted_variants");
+  });
+});
+
+describe("reveal_answer RPC invariants (R1, R2)", () => {
+  it("is a security-definer function executable by anon", () => {
+    expect(revealAnswer).toMatch(/create or replace function public\.reveal_answer/);
+    expect(revealAnswer).toMatch(/security definer/);
+    expect(revealAnswer).toMatch(
+      /grant execute on function public\.reveal_answer\(text\) to anon/,
+    );
+  });
+
+  it("exposes the answer key only when reviewing or ended", () => {
+    // It DOES surface correct_option/accepted_variants (the review reveal), but
+    // the current-question select is gated on the room no longer being answerable.
+    expect(revealAnswer).toMatch(/correct_option/);
+    expect(revealAnswer).toMatch(/accepted_variants/);
+    expect(revealAnswer).toMatch(/g\.reviewing = true or g\.status = 'ended'/);
+  });
+
+  it("pins search_path including extensions so nested digest() resolves", () => {
+    expect(revealAnswer).toMatch(/set search_path = public, extensions/);
   });
 });
 

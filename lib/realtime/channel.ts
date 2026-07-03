@@ -7,7 +7,7 @@
 
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { roomChannel, type RoomEvent } from "./events";
-import type { HydratedState, OpenChallenge } from "@/lib/db/types";
+import type { HydratedState, OpenChallenge, RevealedAnswer } from "@/lib/db/types";
 
 export async function hydrate(token: string): Promise<HydratedState | null> {
   const { data, error } = await getBrowserClient().rpc("hydrate_game_state", {
@@ -24,6 +24,19 @@ export async function listOpenChallenges(token: string): Promise<OpenChallenge[]
   });
   if (error) throw new Error(error.message);
   return (data as OpenChallenge[] | null) ?? [];
+}
+
+/**
+ * R1. Current question's answer key, returned only when the room is reviewing or
+ * the game has ended (the RPC gates on phase). Null while a question is still
+ * answerable, so this can never help a player who could still submit.
+ */
+export async function revealAnswer(token: string): Promise<RevealedAnswer | null> {
+  const { data, error } = await getBrowserClient().rpc("reveal_answer", {
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
+  return (data as RevealedAnswer | null) ?? null;
 }
 
 export type RoomHandlers = Partial<

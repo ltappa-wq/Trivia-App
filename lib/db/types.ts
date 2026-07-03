@@ -109,6 +109,17 @@ export interface HydratedState {
   leaderboard: LeaderboardEntry[];
 }
 
+// --- Review-phase answer reveal (reveal_answer; gated on reviewing/ended) ---
+
+export interface RevealedAnswer {
+  index: number;
+  mode: AnswerMode;
+  options: string[] | null;
+  correct_option: number | null;
+  accepted_variants: string[] | null;
+  correction: string | null;
+}
+
 // --- Host adjudication view (list_open_challenges; host-only, includes keys) ---
 
 export interface OpenChallenge {
