@@ -50,6 +50,8 @@ export async function advance(
       current_index: next,
       reveal_at: revealAt,
       paused: false,
+      // Leave the review phase as the next question is revealed (R5.2).
+      reviewing: false,
       status: "active",
     })
     .eq("id", game.id)

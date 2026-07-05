@@ -89,5 +89,55 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
 
   await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, { by: player.playerId });
 
+  // R5.1/R5.4: once every active (non-spectator) player has answered this
+  // question, close it into the review phase. Counts are server-side; spectators
+  // can't answer (guarded above), so every answer row is from an active player.
+  await maybeEnterReview(supabase, game.id, question.id, game.code, game.current_index);
+
   return { correct, points };
+}
+
+/**
+ * Enter the review phase if all active players have now answered the current
+ * question. Uses a compare-and-set on `reviewing` so the `review` broadcast
+ * fires exactly once even if the last two submits race.
+ */
+async function maybeEnterReview(
+  supabase: ReturnType<typeof getServiceClient>,
+  gameId: string,
+  questionId: string,
+  code: string,
+  currentIndex: number,
+): Promise<void> {
+  const [{ count: activeCount }, { count: answeredCount }] = await Promise.all([
+    supabase
+      .from("players")
+      .select("id", { count: "exact", head: true })
+      .eq("game_id", gameId)
+      .eq("is_spectator", false),
+    supabase
+      .from("answers")
+      .select("id", { count: "exact", head: true })
+      .eq("question_id", questionId),
+  ]);
+
+  if (activeCount === null || answeredCount === null) return;
+  if (answeredCount < activeCount) return;
+
+  // CAS: flip reviewing only from false, and only while still on this question,
+  // so a late resume/advance can't be clobbered and the broadcast fires once.
+  const { data: flipped } = await supabase
+    .from("games")
+    .update({ reviewing: true })
+    .eq("id", gameId)
+    .eq("current_index", currentIndex)
+    .eq("reviewing", false)
+    // Don't enter review on a game a challenge just paused (atomic guard).
+    .eq("paused", false)
+    .select("id")
+    .maybeSingle();
+
+  if (flipped) {
+    await broadcastToRoom(code, ROOM_EVENTS.review, { index: currentIndex });
+  }
 }

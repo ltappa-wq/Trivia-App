@@ -16,6 +16,31 @@ export function winners(players: LeaderboardEntry[]): LeaderboardEntry[] {
   return players.filter((p) => p.score === top);
 }
 
+export interface PodiumStep {
+  /** 1, 2, or 3 — position by distinct score, not by player count. */
+  rank: 1 | 2 | 3;
+  score: number;
+  /** All players tied at this score — they share the step (R3.4). */
+  players: LeaderboardEntry[];
+}
+
+/**
+ * U10/R3. The top-three podium: up to three steps by *distinct* score in
+ * descending order, each holding the players tied at that score. Players who
+ * scored 0 (or negative) are excluded, so a game where nobody scored yields no
+ * steps (R3.3). Ties share a step and consume a rank, so [300, 200, 200] yields
+ * a rank-1 and a rank-2 step with no rank-3 shown (R3.4).
+ */
+export function podium(standings: LeaderboardEntry[]): PodiumStep[] {
+  const scored = sortStandings(standings).filter((p) => p.score > 0);
+  const distinctScores = [...new Set(scored.map((p) => p.score))].slice(0, 3);
+  return distinctScores.map((score, i) => ({
+    rank: (i + 1) as 1 | 2 | 3,
+    score,
+    players: scored.filter((p) => p.score === score),
+  }));
+}
+
 /**
  * Winner summary for the results views (host + player): the set of winner ids to
  * highlight, and a banner label (null when nobody scored). Computed once so the

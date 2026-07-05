@@ -7,7 +7,7 @@
 // useCountdown: render remaining time from the server-anchored reveal, corrected
 // by the measured offset.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { serverNow } from "@/app/actions/serverTime";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
@@ -23,11 +23,21 @@ export interface RoomState {
   refresh: () => Promise<void>;
 }
 
-export function useRoomState(code: string, token: string | null): RoomState {
+export function useRoomState(
+  code: string,
+  token: string | null,
+  // Optional side-channel for the player_joined payload (U9), routed through this
+  // one room subscription so the lobby toast never opens a second channel on the
+  // same topic (which can perturb this load-bearing hydration channel).
+  onPlayerJoined?: (payload: Record<string, unknown>) => void,
+): RoomState {
   const [state, setState] = useState<HydratedState | null>(null);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Ref so a changing callback identity doesn't re-subscribe the channel.
+  const onPlayerJoinedRef = useRef(onPlayerJoined);
+  onPlayerJoinedRef.current = onPlayerJoined;
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -60,9 +70,13 @@ export function useRoomState(code: string, token: string | null): RoomState {
     const unsubscribe = subscribeToRoom(
       code,
       {
-        [ROOM_EVENTS.playerJoined]: reconcile,
+        [ROOM_EVENTS.playerJoined]: (payload) => {
+          reconcile();
+          onPlayerJoinedRef.current?.(payload);
+        },
         [ROOM_EVENTS.question]: reconcile,
         [ROOM_EVENTS.leaderboard]: reconcile,
+        [ROOM_EVENTS.review]: reconcile,
         [ROOM_EVENTS.pause]: reconcile,
         [ROOM_EVENTS.resume]: reconcile,
         [ROOM_EVENTS.void]: reconcile,
@@ -78,6 +92,45 @@ export function useRoomState(code: string, token: string | null): RoomState {
   }, [code, token, refresh]);
 
   return { state, offset, error, loading, refresh };
+}
+
+export interface JoinAnnouncement {
+  key: number;
+  username: string;
+}
+
+/**
+ * U9/R2. Transient "X joined" announcements for the host lobby. A pure queue:
+ * `announce` (wired to useRoomState's onPlayerJoined so it reuses the single room
+ * channel, KTD6) pushes a toast that auto-expires after a short window, so rapid
+ * joins stack instead of overwriting one another (R2.3). Rendering is gated to
+ * the lobby by the caller.
+ */
+export function useJoinAnnouncements(): {
+  items: JoinAnnouncement[];
+  announce: (payload: Record<string, unknown>) => void;
+} {
+  const [items, setItems] = useState<JoinAnnouncement[]>([]);
+  const seq = useRef(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const announce = useCallback((payload: Record<string, unknown>) => {
+    const username = typeof payload.username === "string" ? payload.username : "A player";
+    const key = ++seq.current;
+    setItems((prev) => [...prev, { key, username }]);
+    timers.current.push(
+      setTimeout(() => setItems((prev) => prev.filter((it) => it.key !== key)), 1600),
+    );
+  }, []);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      for (const t of pending) clearTimeout(t);
+    };
+  }, []);
+
+  return { items, announce };
 }
 
 /**

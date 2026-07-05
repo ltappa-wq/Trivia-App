@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
+import { Fireworks } from "@/components/Fireworks";
 import type { ClientQuestion } from "@/lib/db/types";
 
 export function AnswerPanel({
@@ -59,6 +60,8 @@ export function AnswerPanel({
   if (locked) {
     return (
       <p className={`result ${result?.correct ? "correct" : "wrong"}`} aria-live="assertive">
+        {/* Celebrate a correct answer on this device only (R1). */}
+        {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
         {result && result.points > 0 ? ` — +${result.points}` : ""}
       </p>

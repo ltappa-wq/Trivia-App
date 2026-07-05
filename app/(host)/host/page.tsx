@@ -6,18 +6,22 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
-import { listOpenChallenges } from "@/lib/realtime/channel";
-import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
-import { isLastIndex } from "@/lib/gameFlow";
+import { listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
+import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { AnswerPanel } from "@/components/AnswerPanel";
-import type { OpenChallenge } from "@/lib/db/types";
+import { JoinToast } from "@/components/JoinToast";
+import { Podium } from "@/components/Podium";
+import { AnswerReveal } from "@/components/AnswerReveal";
+import type { OpenChallenge, RevealedAnswer } from "@/lib/db/types";
 
 function HostView() {
   const params = useSearchParams();
@@ -25,10 +29,13 @@ function HostView() {
   const cred = loadHostCredential(code);
   const token = cred?.token ?? null;
 
-  const { state, offset, error, loading } = useRoomState(code, token);
+  // Lobby join announcements (U9): fed by the single room channel via onPlayerJoined.
+  const { items: joinAnnouncements, announce: announceJoin } = useJoinAnnouncements();
+  const { state, offset, error, loading } = useRoomState(code, token, announceJoin);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
+  const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
 
   const game = state?.game ?? null;
 
@@ -50,6 +57,24 @@ function HostView() {
     };
   }, [token, game?.paused, state]);
 
+  // R1. Fetch the correct answer for the shared screen once the room enters
+  // review (gated RPC); clear it when the question changes or review ends.
+  useEffect(() => {
+    if (!token || !game?.reviewing) {
+      setReveal(null);
+      return;
+    }
+    let active = true;
+    revealAnswer(token)
+      .then((r) => {
+        if (active) setReveal(r);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token, game?.reviewing, game?.current_index]);
+
   async function rule(challengeId: string, ruling: Ruling) {
     if (!token) return;
     setBusy(true);
@@ -63,6 +88,28 @@ function HostView() {
     }
   }
   const remaining = useQuestionCountdown(game, offset);
+
+  // R5.1 timer path: when the answer window elapses without everyone answering,
+  // the host (the pacing authority) closes the question into review. Fired once
+  // per question via a ref keyed on current_index; the server CAS makes a race
+  // with the all-answered path in submitAnswer a safe no-op.
+  const closedForIndex = useRef<number | null>(null);
+  useEffect(() => {
+    if (!token || !game || game.status === "ended" || game.paused || game.reviewing) return;
+    // Decide from reveal_at directly (shouldAutoClose), not the async `remaining`
+    // value: on the commit right after advance, `remaining` can still hold the
+    // previous question's stale 0 and would otherwise close the fresh question
+    // the instant it appears (R4). `remaining` stays in the deps purely as a
+    // ~250ms heartbeat so genuine timer expiry re-evaluates.
+    if (!shouldAutoClose(game, offset)) return;
+    if (closedForIndex.current === game.current_index) return;
+    closedForIndex.current = game.current_index;
+    // Reset on failure so the next countdown tick retries rather than leaving the
+    // question stuck out of review.
+    void closeQuestion(code, token, game.current_index).catch(() => {
+      closedForIndex.current = null;
+    });
+  }, [remaining, offset, token, code, game]);
 
   async function handleAdvance(expectedIndex: number) {
     if (!token) return;
@@ -105,6 +152,7 @@ function HostView() {
   const leaderboard = state?.leaderboard ?? [];
   const started = game.current_index >= 0;
   const ended = game.status === "ended";
+  const reviewing = game.reviewing;
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
@@ -164,6 +212,7 @@ function HostView() {
 
       {!started && (
         <section>
+          <JoinToast items={joinAnnouncements} />
           <h2>Players</h2>
           {leaderboard.length === 0 ? (
             <p>No players yet — share code {game.code} to invite them.</p>
@@ -185,7 +234,7 @@ function HostView() {
       )}
 
       <div className="host-live">
-      {started && !ended && !game.paused && state?.current_question && (
+      {started && !ended && !game.paused && !reviewing && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -224,6 +273,23 @@ function HostView() {
         </section>
       )}
 
+      {started && !ended && reviewing && !game.paused && (
+        <section aria-live="polite" className="review">
+          <h2>Time&apos;s up — Question {game.current_index + 1} review</h2>
+          <p>Answers are locked. Here&apos;s where things stand.</p>
+          <AnswerReveal reveal={reveal} />
+          {onLastQuestion ? (
+            <button type="button" disabled={busy} onClick={handleFinish}>
+              Finish game
+            </button>
+          ) : (
+            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
+              Next question
+            </button>
+          )}
+        </section>
+      )}
+
       {started && !ended && (
         <section>
           <h2>Leaderboard</h2>
@@ -250,6 +316,7 @@ function HostView() {
             const { winnerIds, label } = describeWinners(standings);
             return (
               <>
+                <Podium standings={standings} />
                 <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
                 <ol>
                   {standings.map((p) => (

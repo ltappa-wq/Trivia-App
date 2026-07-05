@@ -9,8 +9,9 @@ import {
 } from "../join";
 
 describe("code + username normalization (U5)", () => {
-  it("uppercases and trims the code", () => {
-    expect(normalizeCode(" ab2xk9 ")).toBe("AB2XK9");
+  it("trims and strips non-digits from the code (R6.1)", () => {
+    expect(normalizeCode(" 01 234 ")).toBe("01234");
+    expect(normalizeCode("04213")).toBe("04213");
   });
 
   it("collapses whitespace in usernames", () => {
@@ -24,9 +25,12 @@ describe("code + username normalization (U5)", () => {
     expect(validateUsername("x".repeat(USERNAME_MAX + 1)).ok).toBe(false);
   });
 
-  it("recognizes a well-shaped 6-char code", () => {
-    expect(isValidCodeShape("AB2XK9")).toBe(true);
-    expect(isValidCodeShape("abc")).toBe(false);
+  it("recognizes a well-shaped 5-digit numeric code (R6.1)", () => {
+    expect(isValidCodeShape("01234")).toBe(true);
+    expect(isValidCodeShape("ABCDE")).toBe(false); // letters
+    expect(isValidCodeShape("1234")).toBe(false); // too short
+    expect(isValidCodeShape("123456")).toBe(false); // too long
+    expect(isValidCodeShape("12 34")).toBe(false); // space
   });
 });
 

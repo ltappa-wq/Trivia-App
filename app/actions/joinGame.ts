@@ -19,7 +19,11 @@ import {
   validateUsername,
 } from "@/lib/join";
 
-const joinLimiter = new RateLimiter(10, 60_000); // 10 attempts / minute / IP
+// Tightened (R6.2c): the 5-digit numeric code space is small (100k), so join
+// throttling is a primary defense against code enumeration, not just abuse. 5
+// attempts/min/IP makes a full scan impractical. Best-effort per serverless
+// instance (see RateLimiter); a shared store is the deferred upgrade path.
+const joinLimiter = new RateLimiter(5, 60_000); // 5 attempts / minute / IP
 
 export interface JoinResult {
   playerId: string;
@@ -41,10 +45,14 @@ export async function joinGame(rawCode: string, rawUsername: string): Promise<Jo
   if (!nameCheck.ok) throw new Error(nameCheck.error);
 
   const supabase = getServiceClient();
+  // Filter to live games (R6.2b, KTD2): an ended game's code may have been reused
+  // by a new lobby/active game, so restricting the lookup to joinable statuses
+  // both retires the ended code and avoids a multi-row match on a recycled value.
   const { data: game } = await supabase
     .from("games")
     .select("id, status")
     .eq("code", code)
+    .in("status", ["lobby", "active"])
     .maybeSingle();
   if (!game) throw new Error("Game not found");
 

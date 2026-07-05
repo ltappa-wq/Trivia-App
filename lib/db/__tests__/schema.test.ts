@@ -20,6 +20,14 @@ const challenges = readFileSync(
   fileURLToPath(new URL("../../../supabase/migrations/0003_challenges.sql", import.meta.url)),
   "utf8",
 );
+const reviewPhase = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0006_review_phase.sql", import.meta.url)),
+  "utf8",
+);
+const revealAnswer = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0007_reveal_answer.sql", import.meta.url)),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -70,6 +78,42 @@ describe("hydrate RPC invariants", () => {
     // Postgres grants EXECUTE to PUBLIC by default, so without this the function
     // stays callable by anonymous clients despite the anon-revoke.
     expect(rpcs).toMatch(/revoke execute on function public\.resolve_token\(text\) from public/i);
+  });
+});
+
+describe("review phase migration invariants (U5, R5)", () => {
+  it("adds the reviewing flag to games", () => {
+    expect(reviewPhase).toMatch(/add column if not exists reviewing boolean not null default false/);
+  });
+
+  it("re-exposes reviewing through the hydrate RPC without leaking answer keys", () => {
+    expect(reviewPhase).toMatch(/create or replace function public\.hydrate_game_state/);
+    expect(reviewPhase).toMatch(/'reviewing', g\.reviewing/);
+    const questionBlock = reviewPhase.slice(reviewPhase.indexOf("'current_question'"));
+    expect(questionBlock).not.toContain("correct_option");
+    expect(questionBlock).not.toContain("accepted_variants");
+  });
+});
+
+describe("reveal_answer RPC invariants (R1, R2)", () => {
+  it("is a security-definer function executable by anon", () => {
+    expect(revealAnswer).toMatch(/create or replace function public\.reveal_answer/);
+    expect(revealAnswer).toMatch(/security definer/);
+    expect(revealAnswer).toMatch(
+      /grant execute on function public\.reveal_answer\(text\) to anon/,
+    );
+  });
+
+  it("exposes the answer key only when reviewing or ended", () => {
+    // It DOES surface correct_option/accepted_variants (the review reveal), but
+    // the current-question select is gated on the room no longer being answerable.
+    expect(revealAnswer).toMatch(/correct_option/);
+    expect(revealAnswer).toMatch(/accepted_variants/);
+    expect(revealAnswer).toMatch(/g\.reviewing = true or g\.status = 'ended'/);
+  });
+
+  it("pins search_path including extensions so nested digest() resolves", () => {
+    expect(revealAnswer).toMatch(/set search_path = public, extensions/);
   });
 });
 

@@ -70,6 +70,32 @@ describe("generateQuestions", () => {
     ).rejects.toBeInstanceOf(GenerationError);
   });
 
+  it("excludes prompts already in the bank and regenerates (R7.2)", async () => {
+    // First attempt returns a prompt that's already banked plus two fresh ones;
+    // the banked one is rejected and the tail attempt fills the gap.
+    const fetchImpl = mockFetch([[mc("Banked One"), mc("q2"), mc("q3")], [mc("q4")]]);
+    const seen = new Set(["banked one"]); // normalized form of "Banked One"
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, seen);
+    expect(out).toHaveLength(3);
+    expect(out.map((q) => q.prompt)).not.toContain("Banked One");
+  });
+
+  it("drops duplicates within a single batch, keeping one (R7)", async () => {
+    // "q1" and "Q1?" normalize equal — only one survives; tail fills the rest.
+    const fetchImpl = mockFetch([[mc("q1"), mc("Q1?"), mc("q2")], [mc("q3")]]);
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl });
+    expect(out).toHaveLength(3);
+    const norms = out.map((q) => q.prompt.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim());
+    expect(new Set(norms).size).toBe(3);
+  });
+
+  it("throws when only duplicates are available (fails loud, R7.3)", async () => {
+    const fetchImpl = mockFetch([[mc("dup")]]); // every attempt is the same banked prompt
+    await expect(
+      generateQuestions(mcParams, { apiKey: "k", fetchImpl, maxAttempts: 3 }, new Set(["dup"])),
+    ).rejects.toBeInstanceOf(GenerationError);
+  });
+
   it("surfaces a handled failure on an xAI HTTP error rather than a partial set", async () => {
     const fetchImpl = vi.fn(async () => ({ ok: false, status: 500 }) as unknown as Response);
     await expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl })).rejects.toBeInstanceOf(

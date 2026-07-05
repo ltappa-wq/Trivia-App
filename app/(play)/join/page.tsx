@@ -47,10 +47,12 @@ function JoinForm() {
           Room code
           <input
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            autoCapitalize="characters"
+            // Numeric codes (R6.1): keep digits only and surface the number pad.
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             autoComplete="off"
-            inputMode="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={5}
             required
           />
         </label>
