@@ -62,10 +62,10 @@ export const CATEGORY_MAX_LEN = 40;
 export const MAX_CATEGORIES = 8;
 
 export const QUESTION_COUNT_MIN = 1;
-// KTD10: whole-set generation runs in one server action, so the count is capped
-// to a ceiling that fits Vercel's function-duration budget. Raising this is the
-// trigger to move generation to a background route handler (Open Question).
-export const QUESTION_COUNT_MAX = 20;
+// Product ceiling: hosts can request up to 100 questions. Whole-set generation
+// still runs in one server action (KTD10) with tail regeneration; very high
+// counts may need a background route handler if duration budgets are hit.
+export const QUESTION_COUNT_MAX = 100;
 
 export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer"];
 export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
