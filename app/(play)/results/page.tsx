@@ -24,14 +24,33 @@ function ResultsView() {
   const standings = sortStandings(state?.leaderboard ?? []);
   const { winnerIds, label } = describeWinners(standings);
   const myId = state?.player?.id;
+  const myRank = myId ? standings.findIndex((p) => p.id === myId) + 1 : 0;
+  const iWon = myId ? winnerIds.has(myId) : false;
 
   return (
     <main>
       <h1>Final results</h1>
       <p>{label ? `${label} 🎉` : "No winner this time — nobody scored."}</p>
-      <ol>
+
+      {myRank > 0 && (
+        <div className={`placement-card${iWon ? " placement-card--winner" : ""}`}>
+          <span className="placement-card__rank">
+            {iWon ? "🏆 You won!" : `You placed ${ordinal(myRank)}!`}
+          </span>
+          <p className="placement-card__sub">
+            out of {standings.length} player{standings.length === 1 ? "" : "s"}
+          </p>
+        </div>
+      )}
+
+      <ol className="results-list">
         {standings.map((p, i) => (
-          <li key={p.id}>
+          <li
+            key={p.id}
+            className={`${p.id === myId ? "is-you " : ""}${
+              winnerIds.has(p.id) ? "is-winner" : ""
+            }`.trim()}
+          >
             <span>
               {i + 1}. {p.username} — {p.score}
             </span>
@@ -42,6 +61,22 @@ function ResultsView() {
       </ol>
     </main>
   );
+}
+
+// 1st / 2nd / 3rd / 4th … English ordinal for the placement card.
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
 }
 
 export default function ResultsPage() {

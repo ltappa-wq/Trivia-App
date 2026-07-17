@@ -120,6 +120,19 @@ export interface RevealedAnswer {
   correction: string | null;
 }
 
+// --- Review-phase answer distribution (answer_distribution; gated on phase) ---
+
+export interface AnswerDistribution {
+  index: number;
+  mode: AnswerMode;
+  options: string[] | null;
+  correct_option: number | null;
+  /** Total answers recorded for the current question. */
+  total: number;
+  /** Per-option answer counts (multiple_choice only); null for type_answer. */
+  counts: number[] | null;
+}
+
 // --- Host adjudication view (list_open_challenges; host-only, includes keys) ---
 
 export interface OpenChallenge {

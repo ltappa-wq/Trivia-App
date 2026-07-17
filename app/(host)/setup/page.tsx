@@ -4,7 +4,7 @@
 // "generating" state (whole-set generation takes a moment, KTD10), and an error
 // state offering Retry (re-run) and Back-to-edit (preserve the form).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame } from "@/app/actions/createGame";
 import { saveHostCredential } from "@/lib/clientSession";
@@ -24,10 +24,38 @@ const MODE_LABELS: Record<AnswerMode, string> = {
   type_answer: "Type the answer",
 };
 
+const DIFFICULTY_LABELS: Record<Difficulty, string> = {
+  easy: "🙂 Easy",
+  medium: "🔥 Medium",
+  hard: "💀 Hard",
+};
+
+// Playful icons for the category chips (falls back to a neutral glyph).
+const CATEGORY_ICONS: Record<string, string> = {
+  "General Knowledge": "🧠",
+  History: "🏛️",
+  Science: "🧪",
+  Geography: "🌍",
+  Sports: "⚽",
+  "Movies & TV": "🎬",
+  Music: "🎵",
+  "Art & Literature": "🎨",
+  Technology: "💻",
+  "Food & Drink": "🍔",
+};
+
+const TAGLINES = [
+  "Warms up faster than your group chat.",
+  "Fewer arguments than family game night. (We tried.)",
+  "AI writes it. You argue about it.",
+  "No two games are ever the same.",
+];
+
 export default function SetupPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("editing");
   const [error, setError] = useState<string | null>(null);
+  const [taglineIdx, setTaglineIdx] = useState(0);
 
   const [hostPlays, setHostPlays] = useState(true);
   const [hostName, setHostName] = useState("");
@@ -36,9 +64,25 @@ export default function SetupPage() {
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
 
+  // Rotate the one-liner under the title while editing.
+  useEffect(() => {
+    if (status !== "editing") return;
+    const id = setInterval(
+      () => setTaglineIdx((i) => (i + 1) % TAGLINES.length),
+      2200,
+    );
+    return () => clearInterval(id);
+  }, [status]);
+
   function toggleCategory(cat: string) {
     setCategories((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  }
+
+  function adjustCount(delta: number) {
+    setQuestionCount((c) =>
+      Math.max(QUESTION_COUNT_MIN, Math.min(QUESTION_COUNT_MAX, c + delta)),
     );
   }
 
@@ -99,6 +143,9 @@ export default function SetupPage() {
   return (
     <main>
       <h1>Host a game</h1>
+      <p className="tagline" aria-live="polite">
+        {TAGLINES[taglineIdx]}
+      </p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -136,28 +183,57 @@ export default function SetupPage() {
                 checked={categories.includes(cat)}
                 onChange={() => toggleCategory(cat)}
               />
+              <span aria-hidden="true">{CATEGORY_ICONS[cat] ?? "❓"}</span>
               {cat}
             </label>
           ))}
         </fieldset>
 
-        <label>
-          Number of questions
-          <input
-            type="number"
-            min={QUESTION_COUNT_MIN}
-            max={QUESTION_COUNT_MAX}
-            value={questionCount}
-            onChange={(e) =>
-              setQuestionCount(
-                Math.max(
-                  QUESTION_COUNT_MIN,
-                  Math.min(QUESTION_COUNT_MAX, Number(e.target.value) || QUESTION_COUNT_MIN),
-                ),
-              )
-            }
-          />
-        </label>
+        <div className="field">
+          <span className="field__label" id="qcount-label">
+            Number of questions
+          </span>
+          <span className="stepper">
+            <button
+              type="button"
+              aria-label="Fewer questions"
+              disabled={questionCount <= QUESTION_COUNT_MIN}
+              onClick={() => adjustCount(-1)}
+            >
+              −
+            </button>
+            {/* Keeps a real, labeled number input (typing + e2e .fill) flanked by
+                the +/- steppers. aria-label associates the accessible name with
+                the input, not the sibling buttons in this wrapper. */}
+            <input
+              type="number"
+              className="stepper__input"
+              aria-label="Number of questions"
+              min={QUESTION_COUNT_MIN}
+              max={QUESTION_COUNT_MAX}
+              value={questionCount}
+              onChange={(e) =>
+                setQuestionCount(
+                  Math.max(
+                    QUESTION_COUNT_MIN,
+                    Math.min(
+                      QUESTION_COUNT_MAX,
+                      Number(e.target.value) || QUESTION_COUNT_MIN,
+                    ),
+                  ),
+                )
+              }
+            />
+            <button
+              type="button"
+              aria-label="More questions"
+              disabled={questionCount >= QUESTION_COUNT_MAX}
+              onClick={() => adjustCount(1)}
+            >
+              +
+            </button>
+          </span>
+        </div>
 
         <fieldset>
           <legend>Answer mode</legend>
@@ -174,19 +250,21 @@ export default function SetupPage() {
           ))}
         </fieldset>
 
-        <label>
-          Difficulty
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-          >
+        <div className="field" role="group" aria-label="Difficulty">
+          <span className="field__label">Difficulty</span>
+          <span className="segmented">
             {DIFFICULTIES.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
+              <button
+                key={d}
+                type="button"
+                aria-pressed={difficulty === d}
+                onClick={() => setDifficulty(d)}
+              >
+                {DIFFICULTY_LABELS[d]}
+              </button>
             ))}
-          </select>
-        </label>
+          </span>
+        </div>
 
         <button type="submit" disabled={!canSubmit}>
           Create game

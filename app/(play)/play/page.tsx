@@ -12,8 +12,10 @@ import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
+import { Countdown } from "@/components/Countdown";
 import type { ChallengeKind } from "@/lib/challenge";
 import type { RevealedAnswer } from "@/lib/db/types";
 
@@ -108,15 +110,22 @@ function PlayView() {
         <p>Room {game.code}</p>
       </header>
 
-      {!started && <p>Waiting for the host to start…</p>}
+      {!started && (
+        <div className="waiting" aria-live="polite">
+          <span className="waiting__emoji" aria-hidden="true">
+            🎮
+          </span>
+          <p>
+            Waiting for the host to start<span className="waiting__dots" aria-hidden="true" />
+          </p>
+        </div>
+      )}
 
       {started && question && (
         <section aria-live="polite">
           <h2>{question.prompt}</h2>
           {!reviewing && remaining !== null && (
-            <p aria-label={`${Math.ceil(remaining / 1000)} seconds remaining`}>
-              {Math.ceil(remaining / 1000)}s
-            </p>
+            <Countdown remaining={remaining} total={ANSWER_TIMER_MS[question.mode]} />
           )}
 
           {question.voided ? (

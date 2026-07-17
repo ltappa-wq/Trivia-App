@@ -10,6 +10,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
 import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
 import { computeScore } from "@/lib/scoring/speed";
+import { currentStreak } from "@/lib/scoring/streak";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
 
@@ -18,7 +19,15 @@ export interface SubmitResult {
   points: number;
   /** True when a mid-game spectator can't score the in-progress question. */
   spectating?: boolean;
+  /** Trailing correct-answer streak (>=1 on a correct answer) for the badge. */
+  streak?: number;
 }
+
+// One player's answered questions with correctness — the input to currentStreak.
+type StreakHistoryRow = {
+  is_correct: boolean;
+  questions: { index: number } | { index: number }[] | null;
+};
 
 export async function submitAnswer(token: string, rawAnswer: string): Promise<SubmitResult> {
   // Server-side submit time — the honest input to the speed score (KTD4).
@@ -94,7 +103,32 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   // can't answer (guarded above), so every answer row is from an active player.
   await maybeEnterReview(supabase, game.id, question.id, game.code, game.current_index);
 
-  return { correct, points };
+  // Celebration flourish: the player's trailing correct-answer streak, derived
+  // from their own persisted history (the row just inserted is included), so it
+  // survives reload and the client never counts its own streak.
+  const streak = correct
+    ? await computeStreak(supabase, player.playerId)
+    : undefined;
+
+  return { correct, points, ...(streak !== undefined ? { streak } : {}) };
+}
+
+/** The player's current correct-answer streak from their answer history. */
+async function computeStreak(
+  supabase: ReturnType<typeof getServiceClient>,
+  playerId: string,
+): Promise<number | undefined> {
+  const { data, error } = await supabase
+    .from("answers")
+    .select("is_correct, questions(index)")
+    .eq("player_id", playerId);
+  if (error || !data) return undefined;
+
+  const history = (data as StreakHistoryRow[]).map((row) => {
+    const q = Array.isArray(row.questions) ? row.questions[0] : row.questions;
+    return { index: q?.index ?? -1, correct: row.is_correct };
+  });
+  return currentStreak(history.filter((r) => r.index >= 0));
 }
 
 /**

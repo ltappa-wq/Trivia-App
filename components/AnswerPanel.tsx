@@ -8,7 +8,11 @@
 import { useEffect, useRef, useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { Fireworks } from "@/components/Fireworks";
+import { TILE_SHAPES } from "@/lib/answerShapes";
 import type { ClientQuestion } from "@/lib/db/types";
+
+// Show the "in a row" badge only once it is worth celebrating (2+).
+const STREAK_BADGE_MIN = 2;
 
 export function AnswerPanel({
   token,
@@ -64,6 +68,9 @@ export function AnswerPanel({
         {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
         {result && result.points > 0 ? ` — +${result.points}` : ""}
+        {result?.correct && (result.streak ?? 0) >= STREAK_BADGE_MIN && (
+          <span className="streak-badge">🔥 {result.streak} in a row!</span>
+        )}
       </p>
     );
   }
@@ -73,10 +80,13 @@ export function AnswerPanel({
     <>
       {error && <p role="alert">{error}</p>}
       {question.mode === "multiple_choice" ? (
-        <ul>
+        <ul className="answer-tiles">
           {(question.options ?? []).map((opt, i) => (
             <li key={i}>
               <button type="button" disabled={submitting} onClick={() => submit(String(i))}>
+                <span className="answer-tile__shape" aria-hidden="true">
+                  {TILE_SHAPES[i % TILE_SHAPES.length]}
+                </span>
                 {opt}
               </button>
             </li>

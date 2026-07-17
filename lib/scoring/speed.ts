@@ -1,20 +1,21 @@
-// U7. Speed-based scoring (R7, R4, KTD4, KTD1). A correct in-window answer earns
-// a guaranteed floor plus a time bonus that decays linearly across the answer
-// window. The bonus is normalized against a fraction of *that* mode's own timer
-// (ANSWER_TIMER_MS), so an equally-prompt answer earns a comparable score
-// regardless of mode — type-the-answer is not penalized for being inherently
-// slower (AE2), and its longer window makes the absolute per-second drop gentler.
-// A correct answer at the reveal instant scores MAX_POINTS; at the deadline it
-// scores FLOOR_POINTS and never less. All timestamps are server-side (KTD4).
+// U7. Speed-based scoring (R7, R4, KTD4, KTD1). A correct answer earns the full
+// MAX_POINTS if it lands within the first second of the answer window, then the
+// score slides down linearly to DEADLINE_POINTS for an answer given right before
+// the window closes. A wrong, late, or missing answer scores 0. The decay runs
+// against *that* mode's own timer (ANSWER_TIMER_MS), so type-the-answer — which
+// has a longer window — decays more gently across its extra time rather than
+// being penalized for being inherently slower (AE2). All timestamps are
+// server-side (KTD4); the client never computes its own score.
 
 import type { AnswerMode } from "@/lib/db/types";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 
-// Range 100–1000: any correct in-window answer earns at least FLOOR_POINTS, and
-// the time bonus (MAX_POINTS - FLOOR_POINTS) decays to 0 at the deadline.
-export const FLOOR_POINTS = 100;
+// Range 500–1000: an answer in the first second earns MAX_POINTS; the score then
+// decays linearly to DEADLINE_POINTS at the deadline and never below it in-window.
 export const MAX_POINTS = 1000;
-export const TIME_BONUS = MAX_POINTS - FLOOR_POINTS;
+export const DEADLINE_POINTS = 500;
+// The opening grace window that earns full points (the "first second").
+export const FULL_POINTS_MS = 1000;
 
 export interface ScoreInput {
   correct: boolean;
@@ -25,9 +26,9 @@ export interface ScoreInput {
 
 /**
  * Points for one answer. Wrong, late (past the window), or missing answers score
- * 0. Otherwise FLOOR_POINTS plus a linear time bonus in [0, TIME_BONUS] that is
- * largest at the reveal instant and reaches 0 at the deadline — so a correct
- * answer is worth MAX_POINTS at reveal and exactly FLOOR_POINTS at the deadline.
+ * 0. A correct answer within the first second (FULL_POINTS_MS) scores MAX_POINTS;
+ * after that it decays linearly with elapsed time to exactly DEADLINE_POINTS at
+ * the deadline, and never below DEADLINE_POINTS while still in the window.
  */
 export function computeScore({ correct, mode, revealAtMs, submitAtMs }: ScoreInput): number {
   if (!correct) return 0;
@@ -37,7 +38,15 @@ export function computeScore({ correct, mode, revealAtMs, submitAtMs }: ScoreInp
   if (elapsed > timerMs) return 0; // late — outside the window
   const clamped = Math.max(0, elapsed); // guard clock skew before reveal
 
-  const fraction = clamped / timerMs; // 0 at reveal, 1 at deadline
-  const bonus = Math.round(TIME_BONUS * (1 - fraction));
-  return FLOOR_POINTS + bonus;
+  // The opening grace second earns full points.
+  if (clamped <= FULL_POINTS_MS) return MAX_POINTS;
+
+  // Decay window is the time after the grace second up to the deadline. Guard the
+  // degenerate case where a mode's timer is shorter than the grace itself.
+  const decayWindow = timerMs - FULL_POINTS_MS;
+  if (decayWindow <= 0) return MAX_POINTS;
+
+  const fraction = (clamped - FULL_POINTS_MS) / decayWindow; // 0 just after 1s, 1 at deadline
+  const drop = Math.round((MAX_POINTS - DEADLINE_POINTS) * fraction);
+  return MAX_POINTS - drop;
 }

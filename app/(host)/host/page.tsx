@@ -13,15 +13,22 @@ import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { loadHostCredential } from "@/lib/clientSession";
-import { listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
+import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
 import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
+import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import { AnswerPanel } from "@/components/AnswerPanel";
+import { Countdown } from "@/components/Countdown";
 import { JoinToast } from "@/components/JoinToast";
 import { Podium } from "@/components/Podium";
 import { AnswerReveal } from "@/components/AnswerReveal";
-import type { OpenChallenge, RevealedAnswer } from "@/lib/db/types";
+import { AnswerDistribution } from "@/components/AnswerDistribution";
+import type {
+  AnswerDistribution as AnswerDistributionData,
+  OpenChallenge,
+  RevealedAnswer,
+} from "@/lib/db/types";
 
 function HostView() {
   const params = useSearchParams();
@@ -36,8 +43,40 @@ function HostView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
   const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
+  const [dist, setDist] = useState<AnswerDistributionData | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [joinUrl, setJoinUrl] = useState("");
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const game = state?.game ?? null;
+
+  // Build the shareable join link on the client (needs window.origin) and tear
+  // down the "Copied" reset timer on unmount so it never fires after teardown.
+  useEffect(() => {
+    if (typeof window === "undefined" || !game?.code) return;
+    setJoinUrl(`${window.location.origin}/join?code=${game.code}`);
+  }, [game?.code]);
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+    };
+  }, []);
+
+  function copyJoinLink() {
+    const link =
+      joinUrl || (game?.code ? `${window.location.origin}/join?code=${game.code}` : "");
+    if (!link) return;
+    // Optimistic UI: flip to "Copied" regardless of clipboard permission, which
+    // fails silently in sandboxed/insecure contexts.
+    try {
+      navigator.clipboard?.writeText(link).catch(() => {});
+    } catch {
+      /* no clipboard API — still show the optimistic confirmation */
+    }
+    setCopied(true);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(false), 1600);
+  }
 
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
@@ -57,17 +96,25 @@ function HostView() {
     };
   }, [token, game?.paused, state]);
 
-  // R1. Fetch the correct answer for the shared screen once the room enters
-  // review (gated RPC); clear it when the question changes or review ends.
+  // R1/R5. Once the room enters review, fetch the correct answer and the per-
+  // option answer distribution for the shared screen (both phase-gated RPCs).
+  // Clear them when the question changes or review ends. The distribution RPC may
+  // not exist until migration 0008 is applied, so a failure degrades to no bar.
   useEffect(() => {
     if (!token || !game?.reviewing) {
       setReveal(null);
+      setDist(null);
       return;
     }
     let active = true;
     revealAnswer(token)
       .then((r) => {
         if (active) setReveal(r);
+      })
+      .catch(() => {});
+    answerDistribution(token)
+      .then((d) => {
+        if (active) setDist(d);
       })
       .catch(() => {});
     return () => {
@@ -213,9 +260,22 @@ function HostView() {
       {!started && (
         <section>
           <JoinToast items={joinAnnouncements} />
+          <p>
+            Room code: <span className="room-code">{game.code}</span>
+          </p>
+          <div className="copy-link">
+            <span className="copy-link__url">{joinUrl || `…/join?code=${game.code}`}</span>
+            <button
+              type="button"
+              className={copied ? "is-copied" : undefined}
+              onClick={copyJoinLink}
+            >
+              {copied ? "✓ Copied" : "Copy link"}
+            </button>
+          </div>
           <h2>Players</h2>
           {leaderboard.length === 0 ? (
-            <p>No players yet — share code {game.code} to invite them.</p>
+            <p>No players yet — share the code above to invite them.</p>
           ) : (
             <ul>
               {leaderboard.map((p) => (
@@ -238,9 +298,10 @@ function HostView() {
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
-            <p aria-label={`${Math.ceil(remaining / 1000)} seconds remaining`}>
-              {Math.ceil(remaining / 1000)}s
-            </p>
+            <Countdown
+              remaining={remaining}
+              total={ANSWER_TIMER_MS[state.current_question.mode]}
+            />
           )}
           {cred.playerToken ? (
             <AnswerPanel
@@ -278,6 +339,7 @@ function HostView() {
           <h2>Time&apos;s up — Question {game.current_index + 1} review</h2>
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
+          <AnswerDistribution dist={dist} />
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game

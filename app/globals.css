@@ -2,28 +2,41 @@
    Framework-free: styles the semantic HTML the pages already render (main,
    header, form, fieldset, buttons, lists, states) so the whole app is themed
    from one file. Phone-first tap targets and visible focus rings per the plan's
-   accessibility conventions. */
+   accessibility conventions.
+
+   Buzzr UX refresh: rounded, playful palette (pink/magenta accent + gold + blue),
+   Fredoka display type on headings/buttons/scores, and motion-forward chrome. */
 
 :root {
-  --bg: #0f0b1e;
-  --bg-grad-1: #1b1440;
-  --bg-grad-2: #0f0b1e;
+  /* Backdrop */
+  --bg-grad-1: oklch(0.26 0.08 300);
+  --bg-grad-2: oklch(0.15 0.045 280);
+  /* Surfaces + ink */
   --surface: #ffffff;
-  --surface-2: #f6f5fb;
-  --text: #1e1b2e;
-  --muted: #6b7280;
-  --border: #e6e3f0;
-  --accent: #6d5efc;
-  --accent-strong: #574bd6;
-  --accent-soft: #efedff;
-  --success: #16a34a;
-  --success-soft: #e7f6ec;
-  --danger: #dc2626;
-  --danger-soft: #fdecec;
-  --radius: 14px;
-  --radius-sm: 10px;
-  --shadow: 0 10px 30px rgba(20, 12, 50, 0.12);
-  --ring: 0 0 0 3px rgba(109, 94, 252, 0.35);
+  --surface-2: #f5f2fb;
+  --text: #201c33;
+  --muted: #716c88;
+  --border: #e7e2f5;
+  /* Accents */
+  --accent: oklch(0.64 0.19 340);
+  --accent-strong: oklch(0.52 0.19 340);
+  --accent-soft: #f5f2fb;
+  --accent-b: oklch(0.8 0.15 95); /* gold — 1st place / celebration */
+  --blue: oklch(0.62 0.16 250); /* 2nd answer-tile color */
+  /* Semantic */
+  --success: oklch(0.7 0.17 150);
+  --success-strong: oklch(0.55 0.15 150);
+  --success-soft: oklch(0.95 0.04 150);
+  --danger: oklch(0.6 0.2 25);
+  --danger-soft: oklch(0.95 0.03 25);
+  /* Shape */
+  --radius: 20px;
+  --radius-sm: 13px;
+  --radius-pill: 999px;
+  --shadow: 0 14px 40px rgba(24, 12, 50, 0.16);
+  --shadow-sm: 0 6px 16px rgba(24, 12, 50, 0.1);
+  --ring: 0 0 0 3px oklch(0.64 0.19 340 / 0.4);
+  --display: var(--font-display), "Fredoka", ui-rounded, system-ui, sans-serif;
 }
 
 * {
@@ -41,18 +54,19 @@ body {
     Helvetica, Arial, sans-serif;
   color: var(--text);
   min-height: 100vh;
-  background: radial-gradient(1200px 600px at 50% -10%, var(--bg-grad-1), var(--bg-grad-2));
+  background: radial-gradient(1200px 620px at 50% -8%, var(--bg-grad-1), var(--bg-grad-2));
   -webkit-font-smoothing: antialiased;
 }
 
 /* Each page's <main> is a centered card column. */
 main {
+  position: relative;
   width: min(720px, 92vw);
   margin: clamp(1.5rem, 5vh, 4rem) auto;
   background: var(--surface);
-  border-radius: 20px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: clamp(1.25rem, 4vw, 2.25rem);
+  padding: clamp(1.35rem, 4vw, 2.4rem);
 }
 
 main[aria-busy="true"] {
@@ -65,15 +79,22 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+h1,
+h2 {
+  font-family: var(--display);
+}
+
 h1 {
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
-  line-height: 1.15;
+  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.12;
   margin: 0 0 0.35rem;
   letter-spacing: -0.02em;
 }
 
 h2 {
   font-size: clamp(1.15rem, 3vw, 1.5rem);
+  font-weight: 600;
   margin: 0 0 0.75rem;
   letter-spacing: -0.01em;
 }
@@ -96,21 +117,23 @@ section {
 /* --- Buttons ------------------------------------------------------------- */
 button {
   font: inherit;
+  font-family: var(--display);
   font-weight: 600;
   color: #fff;
   background: linear-gradient(180deg, var(--accent), var(--accent-strong));
   border: none;
   border-radius: var(--radius-sm);
-  padding: 0.7rem 1.15rem;
-  min-height: 44px;
+  padding: 0.75rem 1.2rem;
+  min-height: 46px;
   cursor: pointer;
-  transition: transform 0.06s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform 0.07s ease, box-shadow 0.15s ease, filter 0.15s ease;
   margin: 0.25rem 0.5rem 0.25rem 0;
+  box-shadow: 0 8px 20px oklch(0.64 0.19 340 / 0.28);
 }
 
 button:hover {
   filter: brightness(1.05);
-  box-shadow: 0 6px 16px rgba(109, 94, 252, 0.35);
+  box-shadow: 0 10px 24px oklch(0.64 0.19 340 / 0.38);
 }
 
 button:active {
@@ -118,7 +141,7 @@ button:active {
 }
 
 button:disabled {
-  background: #cfcbe4;
+  background: #d8d3e8;
   color: #f4f3fb;
   cursor: not-allowed;
   box-shadow: none;
@@ -149,15 +172,43 @@ li button {
   margin: 0;
   background: var(--surface-2);
   color: var(--text);
-  border: 1px solid var(--border);
-  padding: 0.9rem 1.1rem;
+  border: 1.5px solid var(--border);
+  padding: 0.95rem 1.1rem;
   font-weight: 600;
+  box-shadow: none;
 }
 
 li button:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
+}
+
+/* --- Shape-coded multiple-choice answer tiles (▲ ◆ ● ★) ------------------ */
+.answer-tiles li button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.answer-tile__shape {
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--tile-color, var(--accent));
+}
+.answer-tiles li:nth-child(1) button {
+  --tile-color: var(--accent);
+}
+.answer-tiles li:nth-child(2) button {
+  --tile-color: var(--blue);
+}
+.answer-tiles li:nth-child(3) button {
+  --tile-color: var(--accent-b);
+}
+.answer-tiles li:nth-child(4) button {
+  --tile-color: var(--success);
+}
+.answer-tiles li button:hover {
+  border-color: var(--tile-color);
 }
 
 /* --- Leaderboard / roster / results lists ------------------------------- */
@@ -166,7 +217,7 @@ section ul li {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.7rem 1rem;
+  padding: 0.72rem 1rem;
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
@@ -196,7 +247,8 @@ fieldset {
 }
 
 legend {
-  font-weight: 700;
+  font-family: var(--display);
+  font-weight: 600;
   padding: 0 0.4rem;
   color: var(--muted);
   font-size: 0.85rem;
@@ -209,19 +261,23 @@ fieldset label {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   background: var(--surface-2);
-  border-radius: 999px;
-  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.9rem;
   margin: 0.3rem 0.4rem 0.1rem 0;
   cursor: pointer;
   font-weight: 500;
   min-height: 40px;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.07s ease;
 }
 
 fieldset label:hover {
   border-color: var(--accent);
+}
+
+fieldset label:active {
+  transform: scale(0.97);
 }
 
 fieldset label:has(input:checked) {
@@ -236,7 +292,7 @@ form > label {
   flex-direction: column;
   gap: 0.4rem;
   font-weight: 600;
-  max-width: 220px;
+  max-width: 260px;
 }
 
 input[type="text"],
@@ -244,9 +300,9 @@ input[type="number"],
 input:not([type]),
 select {
   font: inherit;
-  padding: 0.6rem 0.75rem;
-  min-height: 44px;
-  border: 1px solid var(--border);
+  padding: 0.65rem 0.8rem;
+  min-height: 46px;
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text);
@@ -260,21 +316,135 @@ input[type="radio"] {
   accent-color: var(--accent);
 }
 
-/* --- Countdown timer (attribute hook, no markup change) ----------------- */
+/* Stacked label + control block (matches form > label layout for non-input
+   controls like the difficulty selector). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.field__label {
+  font-weight: 600;
+}
+
+/* --- Difficulty 3-button selector -------------------------------------- */
+.segmented {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.segmented button {
+  flex: 1 1 auto;
+  min-width: 92px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  box-shadow: none;
+}
+.segmented button:hover {
+  border-color: var(--accent);
+  filter: none;
+  box-shadow: none;
+}
+.segmented button[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  border-color: transparent;
+}
+
+/* --- Question-count stepper -------------------------------------------- */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.stepper button {
+  width: 46px;
+  min-width: 46px;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  border-radius: var(--radius-pill);
+}
+.stepper__input {
+  width: 4.5rem;
+  text-align: center;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  /* Hide the native spinners; the +/- buttons are the control. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.stepper__input::-webkit-outer-spin-button,
+.stepper__input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* --- Countdown timer (attribute hook kept for a11y) --------------------- */
 p[aria-label*="seconds remaining"] {
   display: inline-block;
+  font-family: var(--display);
   font-size: clamp(2rem, 8vw, 3rem);
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--accent-strong);
   margin: 0.25rem 0 1rem;
+}
+
+/* Ring variant (conic-gradient progress). --pct + --ring-color set inline. */
+.countdown-ring {
+  --pct: 100;
+  --ring-color: var(--accent);
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  margin: 0.35rem 0 1rem;
+  background: conic-gradient(
+    var(--ring-color) calc(var(--pct) * 1%),
+    var(--border) 0
+  );
+}
+.countdown-ring__face {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--surface);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.countdown-ring.is-urgent {
+  --ring-color: var(--danger);
+  animation: shake-urgent 0.3s infinite;
+}
+.countdown-ring.is-urgent .countdown-ring__face {
+  color: var(--danger);
+}
+@keyframes shake-urgent {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .countdown-ring.is-urgent {
+    animation: none;
+  }
 }
 
 /* --- States ------------------------------------------------------------- */
 p[role="alert"] {
   background: var(--danger-soft);
   color: var(--danger);
-  border: 1px solid #f5c6c6;
+  border: 1px solid oklch(0.85 0.08 25);
   border-radius: var(--radius-sm);
   padding: 0.7rem 0.9rem;
   font-weight: 600;
@@ -284,7 +454,7 @@ p[role="alert"] {
 section p[aria-live="assertive"] {
   font-weight: 700;
   font-size: 1.1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -300,7 +470,179 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Landing links read as stacked buttons. */
+/* --- Home hero ---------------------------------------------------------- */
+.home {
+  overflow: hidden;
+  text-align: center;
+}
+.home__hero {
+  position: relative;
+  z-index: 1;
+  padding: clamp(0.5rem, 3vw, 1.5rem) 0 0.5rem;
+}
+.home h1 {
+  font-size: clamp(2.4rem, 9vw, 3.6rem);
+}
+.home__brand {
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.home__tag {
+  color: var(--muted);
+  font-size: 1.05rem;
+  margin: 0 0 1.75rem;
+}
+.home__cta {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+.home__cta li {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.home__cta a {
+  display: block;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+.home__cta a:hover {
+  text-decoration: none;
+  filter: brightness(1.04);
+}
+.home__cta .cta-primary {
+  color: #fff;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 10px 24px oklch(0.64 0.19 340 / 0.35);
+  animation: cta-pulse 2.4s ease-in-out infinite;
+}
+.home__cta .cta-secondary {
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+}
+@keyframes cta-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+/* Floating decorative shapes behind the hero. */
+.home__shapes {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.home__shape {
+  position: absolute;
+  border-radius: 30%;
+  opacity: 0.16;
+  animation: float-shape 7s ease-in-out infinite;
+}
+.home__shape--1 { width: 90px; height: 90px; top: 8%; left: -3%; background: var(--accent); }
+.home__shape--2 { width: 64px; height: 64px; top: 62%; right: -2%; background: var(--blue); border-radius: 50%; animation-delay: 1.2s; }
+.home__shape--3 { width: 52px; height: 52px; bottom: 6%; left: 12%; background: var(--accent-b); border-radius: 50%; animation-delay: 2.4s; }
+@keyframes float-shape {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(12deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home__cta .cta-primary,
+  .home__shape {
+    animation: none;
+  }
+}
+
+/* --- Rotating tagline (setup) ------------------------------------------ */
+.tagline {
+  color: var(--muted);
+  min-height: 1.5em;
+  margin: -0.1rem 0 0.5rem;
+  transition: opacity 0.3s ease;
+}
+
+/* --- Player waiting animation ------------------------------------------ */
+.waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0;
+  color: var(--muted);
+}
+.waiting__emoji {
+  font-size: 2.6rem;
+  animation: bob 1.4s ease-in-out infinite;
+}
+.waiting__dots::after {
+  content: "";
+  animation: dots 1.5s steps(4, end) infinite;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiting__emoji { animation: none; }
+  .waiting__dots::after { animation: none; content: "…"; }
+}
+
+/* --- Copy-shareable-join-link row (host lobby) ------------------------- */
+.copy-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.55rem 0.55rem 1rem;
+  margin-bottom: 1rem;
+}
+.copy-link__url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.copy-link button {
+  flex-shrink: 0;
+  margin: 0;
+  white-space: nowrap;
+  padding: 0.6rem 1rem;
+}
+.copy-link button.is-copied {
+  background: linear-gradient(180deg, var(--success), var(--success-strong));
+  box-shadow: none;
+}
+
+/* --- Room code display (host lobby) ------------------------------------ */
+.room-code {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 7vw, 3.2rem);
+  letter-spacing: 0.12em;
+  color: var(--accent-strong);
+}
+
+/* Landing links read as stacked buttons (legacy fallback). */
 main > ul > li > a {
   display: inline-block;
   background: linear-gradient(180deg, var(--accent), var(--accent-strong));
@@ -326,7 +668,7 @@ main > ul > li {
 button.ghost {
   background: transparent;
   color: var(--accent-strong);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   box-shadow: none;
 }
 
@@ -340,14 +682,108 @@ button.ghost:hover {
 /* --- Answer result line (correct / wrong) ------------------------------- */
 section p.result.correct {
   background: var(--success-soft);
-  border-color: #bfe6cb;
-  color: var(--success);
+  border-color: oklch(0.82 0.09 150);
+  color: var(--success-strong);
 }
 
 section p.result.wrong {
   background: var(--danger-soft);
-  border-color: #f5c6c6;
+  border-color: oklch(0.85 0.08 25);
   color: var(--danger);
+}
+
+/* --- Correct-answer reveal (review phase) ------------------------------ */
+.answer-reveal {
+  background: var(--success-soft);
+  border: 1px solid oklch(0.82 0.09 150);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 1rem;
+  margin-top: 0.5rem;
+}
+.answer-reveal p {
+  margin: 0;
+}
+.answer-correction {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-top: 0.35rem !important;
+}
+
+/* --- Streak badge (🔥 N in a row!) ------------------------------------- */
+.streak-badge {
+  display: inline-block;
+  margin-left: 0.55rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, var(--accent-b), #e0a300);
+  color: #5a3d00;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* --- Review-phase answer distribution (per-option bars) ---------------- */
+.answer-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.8rem 0;
+}
+.answer-dist__row {
+  --bar-color: var(--accent);
+  --tile-color: var(--accent);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem 0.9rem;
+  align-items: center;
+}
+.answer-dist__row:nth-child(1) { --bar-color: var(--accent); --tile-color: var(--accent); }
+.answer-dist__row:nth-child(2) { --bar-color: var(--blue); --tile-color: var(--blue); }
+.answer-dist__row:nth-child(3) { --bar-color: var(--accent-b); --tile-color: var(--accent-b); }
+.answer-dist__row:nth-child(4) { --bar-color: var(--success); --tile-color: var(--success); }
+.answer-dist__label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.answer-dist__track {
+  grid-column: 1;
+  height: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.answer-dist__bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--bar-color);
+  border-radius: var(--radius-pill);
+  transition: width 0.4s ease;
+}
+.answer-dist__count {
+  grid-column: 2;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.answer-dist__row.is-correct {
+  --bar-color: var(--success);
+}
+.answer-dist__row.is-correct .answer-dist__label {
+  color: var(--success-strong);
+}
+@media (prefers-reduced-motion: reduce) {
+  .answer-dist__bar {
+    transition: none;
+  }
 }
 
 /* --- Correct-answer fireworks (U8, R1) --------------------------------- */
@@ -380,7 +816,7 @@ section p.result.correct {
   background: var(--accent);
 }
 .fireworks__particle:nth-child(3n + 1) {
-  background: #f5b301;
+  background: var(--accent-b);
 }
 @keyframes fireworks-burst {
   0% {
@@ -412,9 +848,9 @@ section p.result.correct {
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 600;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-sm);
   transform-origin: left center;
-  animation: join-bounce 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: join-bounce 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .join-toast__name {
   font-weight: 800;
@@ -467,13 +903,14 @@ section p.result.correct {
   transform: translateY(0);
 }
 .podium-step__medal {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
 }
 .podium-step__names {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-weight: 700;
+  font-family: var(--display);
+  font-weight: 600;
   color: var(--text);
   text-align: center;
 }
@@ -486,28 +923,68 @@ section p.result.correct {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 0.4rem;
+  padding-top: 0.5rem;
   width: 100%;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 800;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--display);
+  font-weight: 700;
 }
 .podium-step--1 .podium-step__block {
-  height: 96px;
-  background: linear-gradient(180deg, #ffe9a8, #f5c451);
-  color: #7a5a00;
+  height: 108px;
+  background: linear-gradient(180deg, var(--accent-b), #e0a300);
+  color: #5a3d00;
 }
 .podium-step--2 .podium-step__block {
-  height: 68px;
+  height: 76px;
 }
 .podium-step--3 .podium-step__block {
-  height: 48px;
+  height: 54px;
 }
 @media (prefers-reduced-motion: reduce) {
   .podium-step {
     transition: none;
   }
+}
+
+/* --- Player results placement card (R15) ------------------------------- */
+.placement-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  padding: 1.25rem 1rem;
+  margin: 0.5rem 0 1.25rem;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface));
+  border: 1.5px solid var(--border);
+}
+.placement-card--winner {
+  background: linear-gradient(180deg, oklch(0.95 0.06 95), var(--surface));
+  border-color: var(--accent-b);
+}
+.placement-card__rank {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.7rem;
+  color: var(--accent-strong);
+}
+.placement-card--winner .placement-card__rank {
+  color: #a06a00;
+}
+.placement-card__sub {
+  color: var(--muted);
+  margin: 0;
+}
+.results-list li.is-you {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+.results-list li.is-winner {
+  border-color: var(--accent-b);
 }
 
 /* --- Host adjudication panel (stacked cards, not leaderboard rows) ------ */
@@ -539,13 +1016,13 @@ section p.result.correct {
 }
 
 .adjudication .uphold {
-  background: linear-gradient(180deg, #1fb257, var(--success));
+  background: linear-gradient(180deg, var(--success), var(--success-strong));
 }
 
 .adjudication .reject {
   background: transparent;
   color: var(--danger);
-  border: 1px solid #f0b4b4;
+  border: 1px solid oklch(0.8 0.1 25);
   box-shadow: none;
 }
 

@@ -7,7 +7,12 @@
 
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { roomChannel, type RoomEvent } from "./events";
-import type { HydratedState, OpenChallenge, RevealedAnswer } from "@/lib/db/types";
+import type {
+  AnswerDistribution,
+  HydratedState,
+  OpenChallenge,
+  RevealedAnswer,
+} from "@/lib/db/types";
 
 export async function hydrate(token: string): Promise<HydratedState | null> {
   const { data, error } = await getBrowserClient().rpc("hydrate_game_state", {
@@ -37,6 +42,22 @@ export async function revealAnswer(token: string): Promise<RevealedAnswer | null
   });
   if (error) throw new Error(error.message);
   return (data as RevealedAnswer | null) ?? null;
+}
+
+/**
+ * R5. Per-option answer counts for the current question, returned only when the
+ * room is reviewing or the game has ended (the RPC gates on phase, like
+ * revealAnswer). Null while a question is still answerable, so it can never leak
+ * the popular answer to a player who could still submit.
+ */
+export async function answerDistribution(
+  token: string,
+): Promise<AnswerDistribution | null> {
+  const { data, error } = await getBrowserClient().rpc("answer_distribution", {
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
+  return (data as AnswerDistribution | null) ?? null;
 }
 
 export type RoomHandlers = Partial<
