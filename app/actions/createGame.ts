@@ -10,6 +10,10 @@ import { generateRoomCode, generateToken, hashToken } from "@/lib/codes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { validateSetupInput, type SetupInput } from "@/lib/gameConfig";
+import {
+  checkCategoryFeasibility,
+  formatFeasibilityError,
+} from "@/lib/generation/preflight";
 import { normalizeUsername, validateUsername } from "@/lib/join";
 
 // Module-scoped guards (best-effort per serverless instance, KTD10).
@@ -56,6 +60,17 @@ export async function createGame(
   }
   if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
     throw new Error("The server is busy generating games — please retry shortly.");
+  }
+
+  // Feasibility preflight for free-text customs (presets skip the model). Runs
+  // before any game insert so a reject never leaves an orphan lobby.
+  const preflight = await checkCategoryFeasibility(input.categories, {
+    apiKey: process.env.XAI_API_KEY ?? "",
+    baseUrl: process.env.XAI_BASE_URL,
+    model: process.env.XAI_MODEL,
+  });
+  if (!preflight.ok) {
+    throw new Error(formatFeasibilityError(preflight.rejected));
   }
 
   const supabase = getServiceClient();

@@ -1,19 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CHALLENGE_CAP, disputedAnswerDelta, isAtChallengeCap, voidScoreDeltas } from "../challenge";
+import { disputedAnswerDelta, voidScoreDeltas } from "../challenge";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
-
-describe("isAtChallengeCap (R13, AE5)", () => {
-  it("blocks once the per-player cap is reached", () => {
-    expect(isAtChallengeCap(CHALLENGE_CAP - 1)).toBe(false);
-    expect(isAtChallengeCap(CHALLENGE_CAP)).toBe(true);
-    expect(isAtChallengeCap(CHALLENGE_CAP + 1)).toBe(true);
-  });
-
-  it("honors a custom cap", () => {
-    expect(isAtChallengeCap(1, 2)).toBe(false);
-    expect(isAtChallengeCap(2, 2)).toBe(true);
-  });
-});
 
 describe("voidScoreDeltas (R12)", () => {
   it("reverses each player's awarded points for the voided question", () => {

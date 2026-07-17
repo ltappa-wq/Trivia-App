@@ -1,20 +1,24 @@
 "use client";
-// U4. Gamemaster setup form. Host-facing view: targets a larger screen (UI
-// conventions). Three states drive the submit lifecycle: the form, a blocking
-// "generating" state (whole-set generation takes a moment, KTD10), and an error
-// state offering Retry (re-run) and Back-to-edit (preserve the form).
+// Gamemaster setup form: glorious greeting + rotating taglines, expanded
+// presets, type-in custom categories, and the create lifecycle (editing /
+// generating / error with Retry + Back-to-edit).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame } from "@/app/actions/createGame";
 import { saveHostCredential } from "@/lib/clientSession";
 import {
   ANSWER_MODES,
   CATEGORIES,
+  CATEGORY_MAX_LEN,
   DIFFICULTIES,
+  MAX_CATEGORIES,
   QUESTION_COUNT_MAX,
   QUESTION_COUNT_MIN,
+  isPresetCategory,
+  normalizeCategory,
 } from "@/lib/gameConfig";
+import { HOST_SETUP_TAGLINES, TAGLINE_ROTATE_MS } from "@/lib/setupCopy";
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
 
 type Status = "editing" | "generating" | "error";
@@ -32,15 +36,66 @@ export default function SetupPage() {
   const [hostPlays, setHostPlays] = useState(true);
   const [hostName, setHostName] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [customDraft, setCustomDraft] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(10);
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [taglineIdx, setTaglineIdx] = useState(0);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setTaglineIdx((i) => (i + 1) % HOST_SETUP_TAGLINES.length);
+    }, TAGLINE_ROTATE_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   function toggleCategory(cat: string) {
-    setCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-    );
+    setCategories((prev) => {
+      if (prev.some((c) => c.toLowerCase() === cat.toLowerCase())) {
+        return prev.filter((c) => c.toLowerCase() !== cat.toLowerCase());
+      }
+      if (prev.length >= MAX_CATEGORIES) {
+        setCustomError(`You can choose at most ${MAX_CATEGORIES} categories`);
+        return prev;
+      }
+      setCustomError(null);
+      return [...prev, cat];
+    });
   }
+
+  function removeCategory(cat: string) {
+    setCategories((prev) => prev.filter((c) => c !== cat));
+  }
+
+  function addCustomCategory() {
+    const name = normalizeCategory(customDraft);
+    setCustomError(null);
+    if (name.length === 0) {
+      setCustomError("Enter a category name");
+      return;
+    }
+    if (name.length > CATEGORY_MAX_LEN) {
+      setCustomError(`Keep it to ${CATEGORY_MAX_LEN} characters or fewer`);
+      return;
+    }
+    if (categories.some((c) => c.toLowerCase() === name.toLowerCase())) {
+      setCustomError("That category is already selected");
+      return;
+    }
+    if (categories.length >= MAX_CATEGORIES) {
+      setCustomError(`You can choose at most ${MAX_CATEGORIES} categories`);
+      return;
+    }
+    // Prefer canonical preset casing if they typed a preset name.
+    const preset = (CATEGORIES as readonly string[]).find(
+      (c) => c.toLowerCase() === name.toLowerCase(),
+    );
+    setCategories((prev) => [...prev, preset ?? name]);
+    setCustomDraft("");
+  }
+
+  const customSelected = categories.filter((c) => !isPresetCategory(c));
 
   async function submit() {
     setStatus("generating");
@@ -82,7 +137,9 @@ export default function SetupPage() {
     return (
       <main>
         <h1>Couldn’t create the game</h1>
-        <p role="alert">{error}</p>
+        <p role="alert" style={{ whiteSpace: "pre-wrap" }}>
+          {error}
+        </p>
         <button type="button" onClick={submit}>
           Retry
         </button>
@@ -98,7 +155,15 @@ export default function SetupPage() {
 
   return (
     <main>
-      <h1>Host a game</h1>
+      <header>
+        <h1>Host a game</h1>
+        <p
+          aria-live="polite"
+          style={{ minHeight: "1.5em", fontWeight: 600 }}
+        >
+          {HOST_SETUP_TAGLINES[taglineIdx]}
+        </p>
+      </header>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -133,12 +198,53 @@ export default function SetupPage() {
             <label key={cat}>
               <input
                 type="checkbox"
-                checked={categories.includes(cat)}
+                checked={categories.some(
+                  (c) => c.toLowerCase() === cat.toLowerCase(),
+                )}
                 onChange={() => toggleCategory(cat)}
               />
               {cat}
             </label>
           ))}
+        </fieldset>
+
+        <fieldset>
+          <legend>Custom category</legend>
+          <label>
+            Add your own
+            <input
+              value={customDraft}
+              onChange={(e) => {
+                setCustomDraft(e.target.value);
+                setCustomError(null);
+              }}
+              maxLength={CATEGORY_MAX_LEN}
+              autoComplete="off"
+              placeholder="e.g. 90s Sitcoms"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomCategory();
+                }
+              }}
+            />
+          </label>
+          <button type="button" onClick={addCustomCategory}>
+            Add category
+          </button>
+          {customError && <p role="alert">{customError}</p>}
+          {customSelected.length > 0 && (
+            <ul>
+              {customSelected.map((cat) => (
+                <li key={cat}>
+                  {cat}{" "}
+                  <button type="button" onClick={() => removeCategory(cat)}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </fieldset>
 
         <label>
