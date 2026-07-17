@@ -51,9 +51,17 @@ export default function SetupPage() {
   }, []);
 
   function toggleCategory(cat: string) {
-    setCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-    );
+    setCategories((prev) => {
+      if (prev.some((c) => c.toLowerCase() === cat.toLowerCase())) {
+        return prev.filter((c) => c.toLowerCase() !== cat.toLowerCase());
+      }
+      if (prev.length >= MAX_CATEGORIES) {
+        setCustomError(`You can choose at most ${MAX_CATEGORIES} categories`);
+        return prev;
+      }
+      setCustomError(null);
+      return [...prev, cat];
+    });
   }
 
   function removeCategory(cat: string) {
