@@ -1,13 +1,12 @@
 "use server";
-// U8. Raise a challenge on the active question (R10, R11, R13; AE5; KTD7).
-// Player-token-gated: the acting player is resolved from their token and the
-// per-player cap is keyed to that validated identity, never a client-claimed id.
-// Raising a challenge pauses the game for everyone (broadcast pause); the host
-// then adjudicates (adjudicate action).
+// Raise a challenge on the active question (R10, R11; KTD7).
+// Player-token-gated: the acting player is resolved from their token, never a
+// client-claimed id. Raising a challenge pauses the game for everyone
+// (broadcast pause); the host then adjudicates (adjudicate action).
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
-import { isAtChallengeCap, type ChallengeKind } from "@/lib/challenge";
+import type { ChallengeKind } from "@/lib/challenge";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
 
@@ -32,15 +31,9 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
     .single();
   if (!question) throw new Error("No active question to challenge");
 
-  // Cap keyed to the validated player (KTD7, R13) — count this player's
-  // challenges across the whole game.
-  const { count } = await supabase
-    .from("challenges")
-    .select("id", { count: "exact", head: true })
-    .eq("player_id", player.playerId);
-  if (isAtChallengeCap(count ?? 0)) {
-    throw new Error("You've reached the challenge limit for this game");
-  }
+  // No per-game challenge cap: AI answers can be wrong repeatedly. Anti-spam is
+  // one open challenge per player per question (unique index below) plus host
+  // adjudication before advance.
 
   // For a disputed-answer challenge, capture the player's own submission so the
   // host can review it (R11).

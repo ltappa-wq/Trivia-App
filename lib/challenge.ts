@@ -1,19 +1,13 @@
-// U8. Pure challenge/adjudication helpers (R12, R13). The per-player cap and the
-// recompute math are DB-independent so they are unit-testable; the actions apply
-// them against Postgres.
+// Pure challenge/adjudication helpers. Score recompute math is DB-independent
+// so it is unit-testable; the actions apply it against Postgres.
+// Per-player game-wide challenge caps were removed so players can always
+// dispute AI errors; anti-spam remains via one open challenge per player per
+// question (DB unique index) + host adjudication before advance.
 
 import type { AnswerMode } from "@/lib/db/types";
 import { computeScore } from "@/lib/scoring/speed";
 
 export type ChallengeKind = "question" | "answer";
-
-// Anti-griefing cap: a player can raise at most this many challenges per game so
-// one flagger can't indefinitely stall play (R13, AE5). Tunable constant.
-export const CHALLENGE_CAP = 3;
-
-export function isAtChallengeCap(existingCount: number, cap: number = CHALLENGE_CAP): boolean {
-  return existingCount >= cap;
-}
 
 /**
  * Per-player score adjustments to reverse when a question is voided: each
