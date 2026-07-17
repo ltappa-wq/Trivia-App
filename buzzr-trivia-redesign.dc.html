@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0;}
+  @keyframes floatA{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-18px) rotate(8deg);}}
+  @keyframes floatB{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(14px) rotate(-10deg);}}
+  @keyframes joinPop{0%{opacity:0;transform:scale(.6) translateY(-10px);}45%{opacity:1;transform:scale(1.1);}70%{transform:scale(.95);}100%{opacity:1;transform:scale(1);}}
+  @keyframes shakeUrgent{0%,100%{transform:translateX(0);}20%{transform:translateX(-4px);}40%{transform:translateX(4px);}60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}
+  @keyframes confettiBurst{0%{opacity:1;transform:rotate(var(--angle)) translateY(0) scale(1);}100%{opacity:0;transform:rotate(var(--angle)) translateY(var(--travel,-130px)) scale(.4);}}
+  @keyframes ctaPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.035);}}
+  @keyframes bounceIn{0%{opacity:0;transform:scale(.3) translateY(20px);}60%{opacity:1;transform:scale(1.08);}100%{opacity:1;transform:scale(1);}}
+  @keyframes trophySpin{0%{transform:rotate(-10deg) scale(0);}60%{transform:rotate(8deg) scale(1.15);}100%{transform:rotate(0) scale(1);}}
+  @keyframes dotWave{0%,100%{transform:translateY(0);opacity:.4;}50%{transform:translateY(-6px);opacity:1;}}
+  @keyframes spark{0%,100%{transform:rotate(-6deg) scale(1);}50%{transform:rotate(6deg) scale(1.08);}}
+</style>
+</helmet>
+<div style="--ink:#201c33; --muted:#716c88; --surface:#ffffff; --surface2:#f5f2fb; --border:#e7e2f5; --accentA:oklch(0.64 0.19 340); --accentAStrong:oklch(0.52 0.19 340); --accentB:oklch(0.80 0.15 95); --blue:oklch(0.62 0.16 250); --success:oklch(0.70 0.17 150); --successStrong:oklch(0.55 0.15 150); --danger:oklch(0.60 0.20 25); min-height:100vh; background:radial-gradient(1400px 700px at 50% -12%, oklch(0.26 0.08 300), oklch(0.15 0.045 280)); font-family:'Inter',sans-serif; position:relative; overflow:hidden;">
+
+  <div style="position:absolute; top:60px; left:6%; width:120px; height:120px; border-radius:32px; background:linear-gradient(135deg, var(--accentA), var(--blue)); opacity:0.18; animation:floatA 7s ease-in-out infinite;"></div>
+  <div style="position:absolute; bottom:40px; right:8%; width:90px; height:90px; border-radius:50%; background:var(--accentB); opacity:0.16; animation:floatB 8s ease-in-out infinite;"></div>
+
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:22px 32px 8px; flex-wrap:wrap; gap:16px; position:relative; z-index:2;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:38px; height:38px; border-radius:11px; background:linear-gradient(135deg,var(--accentA),var(--accentB)); display:flex; align-items:center; justify-content:center; font-size:20px; transform:rotate(-6deg); animation:spark 3s ease-in-out infinite; box-shadow:0 6px 16px rgba(0,0,0,.35);">⚡</div>
+      <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:25px; color:#fff; letter-spacing:0.5px;">BUZZR</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <button onClick="{{ goPrev }}" disabled="{{ atStart }}" style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
+      <div style="color:#fff; font-family:'Fredoka',sans-serif; font-weight:600; font-size:15px; min-width:190px; text-align:center;">{{ stepLabel }} <span style="opacity:.5;font-weight:500;">· {{ stepPos }}/11</span></div>
+      <button onClick="{{ goNext }}" disabled="{{ atEnd }}" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accentA),var(--accentAStrong));border:none;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(190,50,150,.4);">›</button>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:7px; justify-content:center; padding:8px 24px 22px; flex-wrap:wrap; position:relative; z-index:2;">
+    <sc-for list="{{ dots }}" as="d" hint-placeholder-count="11">
+      <button onClick="{{ d.onClick }}" title="{{ d.label }}" style="{{ d.dotStyle }}"></button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex; justify-content:center; padding:0 20px 70px; position:relative; z-index:2;">
+
+    <sc-if value="{{ frameIsBrowser }}" hint-placeholder-val="{{ true }}">
+      <div style="width:min(960px,94vw); border-radius:20px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,.45); background:#12101e;">
+        <div style="display:flex; align-items:center; gap:8px; padding:12px 16px; background:#1a1830; border-bottom:1px solid rgba(255,255,255,.06);">
+          <div style="width:11px;height:11px;border-radius:50%;background:#ff5f57;"></div>
+          <div style="width:11px;height:11px;border-radius:50%;background:#febc2e;"></div>
+          <div style="width:11px;height:11px;border-radius:50%;background:#28c840;"></div>
+          <div style="margin-left:12px; background:#0f0d1c; color:#8f8ba8; font-size:12.5px; padding:6px 14px; border-radius:8px; font-family:monospace;">{{ browserUrl }}</div>
+        </div>
+        <div style="background:radial-gradient(1000px 500px at 50% -10%, oklch(0.24 0.07 300), oklch(0.13 0.04 280)); padding:clamp(24px,5vw,52px); min-height:560px; display:flex; align-items:flex-start; justify-content:center;">
+          <div style="width:100%; max-width:{{ hostCardWidth }}; background:var(--surface); border-radius:20px; box-shadow:0 20px 50px rgba(10,5,30,.35); padding:clamp(22px,4vw,38px);">
+
+            <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center; padding:20px 0;">
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:clamp(2.4rem,6vw,3.4rem); color:var(--ink); letter-spacing:-0.02em;">Trivia night, <span style="color:var(--accentAStrong);">turned up.</span></div>
+                <p style="color:var(--muted); font-size:1.15rem; max-width:480px; margin:14px auto 30px;">Live, AI-written questions. Real friends. Real chaos. Zero prep.</p>
+                <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+                  <button onClick="{{ goToSetup }}" style="font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff; background:linear-gradient(180deg,var(--accentA),var(--accentAStrong)); border:none; border-radius:14px; padding:16px 28px; cursor:pointer; box-shadow:0 10px 24px rgba(190,50,150,.35); animation:ctaPulse 2.4s ease-in-out infinite;">🎤 Host a game</button>
+                  <button onClick="{{ goToJoin }}" style="font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:var(--ink); background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px 28px; cursor:pointer;">🏃 Join a game</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isSetup }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.9rem; color:var(--ink);">Host a game</div>
+                <p style="color:var(--accentAStrong); font-weight:600; min-height:22px; margin:2px 0 20px;">{{ tagline }}</p>
+
+                <div style="{{ hostPlaysRowStyle }}">
+                  <div style="{{ hostPlaysIconStyle }}">{{ hostPlaysIcon }}</div>
+                  <span style="font-weight:600;">I'll play too</span>
+                </div>
+
+                <div style="font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--muted); margin-bottom:10px;">Categories</div>
+                <div style="display:flex; flex-wrap:wrap; gap:9px; margin-bottom:22px;">
+                  <sc-for list="{{ categories }}" as="c" hint-placeholder-count="6">
+                    <div style="{{ c.style }}">{{ c.icon }} {{ c.name }}</div>
+                  </sc-for>
+                </div>
+
+                <div style="display:flex; gap:30px; flex-wrap:wrap; margin-bottom:22px;">
+                  <div>
+                    <div style="font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--muted); margin-bottom:10px;">Questions</div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div style="width:34px;height:34px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accentAStrong);">–</div>
+                      <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.3rem;">{{ questionCount }}</div>
+                      <div style="width:34px;height:34px;border-radius:9px;background:var(--accentA);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">+</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--muted); margin-bottom:10px;">Difficulty</div>
+                    <div style="display:flex; gap:8px;">
+                      <sc-for list="{{ difficultyChips }}" as="dc" hint-placeholder-count="3">
+                        <div style="{{ dc.style }}">{{ dc.label }}</div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+
+                <button style="font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff; background:linear-gradient(180deg,var(--accentA),var(--accentAStrong)); border:none; border-radius:14px; padding:15px 26px; cursor:pointer; box-shadow:0 10px 24px rgba(190,50,150,.3);">Create game 🎉</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isHostLobby }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="text-align:center; margin-bottom:22px;">
+                  <div style="color:var(--muted); font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px;">Room code</div>
+                  <div style="display:flex; gap:8px; justify-content:center;">
+                    <sc-for list="{{ codeDigits }}" as="dg" hint-placeholder-count="5">
+                      <div style="width:50px;height:62px;border-radius:12px;background:linear-gradient(180deg,var(--accentA),var(--accentAStrong));color:#fff;font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.8rem;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(190,50,150,.3);">{{ dg }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="{{ copyRowStyle }}">
+                  <div style="flex:1; min-width:0; font-family:monospace; font-size:.85rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ joinLink }}</div>
+                  <button onClick="{{ copyLink }}" style="{{ copyButtonStyle }}">{{ copyButtonLabel }}</button>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px; min-height:40px;">
+                  <sc-for list="{{ joinToasts }}" as="jt" hint-placeholder-count="3">
+                    <div style="align-self:flex-start; background:var(--surface2); border:1px solid var(--border); padding:8px 14px; border-radius:10px; font-weight:600; color:var(--accentAStrong); animation:joinPop 700ms cubic-bezier(.22,1,.36,1) both; animation-delay:{{ jt.delay }};"><strong>{{ jt.name }}</strong> joined 🎉</div>
+                  </sc-for>
+                </div>
+                <div style="font-weight:700; color:var(--ink); margin-bottom:10px;">Players (5)</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
+                  <sc-for list="{{ lobbyPlayers }}" as="lp" hint-placeholder-count="5">
+                    <div style="padding:8px 14px; border-radius:999px; background:var(--surface2); border:1px solid var(--border); font-weight:600;">{{ lp.name }}</div>
+                  </sc-for>
+                </div>
+                <button style="font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff; background:linear-gradient(180deg,var(--accentA),var(--accentAStrong)); border:none; border-radius:14px; padding:15px 26px; cursor:pointer; box-shadow:0 10px 24px rgba(190,50,150,.3);">Start game ▶</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isHostLive }}" hint-placeholder-val="{{ false }}">
+              <div style="{{ hostLiveGridStyle }}">
+                <div>
+                  <div style="color:var(--muted); font-weight:700; font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Question {{ questionPosition }} of {{ questionCount }}</div>
+                  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.5rem; color:var(--ink); margin-bottom:16px;">{{ question.prompt }}</div>
+                  <div style="{{ timerWrapStyle }}">
+                    <div style="{{ timerRingStyle }}">
+                      <div style="{{ timerTextStyle }}">{{ countdown }}</div>
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px;">
+                    <sc-for list="{{ optionTilesReadOnly }}" as="opt" hint-placeholder-count="4">
+                      <div style="{{ opt.tileStyle }}"><span style="font-size:1.2rem;">{{ opt.shape }}</span> {{ opt.text }}</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-weight:700; color:var(--ink); margin-bottom:10px;">Live leaderboard</div>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <sc-for list="{{ liveLeaderboard }}" as="row" hint-placeholder-count="5">
+                      <div style="display:flex; justify-content:space-between; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 13px; font-weight:600;"><span>{{ row.name }}</span><span style="color:var(--accentAStrong);">{{ row.score }}</span></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isHostReview }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.5rem; color:var(--ink); margin-bottom:6px;">⏱ Time's up — here's the answer</div>
+                <p style="color:var(--muted); margin-top:0; margin-bottom:18px;">{{ question.prompt }}</p>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <sc-for list="{{ optionTilesReveal }}" as="opt" hint-placeholder-count="4">
+                    <div style="{{ opt.tileStyle }}">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><span style="font-size:1.1rem;">{{ opt.shape }}</span> {{ opt.text }}</span>
+                        <sc-if value="{{ opt.isCorrect }}" hint-placeholder-val="{{ false }}"><span>✅</span></sc-if>
+                      </div>
+                      <div style="height:6px; background:rgba(0,0,0,.08); border-radius:4px; margin-top:8px; overflow:hidden;">
+                        <div style="{{ opt.barStyle }}"></div>
+                      </div>
+                      <div style="font-size:.75rem; color:var(--muted); margin-top:4px; font-weight:600;">{{ opt.pct }}% picked this</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isHostPodium }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center;">
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.8rem; color:var(--ink); margin-bottom:6px;">🏆 Final results</div>
+                <p style="color:var(--muted); margin-top:0; margin-bottom:10px;">{{ winnerLabel }}</p>
+                <div style="display:flex; align-items:flex-end; justify-content:center; gap:14px; margin:24px 0 30px; min-height:170px;">
+                  <sc-for list="{{ podiumSteps }}" as="ps" hint-placeholder-count="3">
+                    <div style="{{ ps.wrapStyle }}">
+                      <div style="font-size:1.6rem;">{{ ps.medal }}</div>
+                      <div style="font-weight:700; color:var(--ink);">{{ ps.name }}</div>
+                      <div style="color:var(--muted); font-weight:600; font-variant-numeric:tabular-nums;">{{ ps.score }}</div>
+                      <div style="{{ ps.blockStyle }}">{{ ps.rank }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ showPodiumConfetti }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:relative; height:0;">
+                    <span style="position:absolute; top:-140px; left:50%; width:0; height:0;">
+                      <sc-for list="{{ confettiParticles }}" as="p" hint-placeholder-count="24">
+                        <span style="{{ p.style }}"></span>
+                      </sc-for>
+                    </span>
+                  </div>
+                </sc-if>
+                <div style="display:flex; flex-direction:column; gap:8px; max-width:360px; margin:0 auto;">
+                  <sc-for list="{{ standingsList }}" as="st" hint-placeholder-count="5">
+                    <div style="display:flex; justify-content:space-between; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 14px; font-weight:600;"><span>{{ st.rank }}. {{ st.name }}</span><span>{{ st.score }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ frameIsPhone }}" hint-placeholder-val="{{ false }}">
+      <div style="width:380px; max-width:92vw; border-radius:46px; background:#0d0b18; padding:16px; box-shadow:0 30px 70px rgba(0,0,0,.5);">
+        <div style="width:120px; height:22px; background:#0d0b18; border-radius:0 0 14px 14px; margin:0 auto 8px; position:relative; z-index:3;"></div>
+        <div style="background:radial-gradient(700px 400px at 50% -10%, oklch(0.24 0.07 300), oklch(0.13 0.04 280)); border-radius:32px; min-height:600px; padding:22px 18px; margin-top:-30px;">
+          <div style="width:100%; background:var(--surface); border-radius:22px; box-shadow:0 16px 36px rgba(10,5,30,.35); padding:22px 18px; min-height:540px;">
+
+            <sc-if value="{{ isJoin }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center;">
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.6rem; color:var(--ink); margin-bottom:4px;">Join a game</div>
+                <p style="color:var(--muted); margin-top:0; margin-bottom:20px;">Got a room code? Let's go.</p>
+                <div style="display:flex; gap:6px; justify-content:center; margin-bottom:20px;">
+                  <sc-for list="{{ codeDigits }}" as="dg" hint-placeholder-count="5">
+                    <div style="width:44px;height:54px;border-radius:11px;background:var(--surface2);border:2px solid var(--accentA);color:var(--accentAStrong);font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.5rem;display:flex;align-items:center;justify-content:center;">{{ dg }}</div>
+                  </sc-for>
+                </div>
+                <div style="text-align:left; margin-bottom:22px;">
+                  <div style="font-size:.78rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--muted); margin-bottom:8px;">Username</div>
+                  <div style="padding:13px 16px; border-radius:12px; background:var(--surface2); border:1px solid var(--border); font-weight:600; color:var(--ink);">Riya</div>
+                </div>
+                <button onClick="{{ goToPlayLobby }}" style="width:100%; font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff; background:linear-gradient(180deg,var(--accentA),var(--accentAStrong)); border:none; border-radius:14px; padding:15px; cursor:pointer; box-shadow:0 10px 24px rgba(190,50,150,.3);">⚡ Join</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPlayLobby }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center; padding-top:20px;">
+                <div style="font-size:2.6rem; margin-bottom:6px; display:inline-block; animation:bounceIn 900ms ease;">🎮</div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.4rem; color:var(--ink);">You're in, Riya!</div>
+                <p style="color:var(--muted); margin-bottom:24px;">Room {{ code }} · waiting for the host to start…</p>
+                <div style="display:flex; justify-content:center; gap:8px; margin-bottom:26px;">
+                  <span style="width:11px;height:11px;border-radius:50%;background:var(--accentA);animation:dotWave 1.1s ease-in-out infinite;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:var(--accentA);animation:dotWave 1.1s ease-in-out infinite .15s;"></span>
+                  <span style="width:11px;height:11px;border-radius:50%;background:var(--accentA);animation:dotWave 1.1s ease-in-out infinite .3s;"></span>
+                </div>
+                <div style="font-weight:700; color:var(--ink); margin-bottom:10px; text-align:left;">Also here</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                  <sc-for list="{{ lobbyPlayers }}" as="lp" hint-placeholder-count="5">
+                    <div style="padding:8px 14px; border-radius:999px; background:var(--surface2); border:1px solid var(--border); font-weight:600;">{{ lp.name }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPlayQuestion }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="color:var(--muted); font-weight:700; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Question {{ questionPosition }} of {{ questionCount }}</div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.25rem; color:var(--ink); margin-bottom:14px;">{{ question.prompt }}</div>
+                <div style="{{ timerWrapStyle }}">
+                  <div style="{{ timerRingStyle }}"><div style="{{ timerTextStyle }}">{{ countdown }}</div></div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px;">
+                  <sc-for list="{{ optionTilesPlay }}" as="opt" hint-placeholder-count="4">
+                    <div onClick="{{ opt.onClick }}" style="{{ opt.tileStyle }}"><span style="font-size:1.2rem;">{{ opt.shape }}</span> {{ opt.text }}</div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ hasSelected }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ lockedBannerStyle }}">{{ lockedBannerText }}</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPlayCorrect }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center; padding-top:30px; position:relative;">
+                <span style="position:absolute; top:60px; left:50%; width:0; height:0;">
+                  <sc-for list="{{ confettiParticles }}" as="p" hint-placeholder-count="24">
+                    <span style="{{ p.style }}"></span>
+                  </sc-for>
+                </span>
+                <div style="font-size:3.4rem; animation:trophySpin 700ms ease;">🏆</div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.7rem; color:var(--successStrong); margin-top:6px;">✓ Correct!</div>
+                <div style="font-weight:700; color:var(--ink); font-size:1.2rem; margin-top:2px;">+850 points</div>
+                <div style="display:inline-block; margin-top:16px; background:linear-gradient(180deg,var(--accentB),#e0a300); color:#5a3d00; font-weight:700; padding:8px 16px; border-radius:999px; animation:bounceIn 700ms ease .1s both;">🔥 3 in a row!</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isPlayResults }}" hint-placeholder-val="{{ false }}">
+              <div>
+                <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.4rem; color:var(--ink); text-align:center;">Final results</div>
+                <div style="text-align:center; margin:16px 0 22px;">
+                  <div style="font-size:2.6rem;">🥈</div>
+                  <div style="font-family:'Fredoka',sans-serif; font-weight:700; font-size:1.3rem; color:var(--ink);">You placed 2nd!</div>
+                  <p style="color:var(--muted); margin:2px 0 0;">Mira takes the crown 🎉</p>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <sc-for list="{{ standingsListPlay }}" as="st" hint-placeholder-count="5">
+                    <div style="{{ st.rowStyle }}"><span>{{ st.rank }}. {{ st.name }}</span><span>{{ st.score }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;questionCount&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 10, &quot;min&quot;: 5, &quot;max&quot;: 20, &quot;step&quot;: 1, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Game setup&quot;}, &quot;difficulty&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;medium&quot;, &quot;options&quot;: [&quot;easy&quot;, &quot;medium&quot;, &quot;hard&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Game setup&quot;}, &quot;hostPlays&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Game setup&quot;}, &quot;motionIntensity&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;playful&quot;, &quot;options&quot;: [&quot;subtle&quot;, &quot;playful&quot;, &quot;big&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Flare&quot;}}">
+class Component extends DCLogic {
+  static STEPS = [
+    { key: 'home', label: 'Home', frame: 'browser' },
+    { key: 'setup', label: 'Host Setup', frame: 'browser' },
+    { key: 'hostLobby', label: 'Host Lobby', frame: 'browser' },
+    { key: 'join', label: 'Player Join', frame: 'phone' },
+    { key: 'playLobby', label: 'Player Waiting', frame: 'phone' },
+    { key: 'hostLive', label: 'Host — Live', frame: 'browser' },
+    { key: 'playQuestion', label: 'Player — Answering', frame: 'phone' },
+    { key: 'playCorrect', label: 'Player — Correct!', frame: 'phone' },
+    { key: 'hostReview', label: 'Host — Review', frame: 'browser' },
+    { key: 'hostPodium', label: 'Host — Podium', frame: 'browser' },
+    { key: 'playResults', label: 'Player — Results', frame: 'phone' },
+  ];
+
+  static TAGLINES = [
+    "Warms up faster than your group chat.",
+    "Fewer arguments than family game night. (We tried.)",
+    "AI writes it. You argue about it.",
+    "No two games are ever the same.",
+  ];
+
+  static QUESTION = { prompt: "Which planet in our solar system has the most known moons?", options: ['Jupiter', 'Saturn', 'Neptune', 'Uranus'], correctIndex: 1 };
+  static OPTION_LOOK = [
+    { shape: '▲', color: 'var(--accentA)' },
+    { shape: '◆', color: 'var(--blue)' },
+    { shape: '●', color: 'var(--accentB)' },
+    { shape: '★', color: 'var(--success)' },
+  ];
+  static PICK_PCTS = [15, 52, 20, 13];
+  static STANDINGS = [
+    { id: 1, name: 'Mira', score: 1240 },
+    { id: 2, name: 'Riya', score: 1180 },
+    { id: 3, name: 'Theo', score: 990 },
+    { id: 4, name: 'Nadia', score: 860 },
+    { id: 5, name: 'Kwame', score: 640 },
+  ];
+  static LIVE_LEADERBOARD = [
+    { name: 'Mira', score: 860 }, { name: 'Riya', score: 780 }, { name: 'Theo', score: 640 },
+    { name: 'Nadia', score: 510 }, { name: 'Kwame', score: 420 },
+  ];
+  static PARTICLE_COLORS = ['var(--accentA)', 'var(--accentB)', 'var(--success)', 'var(--blue)'];
+
+  state = {
+    step: 0,
+    countdown: 8,
+    taglineIdx: 0,
+    selectedOption: null,
+    revealedRanks: [],
+    isMobile: false,
+    copied: false,
+  };
+
+  constructor(props) {
+    super(props);
+    this._timers = [];
+  }
+
+  buildParticles(count) {
+    return Array.from({ length: count }).map((_, i) => ({
+      angle: (360 / count) * i,
+      color: Component.PARTICLE_COLORS[i % 4],
+      delay: (i % 6) * 40,
+      square: i % 3 === 0,
+    }));
+  }
+
+  componentDidMount() {
+    this.enterStep(0);
+    this.updateViewport = () => this.setState({ isMobile: window.innerWidth < 720 });
+    this.updateViewport();
+    window.addEventListener('resize', this.updateViewport);
+  }
+
+  componentWillUnmount() {
+    this.clearTimers();
+    window.removeEventListener('resize', this.updateViewport);
+  }
+
+  copyLink(link) {
+    clearTimeout(this._copyTimer);
+    try { navigator.clipboard.writeText(link).catch(() => {}); } catch (e) {}
+    this.setState({ copied: true });
+    this._copyTimer = setTimeout(() => this.setState({ copied: false }), 1600);
+  }
+
+  clearTimers() {
+    this._timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
+    this._timers = [];
+  }
+
+  enterStep(idx) {
+    this.clearTimers();
+    this.setState({ step: idx, countdown: 8, taglineIdx: 0, selectedOption: null, revealedRanks: [] });
+    const key = Component.STEPS[idx].key;
+
+    if (key === 'hostLive' || key === 'playQuestion') {
+      const id = setInterval(() => {
+        this.setState((s) => {
+          if (s.countdown <= 0) return { countdown: 8 };
+          return { countdown: s.countdown - 1 };
+        });
+      }, 1000);
+      this._timers.push(id);
+    }
+
+    if (key === 'setup') {
+      const id = setInterval(() => {
+        this.setState((s) => ({ taglineIdx: (s.taglineIdx + 1) % Component.TAGLINES.length }));
+      }, 2200);
+      this._timers.push(id);
+    }
+
+    if (key === 'hostPodium') {
+      [3, 2, 1].forEach((rank, i) => {
+        const t = setTimeout(() => {
+          this.setState((s) => ({ revealedRanks: [...s.revealedRanks, rank] }));
+        }, (i + 1) * 800);
+        this._timers.push(t);
+      });
+    }
+  }
+
+  goTo(idx) { this.enterStep(idx); }
+  goPrev() { if (this.state.step > 0) this.enterStep(this.state.step - 1); }
+  goNext() { if (this.state.step < Component.STEPS.length - 1) this.enterStep(this.state.step + 1); }
+
+  selectOption(idx) {
+    if (this.state.selectedOption !== null) return;
+    this.setState({ selectedOption: idx });
+  }
+
+  buildParticleStyle(p, durationMs, distancePx) {
+    return `position:absolute;top:0;left:0;width:${p.square ? '9px' : '10px'};height:${p.square ? '9px' : '10px'};margin:-5px 0 0 -5px;border-radius:${p.square ? '2px' : '50%'};background:${p.color};opacity:0;transform:rotate(${p.angle}deg);animation:confettiBurst ${durationMs}ms ease-out ${p.delay}ms forwards;--angle:${p.angle}deg;--travel:-${distancePx}px;`;
+  }
+
+  renderVals() {
+    const { step, countdown, taglineIdx, selectedOption, revealedRanks, isMobile, copied } = this.state;
+    const STEPS = Component.STEPS;
+    const cur = STEPS[step];
+    const joinLink = 'buzzr.live/join?code=48213';
+
+    const dots = STEPS.map((s, i) => ({
+      label: s.label,
+      onClick: () => this.goTo(i),
+      dotStyle: `width:${i === step ? '22px' : '8px'};height:8px;border-radius:5px;border:none;cursor:pointer;background:${i === step ? 'linear-gradient(90deg,var(--accentA),var(--accentB))' : 'rgba(255,255,255,.25)'};transition:all .2s ease;`,
+    }));
+
+    const pct = (countdown / 8) * 100;
+    const urgent = countdown <= 3;
+    const ringColor = urgent ? 'var(--danger)' : 'var(--accentA)';
+    const timerWrapStyle = `display:flex; justify-content:${cur.frame === 'phone' ? 'center' : 'flex-start'}; margin-top:6px;`;
+    const timerRingStyle = `width:74px;height:74px;border-radius:50%;background:conic-gradient(${ringColor} ${pct}%, var(--border) 0);display:flex;align-items:center;justify-content:center;${urgent ? 'animation:shakeUrgent .3s infinite;' : ''}`;
+    const timerTextStyle = `width:60px;height:60px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-family:'Fredoka',sans-serif;font-weight:700;font-size:1.3rem;color:${urgent ? 'var(--danger)' : 'var(--ink)'};`;
+
+    const buildTile = (idx, opt, mode) => {
+      const look = Component.OPTION_LOOK[idx];
+      const isCorrect = idx === Component.QUESTION.correctIndex;
+      let bg = 'var(--surface2)', border = 'var(--border)', color = 'var(--ink)';
+      if (mode === 'reveal' && isCorrect) { bg = 'oklch(0.94 0.05 150)'; border = 'var(--success)'; color = 'var(--successStrong)'; }
+      if (mode === 'play' && selectedOption !== null) {
+        if (idx === selectedOption) {
+          const correct = selectedOption === Component.QUESTION.correctIndex;
+          bg = correct ? 'oklch(0.94 0.05 150)' : 'oklch(0.94 0.03 25)';
+          border = correct ? 'var(--success)' : 'var(--danger)';
+          color = correct ? 'var(--successStrong)' : 'var(--danger)';
+        } else {
+          bg = 'var(--surface2)'; border = 'var(--border)'; color = 'var(--muted)';
+        }
+      }
+      return {
+        text: opt,
+        shape: look.shape,
+        isCorrect,
+        pct: Component.PICK_PCTS[idx],
+        tileStyle: `padding:12px 14px;border-radius:12px;background:${bg};border:1.5px solid ${border};color:${color};font-weight:600;display:flex;align-items:center;gap:8px;cursor:${mode === 'play' && selectedOption === null ? 'pointer' : 'default'};transition:all .15s ease;`,
+        barStyle: `height:100%;width:${Component.PICK_PCTS[idx]}%;background:${isCorrect ? 'var(--success)' : 'var(--accentA)'};border-radius:4px;`,
+        onClick: mode === 'play' ? (() => this.selectOption(idx)) : undefined,
+      };
+    };
+
+    const optionTilesReadOnly = Component.QUESTION.options.map((o, i) => buildTile(i, o, 'readonly'));
+    const optionTilesReveal = Component.QUESTION.options.map((o, i) => buildTile(i, o, 'reveal'));
+    const optionTilesPlay = Component.QUESTION.options.map((o, i) => buildTile(i, o, 'play'));
+
+    const hasSelected = selectedOption !== null;
+    const lockedCorrect = selectedOption === Component.QUESTION.correctIndex;
+    const lockedBannerText = hasSelected ? (lockedCorrect ? '✓ Correct — nice one!' : '✗ Answer locked in') : '';
+    const lockedBannerStyle = `margin-top:14px;padding:11px 14px;border-radius:11px;font-weight:700;text-align:center;background:${lockedCorrect ? 'oklch(0.94 0.05 150)' : 'var(--surface2)'};color:${lockedCorrect ? 'var(--successStrong)' : 'var(--ink)'};`;
+
+    const joinToasts = [
+      { name: 'Mira', delay: '0ms' }, { name: 'Theo', delay: '150ms' }, { name: 'Nadia', delay: '300ms' },
+    ];
+    const lobbyPlayers = [{ name: 'Mira' }, { name: 'Theo' }, { name: 'Nadia' }, { name: 'Kwame' }, { name: 'Riya' }];
+
+    const RANK_ORDER = { 1: 2, 2: 1, 3: 3 };
+    const MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+    const HEIGHTS = { 1: '108px', 2: '76px', 3: '54px' };
+    const podiumSource = [
+      { rank: 1, name: 'Mira', score: 1240 },
+      { rank: 2, name: 'Riya', score: 1180 },
+      { rank: 3, name: 'Theo', score: 990 },
+    ];
+    const podiumSteps = podiumSource.map((p) => {
+      const revealed = revealedRanks.includes(p.rank);
+      return {
+        rank: p.rank, name: p.name, score: p.score, medal: MEDALS[p.rank],
+        wrapStyle: `display:flex;flex-direction:column;align-items:center;gap:4px;min-width:88px;order:${RANK_ORDER[p.rank]};opacity:${revealed ? 1 : 0};transform:translateY(${revealed ? '0' : '16px'});transition:opacity .35s ease, transform .35s cubic-bezier(.22,1,.36,1);`,
+        blockStyle: `width:100%;height:${HEIGHTS[p.rank]};border-radius:10px 10px 0 0;background:${p.rank === 1 ? 'linear-gradient(180deg,var(--accentB),#e0a300)' : 'var(--surface2)'};color:${p.rank === 1 ? '#5a3d00' : 'var(--ink)'};display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-weight:800;`,
+      };
+    });
+    const showPodiumConfetti = revealedRanks.includes(1);
+
+    const standingsList = Component.STANDINGS.map((s, i) => ({ rank: i + 1, name: s.name, score: s.score }));
+    const standingsListPlay = Component.STANDINGS.map((s, i) => ({
+      rank: i + 1, name: s.name === 'Riya' ? 'Riya (you)' : s.name, score: s.score,
+      rowStyle: `display:flex;justify-content:space-between;background:${s.name === 'Riya' ? 'var(--accentAStrong)' : 'var(--surface2)'};color:${s.name === 'Riya' ? '#fff' : 'var(--ink)'};border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-weight:700;`,
+    }));
+
+    const categories = ['Science', 'History', 'Pop Culture', 'Sports', 'Geography', 'Movies & TV'].map((name, i) => ({
+      name, icon: ['🧪', '🏛️', '🎬', '⚽', '🌍', '📺'][i],
+      style: `padding:8px 14px;border-radius:999px;font-weight:600;border:1.5px solid ${i < 3 ? 'var(--accentA)' : 'var(--border)'};background:${i < 3 ? 'var(--surface2)' : 'transparent'};color:${i < 3 ? 'var(--accentAStrong)' : 'var(--muted)'};`,
+    }));
+
+    const questionCount = this.props.questionCount ?? 10;
+    const difficulty = this.props.difficulty ?? 'medium';
+    const hostPlays = this.props.hostPlays ?? true;
+    const motionIntensity = this.props.motionIntensity ?? 'playful';
+    const questionPosition = Math.min(4, questionCount);
+    const motionScale = motionIntensity === 'subtle' ? 0.6 : motionIntensity === 'big' ? 1.6 : 1;
+    const particleCount = Math.round(20 * motionScale) + 8;
+    const confettiDuration = Math.round(900 / motionScale);
+    const confettiDistance = Math.round(120 * motionScale) + 40;
+    const particles = this.buildParticles(particleCount);
+
+    const difficultyChips = [
+      { key: 'easy', label: '🙂 Easy' },
+      { key: 'medium', label: '🔥 Medium' },
+      { key: 'hard', label: '💀 Hard' },
+    ].map((d) => ({
+      label: d.label,
+      style: `padding:8px 14px; border-radius:10px; font-weight:600; ${d.key === difficulty
+        ? 'background:var(--accentA); color:#fff;'
+        : 'background:var(--surface2); border:1px solid var(--border); color:var(--ink);'}`,
+    }));
+    const hostPlaysRowStyle = `display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--surface2); border-radius:12px; border:1px solid var(--border); margin-bottom:16px; width:fit-content;`;
+    const hostPlaysIconStyle = `width:22px;height:22px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;background:${hostPlays ? 'var(--accentA)' : 'var(--surface)'};border:${hostPlays ? 'none' : '1.5px solid var(--border)'};`;
+
+    const hostLiveGridStyle = `display:grid; grid-template-columns:${isMobile ? '1fr' : '1.5fr 1fr'}; gap:${isMobile ? '20px' : '28px'};`;
+    const copyRowStyle = `display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:10px 10px 10px 16px; margin-bottom:20px;`;
+    const copyButtonStyle = `flex-shrink:0; font-family:'Fredoka',sans-serif; font-weight:600; font-size:.9rem; color:#fff; background:${copied ? 'var(--success)' : 'linear-gradient(180deg,var(--accentA),var(--accentAStrong))'}; border:none; border-radius:9px; padding:9px 14px; cursor:pointer; white-space:nowrap;`;
+
+    return {
+      stepLabel: cur.label,
+      stepPos: step + 1,
+      atStart: step === 0,
+      atEnd: step === STEPS.length - 1,
+      goPrev: () => this.goPrev(),
+      goNext: () => this.goNext(),
+      goToSetup: () => this.goTo(1),
+      goToJoin: () => this.goTo(3),
+      goToPlayLobby: () => this.goTo(4),
+      dots,
+      frameIsBrowser: cur.frame === 'browser',
+      frameIsPhone: cur.frame === 'phone',
+      browserUrl: cur.key === 'home' ? 'buzzr.live' : cur.key === 'setup' ? 'buzzr.live/setup' : `buzzr.live/host?code=48213`,
+      hostCardWidth: (cur.key === 'hostLive' || cur.key === 'hostReview' || cur.key === 'hostPodium') ? '720px' : '520px',
+      code: '48213',
+      codeDigits: ['4', '8', '2', '1', '3'],
+      isHome: cur.key === 'home',
+      isSetup: cur.key === 'setup',
+      isHostLobby: cur.key === 'hostLobby',
+      isHostLive: cur.key === 'hostLive',
+      isHostReview: cur.key === 'hostReview',
+      isHostPodium: cur.key === 'hostPodium',
+      isJoin: cur.key === 'join',
+      isPlayLobby: cur.key === 'playLobby',
+      isPlayQuestion: cur.key === 'playQuestion',
+      isPlayCorrect: cur.key === 'playCorrect',
+      isPlayResults: cur.key === 'playResults',
+      tagline: Component.TAGLINES[taglineIdx],
+      categories,
+      joinToasts,
+      lobbyPlayers,
+      question: Component.QUESTION,
+      countdown,
+      timerWrapStyle, timerRingStyle, timerTextStyle,
+      optionTilesReadOnly, optionTilesReveal, optionTilesPlay,
+      hasSelected, lockedBannerText, lockedBannerStyle,
+      liveLeaderboard: Component.LIVE_LEADERBOARD,
+      winnerLabel: 'Mira wins it 🎉',
+      podiumSteps, showPodiumConfetti,
+      confettiParticles: particles.map((p) => ({ style: this.buildParticleStyle(p, confettiDuration, confettiDistance) })),
+      standingsList, standingsListPlay,
+      questionCount, difficulty, hostPlays, questionPosition,
+      difficultyChips, hostPlaysRowStyle, hostPlaysIconStyle,
+      hostPlaysIcon: hostPlays ? '✓' : '',
+      isMobile, hostLiveGridStyle,
+      joinLink, copyRowStyle, copyButtonStyle,
+      copyButtonLabel: copied ? '✓ Copied' : 'Copy',
+      copyLink: () => this.copyLink(joinLink),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
