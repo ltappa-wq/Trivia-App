@@ -4,12 +4,15 @@
 // client-supplied player_id (KTD7). The server stamps the submit time, judges,
 // and computes the speed score from submit-minus-reveal (KTD4); clients never
 // compute their own score. One answer per player per question (dup-submit guard,
-// enforced by the unique constraint in U2).
+// enforced by the unique constraint in U2). Review phase locks answering even
+// when the answer key is revealable via RPC.
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
+import { assertCanSubmitAnswer } from "@/lib/phaseGuards";
 import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
 import { computeScore } from "@/lib/scoring/speed";
+import { addPlayerPoints } from "@/lib/scoring/adjust";
 import { currentStreak } from "@/lib/scoring/streak";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
@@ -38,13 +41,11 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
 
   const { data: game } = await supabase
     .from("games")
-    .select("id, code, current_index, reveal_at, answer_mode, paused, status")
+    .select("id, code, current_index, reveal_at, answer_mode, paused, status, reviewing")
     .eq("id", player.gameId)
     .single();
-  if (!game || game.status !== "active" || game.current_index < 0 || !game.reveal_at) {
-    throw new Error("No active question");
-  }
-  if (game.paused) throw new Error("The game is paused");
+  if (!game) throw new Error("No active question");
+  assertCanSubmitAnswer(game);
 
   // A spectator joined during this question — seated but not scored on it (U5).
   if (player.isSpectator) return { correct: false, points: 0, spectating: true };
@@ -65,7 +66,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   const points = computeScore({
     correct,
     mode: game.answer_mode,
-    revealAtMs: new Date(game.reveal_at).getTime(),
+    revealAtMs: new Date(game.reveal_at as string).getTime(),
     submitAtMs,
   });
 
@@ -84,17 +85,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
     throw new Error(`Could not record answer: ${insertError.message}`);
   }
 
-  if (points > 0) {
-    // Only this player's own submit touches their row, and the dup guard above
-    // serializes it, so read-modify-write on the score is safe here.
-    const { error: scoreError } = await supabase
-      .from("players")
-      .update({ score: player.score + points })
-      .eq("id", player.playerId);
-    // The answer row is already persisted; if the score write fails, surface it
-    // rather than reporting a success that never landed on the leaderboard.
-    if (scoreError) throw new Error(`Failed to record score: ${scoreError.message}`);
-  }
+  await addPlayerPoints(supabase, player.playerId, points);
 
   await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, { by: player.playerId });
 
@@ -168,6 +159,7 @@ async function maybeEnterReview(
     .eq("reviewing", false)
     // Don't enter review on a game a challenge just paused (atomic guard).
     .eq("paused", false)
+    .eq("status", "active")
     .select("id")
     .maybeSingle();
 

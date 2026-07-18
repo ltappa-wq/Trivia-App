@@ -28,6 +28,12 @@ const revealAnswer = readFileSync(
   fileURLToPath(new URL("../../../supabase/migrations/0007_reveal_answer.sql", import.meta.url)),
   "utf8",
 );
+const phaseAuth = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0009_phase_auth_hardening.sql", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -51,8 +57,13 @@ describe("schema security invariants", () => {
     expect(init).toMatch(/unique \(question_id, player_id\)/);
   });
 
-  it("issues a unique player token column", () => {
-    expect(init).toMatch(/token\s+text not null unique/);
+  it("hashes player tokens (migration 0009) instead of storing plaintext", () => {
+    // 0001 still introduces plaintext for historical installs; 0009 migrates.
+    expect(phaseAuth).toMatch(/token_hash/);
+    expect(phaseAuth).toMatch(/drop column token/i);
+    expect(phaseAuth).toMatch(
+      /p\.token_hash = encode\(digest\(p_token, 'sha256'\), 'hex'\)/,
+    );
   });
 });
 
@@ -136,5 +147,25 @@ describe("list_open_challenges RPC invariants (U8)", () => {
 
   it("pins search_path including extensions so nested digest() resolves", () => {
     expect(challenges).toMatch(/set search_path = public, extensions/);
+  });
+});
+
+describe("phase/auth hardening migration (0009)", () => {
+  it("exposes atomic score adjust and shared rate limit, revoked from clients", () => {
+    expect(phaseAuth).toMatch(/create or replace function public\.adjust_player_score/);
+    expect(phaseAuth).toMatch(/create or replace function public\.check_rate_limit/);
+    expect(phaseAuth).toMatch(
+      /revoke execute on function public\.adjust_player_score\(uuid, integer\) from (public|anon)/i,
+    );
+    expect(phaseAuth).toMatch(
+      /revoke execute on function public\.check_rate_limit\(text, integer, integer\) from (public|anon)/i,
+    );
+  });
+
+  it("enables RLS on rate_limit_hits without permissive policies", () => {
+    expect(phaseAuth).toMatch(
+      /alter table public\.rate_limit_hits enable row level security/i,
+    );
+    expect(phaseAuth).not.toMatch(/create policy/i);
   });
 });

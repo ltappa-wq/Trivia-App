@@ -30,7 +30,7 @@ export async function closeQuestion(
 
   // Don't force review over an open challenge — the host adjudicates first, and
   // resume/advance drives the next transition (R5.3).
-  if (game.paused) return { status: "noop" };
+  if (game.paused || game.status === "ended") return { status: "noop" };
 
   const { data: flipped } = await supabase
     .from("games")

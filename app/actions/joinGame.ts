@@ -4,15 +4,16 @@
 // credential, never derived from client input — and emits a player-joined
 // Broadcast so the host lobby updates live (a bare channel subscribe notifies
 // no one, KTD8). Join attempts are rate-limited per IP so room codes can't be
-// enumerated (KTD7).
+// enumerated (KTD7). Only the token hash is stored (migration 0009).
 
 import { getServiceClient } from "@/lib/supabase/server";
-import { generateToken } from "@/lib/codes";
-import { RateLimiter } from "@/lib/rateLimit";
+import { generateToken, hashToken } from "@/lib/codes";
+import { checkSharedRateLimit } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
 import {
+  isValidCodeShape,
   normalizeCode,
   normalizeUsername,
   seatForStatus,
@@ -21,9 +22,10 @@ import {
 
 // Tightened (R6.2c): the 5-digit numeric code space is small (100k), so join
 // throttling is a primary defense against code enumeration, not just abuse. 5
-// attempts/min/IP makes a full scan impractical. Best-effort per serverless
-// instance (see RateLimiter); a shared store is the deferred upgrade path.
-const joinLimiter = new RateLimiter(5, 60_000); // 5 attempts / minute / IP
+// attempts/min/IP makes a full scan impractical. Shared across serverless
+// instances via check_rate_limit (migration 0009).
+const JOIN_LIMIT = 5;
+const JOIN_WINDOW_MS = 60_000;
 
 export interface JoinResult {
   playerId: string;
@@ -35,16 +37,20 @@ export interface JoinResult {
 }
 
 export async function joinGame(rawCode: string, rawUsername: string): Promise<JoinResult> {
-  if (!joinLimiter.check(await callerIp())) {
-    throw new Error("Too many attempts — please wait a moment.");
+  const code = normalizeCode(rawCode);
+  if (!isValidCodeShape(code)) {
+    throw new Error("Enter a valid 5-digit room code");
   }
 
-  const code = normalizeCode(rawCode);
   const username = normalizeUsername(rawUsername);
   const nameCheck = validateUsername(username);
   if (!nameCheck.ok) throw new Error(nameCheck.error);
 
   const supabase = getServiceClient();
+  if (!(await checkSharedRateLimit(supabase, `join:${await callerIp()}`, JOIN_LIMIT, JOIN_WINDOW_MS))) {
+    throw new Error("Too many attempts — please wait a moment.");
+  }
+
   // Filter to live games (R6.2b, KTD2): an ended game's code may have been reused
   // by a new lobby/active game, so restricting the lookup to joinable statuses
   // both retires the ended code and avoids a multi-row match on a recycled value.
@@ -65,7 +71,7 @@ export async function joinGame(rawCode: string, rawUsername: string): Promise<Jo
     .insert({
       game_id: game.id,
       username,
-      token,
+      token_hash: hashToken(token),
       is_spectator: seat.isSpectator,
     })
     .select("id")
