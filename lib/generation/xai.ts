@@ -19,7 +19,10 @@ const DEFAULT_BASE_URL = "https://api.x.ai/v1";
 const DEFAULT_MODEL = "grok-4.20-0309-non-reasoning";
 // Bound on the regenerate-the-tail loop so a persistently short/garbage model
 // response fails loudly instead of looping forever (KTD10).
-const DEFAULT_MAX_ATTEMPTS = 4;
+// Higher than the original 4 so bank-dedup rejections still leave room for
+// tail regeneration (especially on small category sets that the model tends to
+// recycle).
+const DEFAULT_MAX_ATTEMPTS = 6;
 // Per-attempt timeout so a hung xAI connection can't block createGame (and the
 // gamemaster) indefinitely — it aborts and surfaces a handled GenerationError.
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -43,17 +46,29 @@ export class GenerationError extends Error {
   }
 }
 
-function buildMessages(params: GenerationParams, count: number) {
+function buildMessages(
+  params: GenerationParams,
+  count: number,
+  avoidPrompts: readonly string[] = [],
+) {
   const modeInstruction =
     params.mode === "multiple_choice"
       ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one.`
       : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint.`;
 
+  const avoidBlock =
+    avoidPrompts.length > 0
+      ? [
+          "Do NOT repeat or closely rephrase any of these already-used questions:",
+          ...avoidPrompts.slice(0, 40).map((p) => `- ${p}`),
+        ]
+      : [];
+
   return [
     {
       role: "system" as const,
       content:
-        "You are a trivia question generator. You return only valid JSON. Never include commentary.",
+        "You are a trivia question generator. You return only valid JSON. Never include commentary. Prefer fresh, non-overlapping prompts.",
     },
     {
       role: "user" as const,
@@ -61,6 +76,7 @@ function buildMessages(params: GenerationParams, count: number) {
         `Generate exactly ${count} ${params.difficulty} trivia questions.`,
         `Categories: ${params.categories.join(", ")}.`,
         modeInstruction,
+        ...avoidBlock,
         `Return a JSON object of the form {"questions": [ ... ]} where each element has "prompt", the mode-specific fields above, and no extra fields.`,
       ].join("\n"),
     },
@@ -74,6 +90,9 @@ async function requestBatch(
     fetchImpl: typeof fetch;
     timeoutMs: number;
   },
+  avoidPrompts: readonly string[] = [],
+  /** Bump temperature on retries so the model diversifies after duplicates. */
+  temperature: number = 0.7,
 ): Promise<unknown[]> {
   let res: Response;
   const controller = new AbortController();
@@ -87,9 +106,9 @@ async function requestBatch(
       },
       body: JSON.stringify({
         model: config.model,
-        messages: buildMessages(params, count),
+        messages: buildMessages(params, count, avoidPrompts),
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        temperature,
       }),
       signal: controller.signal,
     });
@@ -145,6 +164,8 @@ export async function generateQuestions(
   params: GenerationParams,
   config: XaiConfig,
   seen: ReadonlySet<string> = new Set(),
+  /** Original prompt text already banked (or accepted this run) for model avoid-list. */
+  avoidPrompts: readonly string[] = [],
 ): Promise<GeneratedQuestion[]> {
   if (!config.apiKey) throw new GenerationError("Missing xAI API key");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
@@ -162,6 +183,7 @@ export async function generateQuestions(
   // Normalized prompts we must not emit: the bank's existing prompts plus the
   // ones accepted so far this run (so a single batch can't self-duplicate).
   const usedNorms = new Set<string>(seen);
+  const avoid = [...avoidPrompts];
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
@@ -169,7 +191,12 @@ export async function generateQuestions(
     const remaining = params.count - collected.length;
     if (remaining <= 0) break;
 
-    const batch = await requestBatch(params, remaining, resolved);
+    // Oversample the remaining count so a few bank/self-duplicates in the batch
+    // do not force an extra round-trip every time.
+    const requestCount = Math.min(Math.max(params.count, remaining + 2), remaining * 2 + 2);
+    // Diversify after the first pass so retries are less likely to echo banked prompts.
+    const temperature = Math.min(1.1, 0.7 + attempt * 0.1);
+    const batch = await requestBatch(params, requestCount, resolved, avoid, temperature);
     for (const raw of batch) {
       if (collected.length >= params.count) break;
       const result = validateGeneratedQuestion(raw, params);
@@ -183,6 +210,7 @@ export async function generateQuestions(
         continue;
       }
       usedNorms.add(norm);
+      avoid.push(result.question.prompt);
       collected.push(result.question);
     }
   }

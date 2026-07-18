@@ -9,7 +9,12 @@ test("player re-hydrates to the live question after a reload", async ({ browser 
   const hostCtx = await browser.newContext();
   const playerCtx = await browser.newContext();
 
-  const { page: host, code } = await hostCreateGame(hostCtx, { count: 2 });
+  // Distinct category from other e2e specs so bank dedup does not exhaust
+  // Geography prompts mid-suite (tests share one live question_bank).
+  const { page: host, code } = await hostCreateGame(hostCtx, {
+    category: "History",
+    count: 1,
+  });
   const player = await playerJoin(playerCtx, code, "Ada");
 
   await expect(host.getByRole("button", { name: "Start game" })).toBeEnabled();
