@@ -116,7 +116,12 @@ function PlayView() {
             🎮
           </span>
           <p>
-            Waiting for the host to start<span className="waiting__dots" aria-hidden="true" />
+            Waiting for the host to start
+            <span className="waiting__dots" aria-hidden="true">
+              <span className="waiting__dot" />
+              <span className="waiting__dot" />
+              <span className="waiting__dot" />
+            </span>
           </p>
         </div>
       )}

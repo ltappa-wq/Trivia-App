@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame } from "@/app/actions/createGame";
+import { validateCustomCategory } from "@/app/actions/validateCategory";
 import { saveHostCredential } from "@/lib/clientSession";
 import {
   ANSWER_MODES,
@@ -87,6 +88,7 @@ export default function SetupPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [customCategory, setCustomCategory] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
+  const [customChecking, setCustomChecking] = useState(false);
   const [questionCount, setQuestionCount] = useState(10);
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -107,7 +109,7 @@ export default function SetupPage() {
     );
   }
 
-  function addCustomCategory() {
+  async function addCustomCategory() {
     const c = normalizeCategory(customCategory);
     setCustomError(null);
     if (!c) {
@@ -122,8 +124,23 @@ export default function SetupPage() {
       setCustomError("That category is already selected");
       return;
     }
-    setCategories((prev) => [...prev, c]);
-    setCustomCategory("");
+    // AI depth check: only add when the topic can support enough unique questions.
+    setCustomChecking(true);
+    try {
+      const result = await validateCustomCategory(c);
+      if (!result.ok) {
+        setCustomError(result.error);
+        return;
+      }
+      setCategories((prev) =>
+        prev.includes(result.category) ? prev : [...prev, result.category],
+      );
+      setCustomCategory("");
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : "Could not check that category");
+    } finally {
+      setCustomChecking(false);
+    }
   }
 
   function removeCategory(cat: string) {
@@ -254,6 +271,7 @@ export default function SetupPage() {
               maxLength={CUSTOM_CATEGORY_MAX_LEN}
               placeholder="e.g. 90s cartoons"
               autoComplete="off"
+              disabled={customChecking}
               onChange={(e) => {
                 setCustomCategory(e.target.value);
                 setCustomError(null);
@@ -261,14 +279,23 @@ export default function SetupPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  addCustomCategory();
+                  if (!customChecking) void addCustomCategory();
                 }
               }}
             />
-            <button type="button" onClick={addCustomCategory}>
-              Add
+            <button
+              type="button"
+              disabled={customChecking || !customCategory.trim()}
+              onClick={() => void addCustomCategory()}
+            >
+              {customChecking ? "Checking…" : "Add"}
             </button>
           </span>
+          {customChecking && (
+            <p className="field__hint" aria-live="polite">
+              Asking AI if this topic has enough questions…
+            </p>
+          )}
           {customError && (
             <p role="alert" className="field__hint">
               {customError}

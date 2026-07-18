@@ -20,3 +20,12 @@ export function normalizePrompt(prompt: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Canonical key for a question's *correct answer* text. Used to prevent the
+ * same fact/answer from winning multiple questions in one set (e.g. "Paris"
+ * as the answer to two different prompts).
+ */
+export function normalizeAnswer(answer: string): string {
+  return normalizePrompt(answer);
+}

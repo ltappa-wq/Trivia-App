@@ -5,6 +5,7 @@ import "server-only";
 // missing/invalid tail rather than failing the whole game (KTD10).
 
 import {
+  correctAnswerKeys,
   extractQuestionArray,
   validateGeneratedQuestion,
   type GeneratedQuestion,
@@ -53,11 +54,12 @@ function buildMessages(
   params: GenerationParams,
   count: number,
   avoidPrompts: readonly string[] = [],
+  avoidAnswers: readonly string[] = [],
 ) {
   const modeInstruction =
     params.mode === "multiple_choice"
-      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one. Vary which index is correct across the set — do not put the correct answer first every time.`
-      : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint.`;
+      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one. Vary which index is correct across the set — do not put the correct answer first every time. Every question must have a DISTINCT correct answer — never reuse the same correct answer text on two questions.`
+      : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint. Every question must have a DISTINCT primary correct answer — never reuse the same answer on two questions.`;
 
   const avoidBlock =
     avoidPrompts.length > 0
@@ -67,11 +69,19 @@ function buildMessages(
         ]
       : [];
 
+  const avoidAnswerBlock =
+    avoidAnswers.length > 0
+      ? [
+          "Do NOT use any of these as a correct answer (already used in this set):",
+          ...avoidAnswers.slice(0, 60).map((a) => `- ${a}`),
+        ]
+      : [];
+
   return [
     {
       role: "system" as const,
       content:
-        "You are a trivia question generator. You return only valid JSON. Never include commentary. Prefer fresh, non-overlapping prompts.",
+        "You are a trivia question generator. You return only valid JSON. Never include commentary. Prefer fresh, non-overlapping prompts and unique correct answers.",
     },
     {
       role: "user" as const,
@@ -80,6 +90,7 @@ function buildMessages(
         `Categories: ${params.categories.join(", ")}.`,
         modeInstruction,
         ...avoidBlock,
+        ...avoidAnswerBlock,
         `Return a JSON object of the form {"questions": [ ... ]} where each element has "prompt", the mode-specific fields above, and no extra fields.`,
       ].join("\n"),
     },
@@ -94,6 +105,7 @@ async function requestBatch(
     timeoutMs: number;
   },
   avoidPrompts: readonly string[] = [],
+  avoidAnswers: readonly string[] = [],
   /** Bump temperature on retries so the model diversifies after duplicates. */
   temperature: number = 0.7,
 ): Promise<unknown[]> {
@@ -109,7 +121,7 @@ async function requestBatch(
       },
       body: JSON.stringify({
         model: config.model,
-        messages: buildMessages(params, count, avoidPrompts),
+        messages: buildMessages(params, count, avoidPrompts, avoidAnswers),
         response_format: { type: "json_object" },
         temperature,
       }),
@@ -189,7 +201,10 @@ export async function generateQuestions(
   // Normalized prompts we must not emit: the bank's existing prompts plus the
   // ones accepted so far this run (so a single batch can't self-duplicate).
   const usedNorms = new Set<string>(seen);
+  // Correct-answer keys already used this set — no two questions share a winner.
+  const usedAnswers = new Set<string>();
   const avoid = [...avoidPrompts];
+  const avoidAnswerLabels: string[] = [];
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
@@ -201,7 +216,14 @@ export async function generateQuestions(
     const requestCount = Math.min(GENERATION_BATCH_SIZE, remaining + Math.min(2, remaining));
     // Diversify after the first pass so retries are less likely to echo banked prompts.
     const temperature = Math.min(1.1, 0.7 + attempt * 0.05);
-    const batch = await requestBatch(params, requestCount, resolved, avoid, temperature);
+    const batch = await requestBatch(
+      params,
+      requestCount,
+      resolved,
+      avoid,
+      avoidAnswerLabels,
+      temperature,
+    );
     for (const raw of batch) {
       if (collected.length >= params.count) break;
       const result = validateGeneratedQuestion(raw, params);
@@ -214,8 +236,22 @@ export async function generateQuestions(
         rejections.add("duplicate");
         continue;
       }
+      const answerKeys = correctAnswerKeys(result.question);
+      if (answerKeys.some((k) => usedAnswers.has(k))) {
+        rejections.add("duplicate_answer");
+        continue;
+      }
       usedNorms.add(norm);
+      for (const k of answerKeys) usedAnswers.add(k);
       avoid.push(result.question.prompt);
+      // Human-readable labels for the model avoid-list (primary answer text).
+      if (result.question.mode === "multiple_choice" && result.question.options) {
+        const idx = result.question.correct_option ?? -1;
+        const label = result.question.options[idx];
+        if (label) avoidAnswerLabels.push(label);
+      } else if (result.question.accepted_variants?.[0]) {
+        avoidAnswerLabels.push(result.question.accepted_variants[0]);
+      }
       collected.push(result.question);
     }
   }

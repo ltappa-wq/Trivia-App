@@ -6,6 +6,7 @@
 
 import { randomInt } from "node:crypto";
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
+import { normalizeAnswer } from "./dedup";
 
 export interface GenerationParams {
   categories: string[];
@@ -137,6 +138,31 @@ export function extractQuestionArray(parsed: unknown): unknown[] {
     Array.isArray((parsed as Record<string, unknown>).questions)
   ) {
     return (parsed as { questions: unknown[] }).questions;
+  }
+  return [];
+}
+
+/**
+ * Normalized correct-answer keys for a generated question (primary MC option
+ * text, or every type-answer accepted variant). Empty when the shape is incomplete.
+ */
+export function correctAnswerKeys(question: GeneratedQuestion): string[] {
+  if (
+    question.mode === "multiple_choice" &&
+    question.options &&
+    question.correct_option !== undefined &&
+    question.correct_option >= 0 &&
+    question.correct_option < question.options.length
+  ) {
+    const key = normalizeAnswer(question.options[question.correct_option]!);
+    return key ? [key] : [];
+  }
+  if (question.mode === "type_answer" && question.accepted_variants?.length) {
+    return [
+      ...new Set(
+        question.accepted_variants.map((v) => normalizeAnswer(v)).filter(Boolean),
+      ),
+    ];
   }
   return [];
 }

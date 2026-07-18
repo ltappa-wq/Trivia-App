@@ -8,7 +8,8 @@
 
 import { useEffect, useState } from "react";
 
-const PARTICLES = 12;
+// Match Buzzr design prototype: denser radial burst (dc.html uses 24 particles).
+const PARTICLES = 24;
 const DURATION_MS = 1100;
 
 export function Fireworks() {
