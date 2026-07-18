@@ -4,6 +4,7 @@
 // Answer-key columns generated here are judged server-side (U7) and never sent
 // to clients (the hydrate RPC omits them, U2).
 
+import { randomInt } from "node:crypto";
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
 
 export interface GenerationParams {
@@ -87,16 +88,16 @@ export function validateGeneratedQuestion(
     ) {
       return { ok: false, reason: "invalid correct_option" };
     }
-    return {
-      ok: true,
-      question: {
-        prompt: q.prompt.trim(),
-        mode: "multiple_choice",
-        options: options as string[],
-        correct_option: correct,
-        difficulty: params.difficulty,
-      },
-    };
+    // Models strongly bias correct_option toward 0 ("always A"). Shuffle after
+    // validation so the correct answer is uniformly distributed across slots.
+    const shuffled = shuffleMcOptions({
+      prompt: q.prompt.trim(),
+      mode: "multiple_choice",
+      options: (options as string[]).map((o) => o.trim()),
+      correct_option: correct,
+      difficulty: params.difficulty,
+    });
+    return { ok: true, question: shuffled };
   }
 
   // type_answer
@@ -138,4 +139,36 @@ export function extractQuestionArray(parsed: unknown): unknown[] {
     return (parsed as { questions: unknown[] }).questions;
   }
   return [];
+}
+
+/**
+ * Fisher–Yates shuffle of multiple-choice options, updating correct_option so
+ * it still points at the same answer text. Injectable `rand` for tests.
+ */
+export function shuffleMcOptions(
+  question: GeneratedQuestion,
+  rand: (maxExclusive: number) => number = (n) => randomInt(n),
+): GeneratedQuestion {
+  if (
+    question.mode !== "multiple_choice" ||
+    !question.options ||
+    question.correct_option === undefined ||
+    question.correct_option < 0 ||
+    question.correct_option >= question.options.length
+  ) {
+    return question;
+  }
+  const options = [...question.options];
+  const correctText = options[question.correct_option]!;
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    const tmp = options[i]!;
+    options[i] = options[j]!;
+    options[j] = tmp;
+  }
+  return {
+    ...question,
+    options,
+    correct_option: options.indexOf(correctText),
+  };
 }

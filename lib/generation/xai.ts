@@ -23,9 +23,12 @@ const DEFAULT_MODEL = "grok-4.20-0309-non-reasoning";
 // tail regeneration (especially on small category sets that the model tends to
 // recycle).
 const DEFAULT_MAX_ATTEMPTS = 6;
+// Cap each completion request so large games (up to QUESTION_COUNT_MAX) fill via
+// several medium batches rather than one truncation-prone 100-question call.
+const GENERATION_BATCH_SIZE = 12;
 // Per-attempt timeout so a hung xAI connection can't block createGame (and the
 // gamemaster) indefinitely — it aborts and surfaces a handled GenerationError.
-const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 export interface XaiConfig {
   apiKey: string;
@@ -53,7 +56,7 @@ function buildMessages(
 ) {
   const modeInstruction =
     params.mode === "multiple_choice"
-      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one.`
+      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one. Vary which index is correct across the set — do not put the correct answer first every time.`
       : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint.`;
 
   const avoidBlock =
@@ -177,7 +180,10 @@ export async function generateQuestions(
     fetchImpl: config.fetchImpl ?? fetch,
     timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
-  const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+  // Scale attempts with set size so a 100-question game can fill via many batches.
+  const maxAttempts =
+    config.maxAttempts ??
+    Math.max(DEFAULT_MAX_ATTEMPTS, Math.ceil(params.count / GENERATION_BATCH_SIZE) * 3 + 2);
 
   const collected: GeneratedQuestion[] = [];
   // Normalized prompts we must not emit: the bank's existing prompts plus the
@@ -191,11 +197,10 @@ export async function generateQuestions(
     const remaining = params.count - collected.length;
     if (remaining <= 0) break;
 
-    // Oversample the remaining count so a few bank/self-duplicates in the batch
-    // do not force an extra round-trip every time.
-    const requestCount = Math.min(Math.max(params.count, remaining + 2), remaining * 2 + 2);
+    // Request a medium batch (slight oversample for dup/invalid dropouts).
+    const requestCount = Math.min(GENERATION_BATCH_SIZE, remaining + Math.min(2, remaining));
     // Diversify after the first pass so retries are less likely to echo banked prompts.
-    const temperature = Math.min(1.1, 0.7 + attempt * 0.1);
+    const temperature = Math.min(1.1, 0.7 + attempt * 0.05);
     const batch = await requestBatch(params, requestCount, resolved, avoid, temperature);
     for (const raw of batch) {
       if (collected.length >= params.count) break;

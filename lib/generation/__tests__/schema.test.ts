@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractQuestionArray,
   isEasyTypeAnswer,
+  shuffleMcOptions,
   validateGeneratedQuestion,
 } from "../schema";
 
@@ -48,7 +49,8 @@ describe("validateGeneratedQuestion", () => {
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.question.difficulty).toBe("medium");
-      expect(r.question.correct_option).toBe(0);
+      // Shuffle may move the correct answer off index 0; text must still match.
+      expect(r.question.options?.[r.question.correct_option!]).toBe("Paris");
     }
   });
 
@@ -102,5 +104,30 @@ describe("extractQuestionArray", () => {
   it("returns empty for anything else", () => {
     expect(extractQuestionArray({ foo: 1 })).toEqual([]);
     expect(extractQuestionArray("nope")).toEqual([]);
+  });
+});
+
+describe("shuffleMcOptions", () => {
+  it("keeps the correct answer text while changing positions (deterministic rand)", () => {
+    // Always pick index 0 when swapping → reverse-like walk that is not a no-op.
+    let calls = 0;
+    const rand = (n: number) => {
+      calls += 1;
+      return 0; // always swap with front
+    };
+    const out = shuffleMcOptions(
+      {
+        prompt: "q",
+        mode: "multiple_choice",
+        options: ["A", "B", "C", "D"],
+        correct_option: 0,
+        difficulty: "easy",
+      },
+      rand,
+    );
+    expect(out.options).toHaveLength(4);
+    expect(new Set(out.options)).toEqual(new Set(["A", "B", "C", "D"]));
+    expect(out.options![out.correct_option!]).toBe("A");
+    expect(calls).toBeGreaterThan(0);
   });
 });

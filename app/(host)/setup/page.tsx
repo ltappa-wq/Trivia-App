@@ -11,7 +11,10 @@ import { saveHostCredential } from "@/lib/clientSession";
 import {
   ANSWER_MODES,
   CATEGORIES,
+  CUSTOM_CATEGORY_MAX_LEN,
   DIFFICULTIES,
+  isValidCategory,
+  normalizeCategory,
   QUESTION_COUNT_MAX,
   QUESTION_COUNT_MIN,
 } from "@/lib/gameConfig";
@@ -30,7 +33,7 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   hard: "💀 Hard",
 };
 
-// Playful icons for the category chips (falls back to a neutral glyph).
+// Playful icons for built-in category chips (falls back to a neutral glyph).
 const CATEGORY_ICONS: Record<string, string> = {
   "General Knowledge": "🧠",
   History: "🏛️",
@@ -42,6 +45,28 @@ const CATEGORY_ICONS: Record<string, string> = {
   "Art & Literature": "🎨",
   Technology: "💻",
   "Food & Drink": "🍔",
+  "Nature & Animals": "🐾",
+  "Pop Culture": "⭐",
+  "Video Games": "🎮",
+  "Comics & Superheroes": "🦸",
+  "Anime & Manga": "🎌",
+  Mythology: "⚡",
+  "Religion & Philosophy": "🕊️",
+  "Politics & World Affairs": "🗞️",
+  "Business & Economics": "📈",
+  "Math & Logic": "🔢",
+  "Space & Astronomy": "🚀",
+  "Medicine & Health": "🩺",
+  "Language & Words": "📚",
+  "Fashion & Style": "👗",
+  "Travel & Places": "✈️",
+  "Cars & Transportation": "🚗",
+  Celebrities: "🌟",
+  "Television Trivia": "📺",
+  "Board Games & Puzzles": "🧩",
+  "Holidays & Traditions": "🎄",
+  "Weird Facts": "🤯",
+  "Current Events": "📡",
 };
 
 const TAGLINES = [
@@ -60,6 +85,8 @@ export default function SetupPage() {
   const [hostPlays, setHostPlays] = useState(true);
   const [hostName, setHostName] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [customCategory, setCustomCategory] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(10);
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -78,6 +105,29 @@ export default function SetupPage() {
     setCategories((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
     );
+  }
+
+  function addCustomCategory() {
+    const c = normalizeCategory(customCategory);
+    setCustomError(null);
+    if (!c) {
+      setCustomError("Enter a category name");
+      return;
+    }
+    if (!isValidCategory(c)) {
+      setCustomError(`Use up to ${CUSTOM_CATEGORY_MAX_LEN} letters, numbers, or simple punctuation`);
+      return;
+    }
+    if (categories.includes(c)) {
+      setCustomError("That category is already selected");
+      return;
+    }
+    setCategories((prev) => [...prev, c]);
+    setCustomCategory("");
+  }
+
+  function removeCategory(cat: string) {
+    setCategories((prev) => prev.filter((c) => c !== cat));
   }
 
   function adjustCount(delta: number) {
@@ -139,6 +189,9 @@ export default function SetupPage() {
 
   const canSubmit =
     categories.length > 0 && (!hostPlays || hostName.trim().length > 0);
+  const customSelected = categories.filter(
+    (c) => !(CATEGORIES as readonly string[]).includes(c),
+  );
 
   return (
     <main>
@@ -190,6 +243,56 @@ export default function SetupPage() {
         </fieldset>
 
         <div className="field">
+          <span className="field__label" id="custom-cat-label">
+            Custom category
+          </span>
+          <span className="stepper">
+            <input
+              type="text"
+              aria-labelledby="custom-cat-label"
+              value={customCategory}
+              maxLength={CUSTOM_CATEGORY_MAX_LEN}
+              placeholder="e.g. 90s cartoons"
+              autoComplete="off"
+              onChange={(e) => {
+                setCustomCategory(e.target.value);
+                setCustomError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCustomCategory();
+                }
+              }}
+            />
+            <button type="button" onClick={addCustomCategory}>
+              Add
+            </button>
+          </span>
+          {customError && (
+            <p role="alert" className="field__hint">
+              {customError}
+            </p>
+          )}
+          {customSelected.length > 0 && (
+            <ul className="chip-list" aria-label="Custom categories">
+              {customSelected.map((c) => (
+                <li key={c}>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => removeCategory(c)}
+                    aria-label={`Remove category ${c}`}
+                  >
+                    {c} ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="field">
           <span className="field__label" id="qcount-label">
             Number of questions
           </span>
@@ -233,6 +336,7 @@ export default function SetupPage() {
               +
             </button>
           </span>
+          <p className="field__hint">1–{QUESTION_COUNT_MAX} questions</p>
         </div>
 
         <fieldset>
