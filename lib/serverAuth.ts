@@ -60,7 +60,7 @@ export async function resolvePlayerByToken(
   const { data, error } = await supabase
     .from("players")
     .select("id, game_id, is_spectator, score")
-    .eq("token", token)
+    .eq("token_hash", hashToken(token))
     .maybeSingle();
   if (error) throw new Error(`Lookup failed: ${error.message}`);
   if (!data) throw new Error("Invalid player token");

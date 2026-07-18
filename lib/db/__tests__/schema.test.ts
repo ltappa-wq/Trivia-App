@@ -51,8 +51,9 @@ describe("schema security invariants", () => {
     expect(init).toMatch(/unique \(question_id, player_id\)/);
   });
 
-  it("issues a unique player token column", () => {
-    expect(init).toMatch(/token\s+text not null unique/);
+  it("stores the player token hashed in a unique column, never in plaintext", () => {
+    expect(init).toMatch(/token_hash\s+text not null unique/);
+    expect(init).not.toMatch(/\btoken\s+text/); // no plaintext player-token column
   });
 });
 
