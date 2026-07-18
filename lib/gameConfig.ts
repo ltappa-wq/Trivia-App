@@ -46,10 +46,16 @@ export const QUESTION_COUNT_MIN = 1;
 // within per-request timeouts rather than one giant completion.
 export const QUESTION_COUNT_MAX = 100;
 
+/** Max total categories (built-in + custom) per game. */
+export const CATEGORIES_MAX = 10;
+
 /** Max length for a host-entered custom category label. */
 export const CUSTOM_CATEGORY_MAX_LEN = 40;
 /** Cap how many free-text categories a single game may include. */
 export const CUSTOM_CATEGORY_MAX_COUNT = 5;
+
+/** Get-ready 3–2–1 interstitial before each question becomes answerable. */
+export const GET_READY_MS = 3000;
 
 export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer"];
 export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
@@ -118,6 +124,12 @@ export function validateSetupInput(raw: unknown): SetupValidation {
   const categories = [
     ...new Set(categoriesRaw.map((c) => normalizeCategory(c as string))),
   ];
+  if (categories.length > CATEGORIES_MAX) {
+    return {
+      ok: false,
+      error: `Select at most ${CATEGORIES_MAX} categories`,
+    };
+  }
   const customCount = categories.filter(
     (c) => !(CATEGORIES as readonly string[]).includes(c),
   ).length;

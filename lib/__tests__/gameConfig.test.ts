@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  CATEGORIES,
+  CATEGORIES_MAX,
   CUSTOM_CATEGORY_MAX_COUNT,
   isValidCategory,
   QUESTION_COUNT_MAX,
@@ -42,6 +44,16 @@ describe("validateSetupInput (U4)", () => {
   it("rejects too many custom categories", () => {
     const customs = Array.from({ length: CUSTOM_CATEGORY_MAX_COUNT + 1 }, (_, i) => `Custom ${i}`);
     expect(validateSetupInput({ ...valid, categories: customs }).ok).toBe(false);
+  });
+
+  it("accepts up to CATEGORIES_MAX total categories", () => {
+    const cats = CATEGORIES.slice(0, CATEGORIES_MAX) as unknown as string[];
+    expect(validateSetupInput({ ...valid, categories: cats }).ok).toBe(true);
+  });
+
+  it("rejects more than CATEGORIES_MAX total categories", () => {
+    const cats = CATEGORIES.slice(0, CATEGORIES_MAX + 1) as unknown as string[];
+    expect(validateSetupInput({ ...valid, categories: cats }).ok).toBe(false);
   });
 
   it("rejects a question count above the generation ceiling", () => {

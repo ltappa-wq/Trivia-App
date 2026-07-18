@@ -12,6 +12,7 @@ import { saveHostCredential } from "@/lib/clientSession";
 import {
   ANSWER_MODES,
   CATEGORIES,
+  CATEGORIES_MAX,
   CUSTOM_CATEGORY_MAX_LEN,
   DIFFICULTIES,
   isValidCategory,
@@ -104,9 +105,11 @@ export default function SetupPage() {
   }, [status]);
 
   function toggleCategory(cat: string) {
-    setCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-    );
+    setCategories((prev) => {
+      if (prev.includes(cat)) return prev.filter((c) => c !== cat);
+      if (prev.length >= CATEGORIES_MAX) return prev;
+      return [...prev, cat];
+    });
   }
 
   async function addCustomCategory() {
@@ -122,6 +125,10 @@ export default function SetupPage() {
     }
     if (categories.includes(c)) {
       setCustomError("That category is already selected");
+      return;
+    }
+    if (categories.length >= CATEGORIES_MAX) {
+      setCustomError(`Up to ${CATEGORIES_MAX} categories per game`);
       return;
     }
     // AI depth check: only add when the topic can support enough unique questions.
@@ -245,18 +252,26 @@ export default function SetupPage() {
         )}
 
         <fieldset>
-          <legend>Categories</legend>
-          {CATEGORIES.map((cat) => (
-            <label key={cat}>
-              <input
-                type="checkbox"
-                checked={categories.includes(cat)}
-                onChange={() => toggleCategory(cat)}
-              />
-              <span aria-hidden="true">{CATEGORY_ICONS[cat] ?? "❓"}</span>
-              {cat}
-            </label>
-          ))}
+          <legend>Categories (pick up to {CATEGORIES_MAX})</legend>
+          <p className="field__hint">
+            {categories.length}/{CATEGORIES_MAX} selected — you can mix built-ins and custom.
+          </p>
+          {CATEGORIES.map((cat) => {
+            const checked = categories.includes(cat);
+            const atMax = !checked && categories.length >= CATEGORIES_MAX;
+            return (
+              <label key={cat} className={atMax ? "is-disabled" : undefined}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={atMax}
+                  onChange={() => toggleCategory(cat)}
+                />
+                <span aria-hidden="true">{CATEGORY_ICONS[cat] ?? "❓"}</span>
+                {cat}
+              </label>
+            );
+          })}
         </fieldset>
 
         <div className="field">
@@ -285,7 +300,11 @@ export default function SetupPage() {
             />
             <button
               type="button"
-              disabled={customChecking || !customCategory.trim()}
+              disabled={
+                customChecking ||
+                !customCategory.trim() ||
+                categories.length >= CATEGORIES_MAX
+              }
               onClick={() => void addCustomCategory()}
             >
               {customChecking ? "Checking…" : "Add"}

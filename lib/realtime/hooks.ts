@@ -12,7 +12,7 @@ import { serverNow } from "@/app/actions/serverTime";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
 import { hydrate, subscribeToRoom } from "./channel";
-import { measureClockOffset, remainingMs } from "./clock";
+import { isGetReadyPhase, measureClockOffset, remainingMs } from "./clock";
 import { ROOM_EVENTS } from "./events";
 
 export interface RoomState {
@@ -143,7 +143,11 @@ export function useQuestionCountdown(
   offset: number,
 ): number | null {
   const active = !!game && game.current_index >= 0;
-  const timerMs = game && active ? ANSWER_TIMER_MS[game.answer_mode] : null;
+  // Hide the answer timer during the get-ready 3–2–1 interstitial.
+  const inGetReady =
+    active && isGetReadyPhase(game?.reveal_at, offset);
+  const timerMs =
+    game && active && !inGetReady ? ANSWER_TIMER_MS[game.answer_mode] : null;
   return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);
 }
 

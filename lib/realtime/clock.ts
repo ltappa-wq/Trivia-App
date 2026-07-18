@@ -24,6 +24,8 @@ export async function measureClockOffset(
 /**
  * Milliseconds left in the answer window, from the server-anchored `revealAtMs`
  * plus `timerMs`, evaluated at the offset-corrected local clock. Never negative.
+ * Before reveal (get-ready phase) returns the full `timerMs` so callers that
+ * only care about the answer window do not see a bloated pre-reveal total.
  */
 export function remainingMs(
   revealAtMs: number,
@@ -33,5 +35,26 @@ export function remainingMs(
 ): number {
   const serverNow = now + offsetMs;
   const elapsed = serverNow - revealAtMs;
+  if (elapsed < 0) return timerMs;
   return Math.max(0, timerMs - elapsed);
+}
+
+/** Milliseconds until `revealAtMs` on the offset-corrected clock (0 when open). */
+export function msUntilReveal(
+  revealAtMs: number,
+  offsetMs: number,
+  now: number = Date.now(),
+): number {
+  const serverNow = now + offsetMs;
+  return Math.max(0, revealAtMs - serverNow);
+}
+
+/** True while the room is in the get-ready 3–2–1 interstitial before answers open. */
+export function isGetReadyPhase(
+  revealAt: string | null | undefined,
+  offsetMs: number,
+  now: number = Date.now(),
+): boolean {
+  if (!revealAt) return false;
+  return msUntilReveal(new Date(revealAt).getTime(), offsetMs, now) > 0;
 }

@@ -12,18 +12,22 @@ import { advance } from "@/app/actions/advance";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
+import { challenge } from "@/app/actions/challenge";
 import { loadHostCredential } from "@/lib/clientSession";
 import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
 import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
-import { describeWinners, sortStandings } from "@/lib/results";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { isGetReadyPhase } from "@/lib/realtime/clock";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
+import { GetReady } from "@/components/GetReady";
 import { JoinToast } from "@/components/JoinToast";
-import { Podium } from "@/components/Podium";
+import { GameOver } from "@/components/GameOver";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { AnswerDistribution } from "@/components/AnswerDistribution";
+import { ChallengeActions } from "@/components/ChallengeActions";
+import type { ChallengeKind } from "@/lib/challenge";
 import type {
   AnswerDistribution as AnswerDistributionData,
   OpenChallenge,
@@ -46,6 +50,8 @@ function HostView() {
   const [dist, setDist] = useState<AnswerDistributionData | null>(null);
   const [copied, setCopied] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challenging, setChallenging] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const game = state?.game ?? null;
@@ -184,6 +190,19 @@ function HostView() {
     }
   }
 
+  async function raiseChallenge(type: ChallengeKind) {
+    if (!cred?.playerToken) return;
+    setChallenging(true);
+    setChallengeError(null);
+    try {
+      await challenge(cred.playerToken, type);
+    } catch (err) {
+      setChallengeError(err instanceof Error ? err.message : "Could not challenge");
+    } finally {
+      setChallenging(false);
+    }
+  }
+
   if (!cred) {
     return (
       <main>
@@ -200,13 +219,25 @@ function HostView() {
   const started = game.current_index >= 0;
   const ended = game.status === "ended";
   const reviewing = game.reviewing;
+  const getReady =
+    started &&
+    !ended &&
+    !game.paused &&
+    !reviewing &&
+    isGetReadyPhase(game.reveal_at, offset);
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
     <main className="host-view">
       <header>
         <h1>Room {game.code}</h1>
-        <p>{game.status === "lobby" ? "Waiting to start" : `Question ${game.current_index + 1} of ${game.question_count}`}</p>
+        <p>
+          {game.status === "lobby"
+            ? "Waiting to start"
+            : getReady
+              ? `Get ready — Question ${game.current_index + 1} of ${game.question_count}`
+              : `Question ${game.current_index + 1} of ${game.question_count}`}
+        </p>
       </header>
 
       {actionError && <p role="alert">{actionError}</p>}
@@ -294,7 +325,13 @@ function HostView() {
       )}
 
       <div className="host-live">
-      {started && !ended && !game.paused && !reviewing && state?.current_question && (
+      {started && !ended && !game.paused && !reviewing && getReady && game.reveal_at && (
+        <section aria-live="polite">
+          <GetReady revealAt={game.reveal_at} offset={offset} />
+        </section>
+      )}
+
+      {started && !ended && !game.paused && !reviewing && !getReady && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -340,6 +377,14 @@ function HostView() {
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
           <AnswerDistribution dist={dist} />
+          {cred.playerToken && (
+            <ChallengeActions
+              challenging={challenging}
+              challengeError={challengeError}
+              showAnswerDispute={false}
+              onChallenge={(t) => void raiseChallenge(t)}
+            />
+          )}
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game
@@ -371,27 +416,11 @@ function HostView() {
       </div>
 
       {ended && (
-        <section aria-live="polite">
-          <h2>Final results</h2>
-          {(() => {
-            const standings = sortStandings(leaderboard);
-            const { winnerIds, label } = describeWinners(standings);
-            return (
-              <>
-                <Podium standings={standings} />
-                <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
-                <ol>
-                  {standings.map((p) => (
-                    <li key={p.id}>
-                      {p.username} — {p.score}
-                      {winnerIds.has(p.id) && " ★"}
-                    </li>
-                  ))}
-                </ol>
-              </>
-            );
-          })()}
-        </section>
+        <GameOver
+          standings={leaderboard}
+          myPlayerId={state?.player?.id}
+          roomCode={game.code}
+        />
       )}
     </main>
   );

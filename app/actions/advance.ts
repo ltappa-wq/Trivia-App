@@ -14,7 +14,7 @@ import { computeNextIndex } from "@/lib/gameFlow";
 import { ADVANCEABLE_STATUSES, isAdvanceableStatus } from "@/lib/phaseGuards";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { ANSWER_TIMER_MS, GET_READY_MS } from "@/lib/gameConfig";
 
 export type AdvanceResult =
   | { status: "advanced"; index: number; revealAt: string; timerMs: number }
@@ -52,7 +52,9 @@ export async function advance(
     return { status: "no_next" };
   }
 
-  const revealAt = new Date().toISOString();
+  // Stamp reveal 3s in the future so every device shows a synced 3–2–1
+  // get-ready interstitial before the answer window opens (KTD9).
+  const revealAt = new Date(Date.now() + GET_READY_MS).toISOString();
   const { data: updated, error } = await supabase
     .from("games")
     .update({
@@ -112,6 +114,7 @@ export async function advance(
     index: next,
     revealAt,
     timerMs,
+    getReadyMs: GET_READY_MS,
     question: question ?? null,
   });
 

@@ -1090,6 +1090,141 @@ section p.overlay {
   color: #92610a;
 }
 
+/* --- Get-ready 3–2–1 interstitial --------------------------------------- */
+.get-ready {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0 2rem;
+  text-align: center;
+}
+.get-ready__label {
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.get-ready__ring {
+  --pct: 100;
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--accent) calc(var(--pct) * 1%),
+    var(--border) 0
+  );
+  animation: get-ready-pop 0.35s ease;
+}
+.get-ready__digit {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: var(--surface);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 3.5rem;
+  color: var(--accent-strong);
+  line-height: 1;
+}
+.get-ready__hint {
+  color: var(--muted);
+  margin: 0;
+}
+@keyframes get-ready-pop {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .get-ready__ring { animation: none; }
+}
+
+/* --- Challenge actions (review + live) ---------------------------------- */
+.challenge-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.challenge-actions__hint {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+.challenge-actions__primary {
+  width: 100%;
+  margin: 0;
+}
+
+/* --- Game over + feedback ---------------------------------------------- */
+.game-over {
+  margin-top: 0.5rem;
+}
+.game-over__cta {
+  text-align: center;
+  margin: 1.5rem 0 1rem;
+}
+.game-over__cta .cta-primary {
+  display: inline-block;
+  color: #fff;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-family: var(--display);
+  font-weight: 600;
+  box-shadow: 0 10px 24px oklch(0.64 0.19 340 / 0.3);
+}
+.game-over__cta .cta-primary:hover {
+  text-decoration: none;
+  filter: brightness(1.05);
+}
+.feedback-form {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.feedback-form h3 {
+  font-family: var(--display);
+  margin: 0;
+}
+.feedback-form textarea {
+  font: inherit;
+  width: 100%;
+  min-height: 100px;
+  padding: 0.75rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.feedback-form__thanks {
+  color: var(--success-strong);
+  font-weight: 600;
+  margin: 0;
+}
+.field__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.15rem 0 0.35rem;
+  font-weight: 500;
+}
+fieldset label.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* --- Host "shared screen" view: wider + readable from a distance -------- */
 .host-view {
   width: min(1120px, 95vw);

@@ -47,6 +47,12 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   if (!game) throw new Error("No active question");
   assertCanSubmitAnswer(game);
 
+  // Get-ready interstitial: answers only after server-stamped reveal_at.
+  const revealAtMs = new Date(game.reveal_at as string).getTime();
+  if (submitAtMs < revealAtMs) {
+    throw new Error("Question not open yet — get ready!");
+  }
+
   // A spectator joined during this question — seated but not scored on it (U5).
   if (player.isSpectator) return { correct: false, points: 0, spectating: true };
 
@@ -66,7 +72,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   const points = computeScore({
     correct,
     mode: game.answer_mode,
-    revealAtMs: new Date(game.reveal_at as string).getTime(),
+    revealAtMs,
     submitAtMs,
   });
 

@@ -13,9 +13,12 @@ import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { isGetReadyPhase } from "@/lib/realtime/clock";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { Countdown } from "@/components/Countdown";
+import { GetReady } from "@/components/GetReady";
+import { ChallengeActions } from "@/components/ChallengeActions";
 import type { ChallengeKind } from "@/lib/challenge";
 import type { RevealedAnswer } from "@/lib/db/types";
 
@@ -45,6 +48,12 @@ function PlayView() {
   const paused = game?.paused ?? false;
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
+  const getReady =
+    !!game &&
+    game.current_index >= 0 &&
+    !paused &&
+    !reviewing &&
+    isGetReadyPhase(game.reveal_at, offset);
   const timeUp = remaining !== null && remaining <= 0;
   const currentIndex = game?.current_index ?? -1;
   // The player was marked wrong on their answer -> offer the "wrongly marked"
@@ -126,7 +135,13 @@ function PlayView() {
         </div>
       )}
 
-      {started && question && (
+      {started && getReady && game.reveal_at && (
+        <section aria-live="polite">
+          <GetReady revealAt={game.reveal_at} offset={offset} />
+        </section>
+      )}
+
+      {started && question && !getReady && (
         <section aria-live="polite">
           <h2>{question.prompt}</h2>
           {!reviewing && remaining !== null && (
@@ -151,6 +166,12 @@ function PlayView() {
                 ⏱ Answers locked — here’s the correct answer.
               </p>
               <AnswerReveal reveal={reveal} />
+              <ChallengeActions
+                challenging={challenging}
+                challengeError={challengeError}
+                showAnswerDispute={markedWrong}
+                onChallenge={(t) => void raiseChallenge(t)}
+              />
             </>
           ) : (
             <AnswerPanel
@@ -162,28 +183,14 @@ function PlayView() {
             />
           )}
 
-          {!paused && !question.voided && !spectating && (
-            <div>
-              {challengeError && <p role="alert">{challengeError}</p>}
-              <button
-                type="button"
-                className="ghost"
-                disabled={challenging}
-                onClick={() => raiseChallenge("question")}
-              >
-                Challenge this question
-              </button>
-              {markedWrong && (
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={challenging}
-                  onClick={() => raiseChallenge("answer")}
-                >
-                  My answer was wrongly marked
-                </button>
-              )}
-            </div>
+          {/* Live-phase challenges stay available; review uses ChallengeActions above. */}
+          {!paused && !question.voided && !spectating && !reviewing && (
+            <ChallengeActions
+              challenging={challenging}
+              challengeError={challengeError}
+              showAnswerDispute={markedWrong}
+              onChallenge={(t) => void raiseChallenge(t)}
+            />
           )}
         </section>
       )}
