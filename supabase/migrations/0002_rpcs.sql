@@ -8,8 +8,9 @@
 -- here — judging happens server-side in the service-role action (U7), so the
 -- client never needs them and leaking them would let players self-grade.
 
--- Resolve a token to (game_id, role, player_id). Host tokens are matched by
--- hashing the presented token and comparing to games.host_token_hash.
+-- Resolve a token to (game_id, role, player_id). Both player and host tokens are
+-- matched by hashing the presented token and comparing to the stored hash
+-- (players.token_hash / games.host_token_hash) — plaintext is never stored.
 create or replace function public.resolve_token(p_token text)
 returns table (game_id uuid, role text, player_id uuid)
 language sql
@@ -22,7 +23,7 @@ as $$
          case when p.is_spectator then 'spectator' else 'player' end as role,
          p.id as player_id
   from public.players p
-  where p.token = p_token
+  where p.token_hash = encode(digest(p_token, 'sha256'), 'hex')
   union all
   select g.id, 'host', null::uuid
   from public.games g

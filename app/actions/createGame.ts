@@ -125,7 +125,7 @@ export async function createGame(
   const { error: seatError } = await supabase.from("players").insert({
     game_id: gameId,
     username,
-    token: hostPlayerToken,
+    token_hash: hashToken(hostPlayerToken),
     is_spectator: false,
   });
   if (seatError) {

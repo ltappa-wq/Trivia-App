@@ -7,7 +7,7 @@
 // enumerated (KTD7).
 
 import { getServiceClient } from "@/lib/supabase/server";
-import { generateToken } from "@/lib/codes";
+import { generateToken, hashToken } from "@/lib/codes";
 import { RateLimiter } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
@@ -65,7 +65,7 @@ export async function joinGame(rawCode: string, rawUsername: string): Promise<Jo
     .insert({
       game_id: game.id,
       username,
-      token,
+      token_hash: hashToken(token),
       is_spectator: seat.isSpectator,
     })
     .select("id")
