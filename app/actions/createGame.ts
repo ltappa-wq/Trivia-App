@@ -7,13 +7,15 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { generateAndPersistQuestions } from "@/app/actions/generate";
 import { generateRoomCode, generateToken, hashToken } from "@/lib/codes";
-import { RateLimiter } from "@/lib/rateLimit";
+import { checkSharedRateLimit } from "@/lib/rateLimit";
 import { callerIp } from "@/lib/serverRequest";
 import { validateSetupInput, type SetupInput } from "@/lib/gameConfig";
 import { normalizeUsername, validateUsername } from "@/lib/join";
 
-// Module-scoped guards (best-effort per serverless instance, KTD10).
-const createLimiter = new RateLimiter(5, 60_000); // 5 games / minute / IP
+// Module-scoped concurrent-generation bound (best-effort per instance, KTD10).
+// Per-IP create rate uses shared Postgres check_rate_limit (migration 0009).
+const CREATE_LIMIT = 5;
+const CREATE_WINDOW_MS = 60_000;
 const MAX_CONCURRENT_GENERATIONS = 3;
 let activeGenerations = 0;
 
@@ -51,14 +53,21 @@ export async function createGame(
     if (!nameCheck.ok) throw new Error(nameCheck.error);
   }
 
-  if (!createLimiter.check(await callerIp())) {
+  const supabase = getServiceClient();
+  if (
+    !(await checkSharedRateLimit(
+      supabase,
+      `create:${await callerIp()}`,
+      CREATE_LIMIT,
+      CREATE_WINDOW_MS,
+    ))
+  ) {
     throw new Error("Too many games created — please wait a moment.");
   }
   if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
     throw new Error("The server is busy generating games — please retry shortly.");
   }
 
-  const supabase = getServiceClient();
   const hostToken = generateToken();
 
   // Insert the game first (retrying on the rare code collision), then generate.

@@ -7,6 +7,7 @@
 
 import { TILE_SHAPES } from "@/lib/answerShapes";
 import type { AnswerDistribution as Distribution } from "@/lib/db/types";
+import { formatNumber } from "@/lib/formatScore";
 
 export function AnswerDistribution({ dist }: { dist: Distribution | null }) {
   if (!dist || dist.mode !== "multiple_choice" || !dist.counts || !dist.options) {
@@ -33,7 +34,7 @@ export function AnswerDistribution({ dist }: { dist: Distribution | null }) {
               <span className="answer-dist__bar" style={{ width: `${pct}%` }} />
             </span>
             <span className="answer-dist__count">
-              {count} · {pct}%
+              {formatNumber(count)} · {pct}%
             </span>
           </div>
         );

@@ -5,9 +5,9 @@
 // joinable, an ended game's code is retired and its value recycled (partial
 // unique index, KTD2), and join attempts are rate-limited (U5, joinGame). Codes
 // are still drawn with cryptographic randomness — never sequential (R6.3). Host
-// and player tokens are the actual write-side credentials; only the host token's
-// hash is stored, matching the Postgres `encode(digest(token,'sha256'),'hex')`
-// comparison in the resolve_token RPC (U2).
+// Host and player tokens are the write-side credentials; only their SHA-256
+// hashes are stored (`host_token_hash` / `token_hash`), matching Postgres
+// `encode(digest(token,'sha256'),'hex')` in resolve_token (U2, migration 0009).
 
 import { createHash, randomBytes } from "node:crypto";
 

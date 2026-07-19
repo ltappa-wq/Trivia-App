@@ -12,8 +12,11 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   const hostCtx = await browser.newContext();
   const adaCtx = await browser.newContext();
 
+  // Single question + underused category keeps generation cheap/reliable while
+  // still covering host-only seating, read-only host view, and results.
   const { page: host, code } = await hostCreateGame(hostCtx, {
-    count: 2,
+    category: "Music",
+    count: 1,
     hostPlays: false,
   });
   const ada = await playerJoin(adaCtx, code, "Ada");
@@ -35,13 +38,14 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   await expect(hostQuestion.locator("ol li").first()).toBeVisible();
   await expect(hostQuestion.locator("ol li button")).toHaveCount(0);
 
-  // The player still answers normally.
+  // Solo active player: submit may race into all-answered review, which
+  // unmounts AnswerPanel. Accept either the result chrome or the review overlay.
   await answerFirstOption(ada);
-  await expect(ada.getByText(/Correct|locked in/i)).toBeVisible();
+  await expect(
+    ada.getByText(/✓ Correct|✗ Answer locked in|Answers locked/i).first(),
+  ).toBeVisible();
 
-  // Advance to the last question, then finish.
-  await host.getByRole("button", { name: "Next question" }).click();
-  await expect(questionPrompt(ada)).not.toHaveText(prompt);
+  // Only question → finish.
   await host.getByRole("button", { name: "Finish game" }).click();
 
   // Both land on results.

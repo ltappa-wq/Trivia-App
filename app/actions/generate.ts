@@ -31,13 +31,15 @@ export async function generateAndPersistQuestions(
   // Exclusion set: normalized prompts already in the bank (R7.2). Best-effort —
   // if the read fails we generate without exclusion rather than blocking a game,
   // but log it so a persistent outage that silently disables dedup is detectable.
+  // Also pass original prompt text so the model can avoid rephrasing banked items.
   const { data: banked, error: bankReadError } = await supabase
     .from("question_bank")
-    .select("prompt_norm");
+    .select("prompt_norm, prompt");
   if (bankReadError) {
     console.error(`[generate] question_bank read failed; dedup disabled: ${bankReadError.message}`);
   }
   const seen = new Set<string>((banked ?? []).map((r) => r.prompt_norm as string));
+  const avoidPrompts = (banked ?? []).map((r) => r.prompt as string).filter(Boolean);
 
   const questions = await generateQuestions(
     params,
@@ -47,6 +49,7 @@ export async function generateAndPersistQuestions(
       model: process.env.XAI_MODEL,
     },
     seen,
+    avoidPrompts,
   );
 
   const rows = questions.map((q, index) => ({

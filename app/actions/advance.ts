@@ -5,18 +5,22 @@
 // a double-fire (or a retried broadcast) can't skip a question. It stamps
 // reveal_at server-side (never trusting the client clock) and broadcasts the
 // question as a delta; Postgres stays the source of truth (clients hydrate).
+// CAS also requires paused=false and a non-ended status so a challenge cannot be
+// cleared by a concurrent advance and ended games stay terminal.
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { authorizeHostByCode } from "@/lib/serverAuth";
 import { computeNextIndex } from "@/lib/gameFlow";
+import { ADVANCEABLE_STATUSES, isAdvanceableStatus } from "@/lib/phaseGuards";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { ANSWER_TIMER_MS, GET_READY_MS } from "@/lib/gameConfig";
 
 export type AdvanceResult =
   | { status: "advanced"; index: number; revealAt: string; timerMs: number }
   | { status: "noop"; index: number }
-  | { status: "ended" };
+  /** No next question — durable end is still `endGame`; this is not terminal. */
+  | { status: "no_next" };
 
 /**
  * Reveal the question after `expectedIndex`. `expectedIndex` is the caller's
@@ -31,6 +35,10 @@ export async function advance(
   const supabase = getServiceClient();
   const game = await authorizeHostByCode(supabase, code, hostToken);
 
+  if (!isAdvanceableStatus(game.status)) {
+    return { status: "noop", index: game.current_index };
+  }
+
   // Refuse to advance while an open challenge has the game paused — advancing
   // would orphan the challenge and make a later disputed-answer ruling rescore
   // against a stale reveal_at. The host must adjudicate first.
@@ -40,10 +48,13 @@ export async function advance(
 
   const next = computeNextIndex(expectedIndex, game.question_count);
   if (next === null) {
-    return { status: "ended" };
+    // Caller should use endGame for a durable end; do not set status=ended here.
+    return { status: "no_next" };
   }
 
-  const revealAt = new Date().toISOString();
+  // Stamp reveal 3s in the future so every device shows a synced 3–2–1
+  // get-ready interstitial before the answer window opens (KTD9).
+  const revealAt = new Date(Date.now() + GET_READY_MS).toISOString();
   const { data: updated, error } = await supabase
     .from("games")
     .update({
@@ -56,14 +67,28 @@ export async function advance(
     })
     .eq("id", game.id)
     .eq("current_index", expectedIndex) // CAS: only if still at expected index
+    .eq("paused", false) // CAS: a challenge landing mid-flight must win
+    .in("status", ADVANCEABLE_STATUSES) // never re-activate an ended game
     .select("current_index")
     .maybeSingle();
   if (error) throw new Error(`Advance failed: ${error.message}`);
 
   if (!updated) {
+    // Re-read so a pause race surfaces as an explicit error, not a silent noop.
+    const { data: latest } = await supabase
+      .from("games")
+      .select("current_index, paused, status")
+      .eq("id", game.id)
+      .maybeSingle();
+    if (latest?.paused) {
+      throw new Error("Resolve the open challenge before advancing");
+    }
+    if (latest && !isAdvanceableStatus(latest.status as typeof game.status)) {
+      return { status: "noop", index: latest.current_index as number };
+    }
     // Stale expectation or a concurrent advance won the race — no-op, report the
     // authoritative current index so the caller reconciles.
-    return { status: "noop", index: game.current_index };
+    return { status: "noop", index: (latest?.current_index as number) ?? game.current_index };
   }
 
   // Promote any mid-game spectators to full players now that a fresh question is
@@ -89,6 +114,7 @@ export async function advance(
     index: next,
     revealAt,
     timerMs,
+    getReadyMs: GET_READY_MS,
     question: question ?? null,
   });
 

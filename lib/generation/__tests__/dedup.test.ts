@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizePrompt } from "../dedup";
+import { normalizeAnswer, normalizePrompt } from "../dedup";
+import { correctAnswerKeys } from "../schema";
 
 describe("normalizePrompt (R7.2, KTD4)", () => {
   it("is case-insensitive", () => {
@@ -34,5 +35,34 @@ describe("normalizePrompt (R7.2, KTD4)", () => {
     expect(normalizePrompt("What year was 1984 published?")).toBe(
       "what year was 1984 published",
     );
+  });
+});
+
+describe("normalizeAnswer / correctAnswerKeys", () => {
+  it("normalizes answer text like prompts", () => {
+    expect(normalizeAnswer("  Paris! ")).toBe("paris");
+  });
+
+  it("extracts the MC correct option key", () => {
+    expect(
+      correctAnswerKeys({
+        prompt: "q",
+        mode: "multiple_choice",
+        options: ["Paris", "Lyon", "Nice", "Rome"],
+        correct_option: 0,
+        difficulty: "easy",
+      }),
+    ).toEqual(["paris"]);
+  });
+
+  it("extracts all type-answer variants", () => {
+    const keys = correctAnswerKeys({
+      prompt: "q",
+      mode: "type_answer",
+      accepted_variants: ["Kennedy", "john kennedy"],
+      difficulty: "easy",
+    });
+    expect(keys).toContain("kennedy");
+    expect(keys).toContain("john kennedy");
   });
 });

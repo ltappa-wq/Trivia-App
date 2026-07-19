@@ -2,11 +2,12 @@
 // U8. Raise a challenge on the active question (R10, R11, R13; AE5; KTD7).
 // Player-token-gated: the acting player is resolved from their token and the
 // per-player cap is keyed to that validated identity, never a client-claimed id.
-// Raising a challenge pauses the game for everyone (broadcast pause); the host
-// then adjudicates (adjudicate action).
+// Spectators cannot raise challenges (they are not scoring). Raising a challenge
+// pauses the game for everyone (broadcast pause); the host then adjudicates.
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
+import { assertCanChallenge } from "@/lib/phaseGuards";
 import { isAtChallengeCap, type ChallengeKind } from "@/lib/challenge";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
@@ -20,9 +21,8 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
     .select("id, code, current_index, status")
     .eq("id", player.gameId)
     .single();
-  if (!game || game.status !== "active" || game.current_index < 0) {
-    throw new Error("No active question to challenge");
-  }
+  if (!game) throw new Error("No active question to challenge");
+  assertCanChallenge(game, player.isSpectator);
 
   const { data: question } = await supabase
     .from("questions")
@@ -81,7 +81,8 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
   const { error: pauseError } = await supabase
     .from("games")
     .update({ paused: true })
-    .eq("id", game.id);
+    .eq("id", game.id)
+    .eq("status", "active");
   if (pauseError) throw new Error(`Could not pause the game: ${pauseError.message}`);
   await broadcastToRoom(game.code, ROOM_EVENTS.pause, { challengeId: inserted.id });
 

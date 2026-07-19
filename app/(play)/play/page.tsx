@@ -11,11 +11,14 @@ import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
-import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { formatScore } from "@/lib/formatScore";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { Countdown } from "@/components/Countdown";
+import { GetReady } from "@/components/GetReady";
+import { ChallengeActions } from "@/components/ChallengeActions";
 import type { ChallengeKind } from "@/lib/challenge";
 import type { RevealedAnswer } from "@/lib/db/types";
 
@@ -45,6 +48,11 @@ function PlayView() {
   const paused = game?.paused ?? false;
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
+  // Ticking hook — re-renders when the 3s get-ready window ends so the question appears.
+  const getReady = useIsGetReady(
+    game && game.current_index >= 0 && !paused && !reviewing ? game.reveal_at : null,
+    offset,
+  );
   const timeUp = remaining !== null && remaining <= 0;
   const currentIndex = game?.current_index ?? -1;
   // The player was marked wrong on their answer -> offer the "wrongly marked"
@@ -116,12 +124,23 @@ function PlayView() {
             🎮
           </span>
           <p>
-            Waiting for the host to start<span className="waiting__dots" aria-hidden="true" />
+            Waiting for the host to start
+            <span className="waiting__dots" aria-hidden="true">
+              <span className="waiting__dot" />
+              <span className="waiting__dot" />
+              <span className="waiting__dot" />
+            </span>
           </p>
         </div>
       )}
 
-      {started && question && (
+      {started && getReady && game.reveal_at && (
+        <section aria-live="polite">
+          <GetReady revealAt={game.reveal_at} offset={offset} />
+        </section>
+      )}
+
+      {started && question && !getReady && (
         <section aria-live="polite">
           <h2>{question.prompt}</h2>
           {!reviewing && remaining !== null && (
@@ -146,6 +165,12 @@ function PlayView() {
                 ⏱ Answers locked — here’s the correct answer.
               </p>
               <AnswerReveal reveal={reveal} />
+              <ChallengeActions
+                challenging={challenging}
+                challengeError={challengeError}
+                showAnswerDispute={markedWrong}
+                onChallenge={(t) => void raiseChallenge(t)}
+              />
             </>
           ) : (
             <AnswerPanel
@@ -157,28 +182,14 @@ function PlayView() {
             />
           )}
 
-          {!paused && !question.voided && !spectating && (
-            <div>
-              {challengeError && <p role="alert">{challengeError}</p>}
-              <button
-                type="button"
-                className="ghost"
-                disabled={challenging}
-                onClick={() => raiseChallenge("question")}
-              >
-                Challenge this question
-              </button>
-              {markedWrong && (
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={challenging}
-                  onClick={() => raiseChallenge("answer")}
-                >
-                  My answer was wrongly marked
-                </button>
-              )}
-            </div>
+          {/* Live-phase challenges stay available; review uses ChallengeActions above. */}
+          {!paused && !question.voided && !spectating && !reviewing && (
+            <ChallengeActions
+              challenging={challenging}
+              challengeError={challengeError}
+              showAnswerDispute={markedWrong}
+              onChallenge={(t) => void raiseChallenge(t)}
+            />
           )}
         </section>
       )}
@@ -189,7 +200,7 @@ function PlayView() {
           <ol>
             {(state?.leaderboard ?? []).map((p) => (
               <li key={p.id}>
-                {p.username} — {p.score}
+                {p.username} — {formatScore(p.score)}
               </li>
             ))}
           </ol>

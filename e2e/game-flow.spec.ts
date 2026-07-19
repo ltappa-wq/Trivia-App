@@ -11,13 +11,19 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
   const adaCtx = await browser.newContext();
   const bobCtx = await browser.newContext();
 
-  const { page: host, code } = await hostCreateGame(hostCtx, { count: 2 });
+  // Distinct category from other e2e specs so bank dedup does not exhaust a
+  // single category mid-suite (tests share one live question_bank).
+  const { page: host, code } = await hostCreateGame(hostCtx, {
+    category: "Sports",
+    count: 2,
+  });
   const ada = await playerJoin(adaCtx, code, "Ada");
   const bob = await playerJoin(bobCtx, code, "Bob");
 
   // U5: joins reach the host lobby live (player-joined broadcast + hydrate).
-  await expect(host.getByText("Ada")).toBeVisible();
-  await expect(host.getByText("Bob")).toBeVisible();
+  // Target roster chips (li), not the join-toast spans that share the name text.
+  await expect(host.getByRole("listitem").filter({ hasText: "Ada" })).toBeVisible();
+  await expect(host.getByRole("listitem").filter({ hasText: "Bob" })).toBeVisible();
   await expect(ada.getByText(/waiting for the host/i)).toBeVisible();
 
   // U6: host starts; both players see the SAME question (broadcast + hydrate).
@@ -32,7 +38,7 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
 
   // U7 (surface): a player answers and locks in.
   await answerFirstOption(ada);
-  await expect(ada.getByText(/Correct|locked in/i)).toBeVisible();
+  await expect(ada.getByText(/✓ Correct|✗ Answer locked in/i)).toBeVisible();
 
   // U8: Bob challenges -> game pauses for everyone; host gets the panel.
   await bob.getByRole("button", { name: "Challenge this question" }).click();

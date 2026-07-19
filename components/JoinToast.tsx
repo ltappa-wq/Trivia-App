@@ -12,7 +12,7 @@ export function JoinToast({ items }: { items: JoinAnnouncement[] }) {
     <div className="join-toasts" aria-live="polite">
       {items.map((it) => (
         <div key={it.key} className="join-toast">
-          <span className="join-toast__name">{it.username}</span> joined
+          <span className="join-toast__name">{it.username}</span> joined 🎉
         </div>
       ))}
     </div>

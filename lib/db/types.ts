@@ -44,6 +44,7 @@ export interface PlayerRow {
   id: string;
   game_id: string;
   username: string;
+  /** SHA-256 hex of the player credential (plaintext returned once at join). */
   token_hash: string;
   score: number;
   is_spectator: boolean;

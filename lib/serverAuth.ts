@@ -52,7 +52,8 @@ export interface ResolvedPlayer {
 }
 
 /** Resolve the acting player from their server-issued token (KTD7). Throws on an
- * unknown token so a forged/absent credential can never act. */
+ * unknown token so a forged/absent credential can never act. Only the SHA-256
+ * hash is stored (migration 0009); plaintext is never persisted. */
 export async function resolvePlayerByToken(
   supabase: SupabaseClient,
   token: string,

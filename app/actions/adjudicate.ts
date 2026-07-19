@@ -4,52 +4,18 @@
 // every score it awarded, and records the bad question with its correction so it
 // is not reused (R14). Uphold of a disputed-answer challenge counts that answer
 // correct and rescores it. The host's ruling is final. Play resumes once no open
-// challenge remains.
+// challenge remains. Void auto-rejects remaining open challenges on that question
+// so a later answer-uphold cannot re-award points on a voided question.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceClient } from "@/lib/supabase/server";
 import { authorizeHostByCode } from "@/lib/serverAuth";
 import { disputedAnswerDelta, voidScoreDeltas } from "@/lib/challenge";
+import { applyScoreDeltas } from "@/lib/scoring/adjust";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
 
 export type Ruling = "uphold" | "reject";
-
-/**
- * Apply per-player score deltas: one batched read of the affected scores, then
- * concurrent updates. Throws if a read/update fails or a player row is missing —
- * defaulting a missing score to 0 (the previous behavior) silently corrupts the
- * leaderboard on a transient failure.
- */
-async function applyScoreDeltas(
-  supabase: SupabaseClient,
-  deltas: Map<string, number>,
-): Promise<void> {
-  const ids = [...deltas.keys()].filter((id) => (deltas.get(id) ?? 0) !== 0);
-  if (ids.length === 0) return;
-
-  const { data: rows, error } = await supabase
-    .from("players")
-    .select("id, score")
-    .in("id", ids);
-  if (error || !rows) {
-    throw new Error(`Failed to read scores for recompute: ${error?.message ?? "no data"}`);
-  }
-  const scoreById = new Map(rows.map((r) => [r.id as string, r.score as number]));
-
-  const results = await Promise.all(
-    ids.map((id) => {
-      const current = scoreById.get(id);
-      if (current === undefined) {
-        throw new Error(`Score recompute referenced unknown player ${id}`);
-      }
-      const next = Math.max(0, current + (deltas.get(id) ?? 0));
-      return supabase.from("players").update({ score: next }).eq("id", id);
-    }),
-  );
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw new Error(`Failed to update score: ${failed.error.message}`);
-}
 
 export async function adjudicate(
   code: string,
@@ -60,6 +26,10 @@ export async function adjudicate(
 ): Promise<{ resumed: boolean }> {
   const supabase = getServiceClient();
   const game = await authorizeHostByCode(supabase, code, hostToken);
+
+  if (game.status === "ended") {
+    throw new Error("This game has ended");
+  }
 
   const { data: challenge } = await supabase
     .from("challenges")
@@ -76,6 +46,12 @@ export async function adjudicate(
   const question = Array.isArray(embedded) ? (embedded[0] ?? null) : (embedded ?? null);
   if (!challenge || !question || question.game_id !== game.id) {
     throw new Error("Challenge not found");
+  }
+
+  // Refuse answer-upholds on an already-voided question before claiming, so we
+  // never leave a false "upheld" with no score change.
+  if (ruling === "uphold" && challenge.type === "answer" && question.voided) {
+    throw new Error("Cannot uphold an answer on a voided question");
   }
 
   const upheld = ruling === "uphold";
@@ -115,29 +91,51 @@ export async function adjudicate(
       .from("questions")
       .update({ voided: true, correction: correction ?? "Voided by host challenge" })
       .eq("id", question.id);
+    // Close sibling open challenges on this question so they cannot re-award.
+    await rejectOpenChallengesOnQuestion(
+      supabase,
+      question.id,
+      challengeId,
+      "Question voided",
+    );
     await broadcastToRoom(game.code, ROOM_EVENTS.void, { questionId: question.id });
   } else if (upheld) {
     // Disputed answer: count the challenger's answer correct and rescore it (R12).
-    const { data: answer } = await supabase
-      .from("answers")
-      .select("id, awarded_points, submitted_at")
-      .eq("question_id", question.id)
-      .eq("player_id", challenge.player_id)
+    // Re-check voided after claim in case a concurrent void won the race — flip
+    // the claim to rejected and fall through to resume (do not throw, or the room
+    // can stay paused with zero open challenges).
+    const { data: qFresh } = await supabase
+      .from("questions")
+      .select("voided")
+      .eq("id", question.id)
       .maybeSingle();
-    if (!answer) throw new Error("Disputed answer no longer exists");
-    if (!game.reveal_at) throw new Error("Question timing unavailable");
+    if (qFresh?.voided) {
+      await supabase
+        .from("challenges")
+        .update({ status: "rejected", resolution: "Question was voided" })
+        .eq("id", challengeId);
+    } else {
+      const { data: answer } = await supabase
+        .from("answers")
+        .select("id, awarded_points, submitted_at")
+        .eq("question_id", question.id)
+        .eq("player_id", challenge.player_id)
+        .maybeSingle();
+      if (!answer) throw new Error("Disputed answer no longer exists");
+      if (!game.reveal_at) throw new Error("Question timing unavailable");
 
-    const { newPoints, delta } = disputedAnswerDelta({
-      mode: game.answer_mode,
-      revealAtMs: new Date(game.reveal_at).getTime(),
-      submitAtMs: new Date(answer.submitted_at as string).getTime(),
-      currentAwarded: answer.awarded_points as number,
-    });
-    await supabase
-      .from("answers")
-      .update({ is_correct: true, awarded_points: newPoints })
-      .eq("id", answer.id);
-    await applyScoreDeltas(supabase, new Map([[challenge.player_id as string, delta]]));
+      const { newPoints, delta } = disputedAnswerDelta({
+        mode: game.answer_mode,
+        revealAtMs: new Date(game.reveal_at).getTime(),
+        submitAtMs: new Date(answer.submitted_at as string).getTime(),
+        currentAwarded: answer.awarded_points as number,
+      });
+      await supabase
+        .from("answers")
+        .update({ is_correct: true, awarded_points: newPoints })
+        .eq("id", answer.id);
+      await applyScoreDeltas(supabase, new Map([[challenge.player_id as string, delta]]));
+    }
   }
 
   // Resume only when no challenge is still open for this game (R11/R12).
@@ -156,4 +154,21 @@ export async function adjudicate(
   await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, {});
 
   return { resumed };
+}
+
+async function rejectOpenChallengesOnQuestion(
+  supabase: SupabaseClient,
+  questionId: string,
+  exceptChallengeId: string,
+  resolution: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("challenges")
+    .update({ status: "rejected", resolution })
+    .eq("question_id", questionId)
+    .eq("status", "open")
+    .neq("id", exceptChallengeId);
+  if (error) {
+    throw new Error(`Could not close related challenges: ${error.message}`);
+  }
 }

@@ -5,6 +5,7 @@ import "server-only";
 // missing/invalid tail rather than failing the whole game (KTD10).
 
 import {
+  correctAnswerKeys,
   extractQuestionArray,
   validateGeneratedQuestion,
   type GeneratedQuestion,
@@ -19,10 +20,16 @@ const DEFAULT_BASE_URL = "https://api.x.ai/v1";
 const DEFAULT_MODEL = "grok-4.20-0309-non-reasoning";
 // Bound on the regenerate-the-tail loop so a persistently short/garbage model
 // response fails loudly instead of looping forever (KTD10).
-const DEFAULT_MAX_ATTEMPTS = 4;
+// Higher than the original 4 so bank-dedup rejections still leave room for
+// tail regeneration (especially on small category sets that the model tends to
+// recycle).
+const DEFAULT_MAX_ATTEMPTS = 6;
+// Cap each completion request so large games (up to QUESTION_COUNT_MAX) fill via
+// several medium batches rather than one truncation-prone 100-question call.
+const GENERATION_BATCH_SIZE = 12;
 // Per-attempt timeout so a hung xAI connection can't block createGame (and the
 // gamemaster) indefinitely — it aborts and surfaces a handled GenerationError.
-const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 export interface XaiConfig {
   apiKey: string;
@@ -43,17 +50,38 @@ export class GenerationError extends Error {
   }
 }
 
-function buildMessages(params: GenerationParams, count: number) {
+function buildMessages(
+  params: GenerationParams,
+  count: number,
+  avoidPrompts: readonly string[] = [],
+  avoidAnswers: readonly string[] = [],
+) {
   const modeInstruction =
     params.mode === "multiple_choice"
-      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one.`
-      : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint.`;
+      ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one. Vary which index is correct across the set — do not put the correct answer first every time. Every question must have a DISTINCT correct answer — never reuse the same correct answer text on two questions.`
+      : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint. Every question must have a DISTINCT primary correct answer — never reuse the same answer on two questions.`;
+
+  const avoidBlock =
+    avoidPrompts.length > 0
+      ? [
+          "Do NOT repeat or closely rephrase any of these already-used questions:",
+          ...avoidPrompts.slice(0, 40).map((p) => `- ${p}`),
+        ]
+      : [];
+
+  const avoidAnswerBlock =
+    avoidAnswers.length > 0
+      ? [
+          "Do NOT use any of these as a correct answer (already used in this set):",
+          ...avoidAnswers.slice(0, 60).map((a) => `- ${a}`),
+        ]
+      : [];
 
   return [
     {
       role: "system" as const,
       content:
-        "You are a trivia question generator. You return only valid JSON. Never include commentary.",
+        "You are a trivia question generator. You return only valid JSON. Never include commentary. Prefer fresh, non-overlapping prompts and unique correct answers.",
     },
     {
       role: "user" as const,
@@ -61,6 +89,8 @@ function buildMessages(params: GenerationParams, count: number) {
         `Generate exactly ${count} ${params.difficulty} trivia questions.`,
         `Categories: ${params.categories.join(", ")}.`,
         modeInstruction,
+        ...avoidBlock,
+        ...avoidAnswerBlock,
         `Return a JSON object of the form {"questions": [ ... ]} where each element has "prompt", the mode-specific fields above, and no extra fields.`,
       ].join("\n"),
     },
@@ -74,6 +104,10 @@ async function requestBatch(
     fetchImpl: typeof fetch;
     timeoutMs: number;
   },
+  avoidPrompts: readonly string[] = [],
+  avoidAnswers: readonly string[] = [],
+  /** Bump temperature on retries so the model diversifies after duplicates. */
+  temperature: number = 0.7,
 ): Promise<unknown[]> {
   let res: Response;
   const controller = new AbortController();
@@ -87,9 +121,9 @@ async function requestBatch(
       },
       body: JSON.stringify({
         model: config.model,
-        messages: buildMessages(params, count),
+        messages: buildMessages(params, count, avoidPrompts, avoidAnswers),
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        temperature,
       }),
       signal: controller.signal,
     });
@@ -145,6 +179,8 @@ export async function generateQuestions(
   params: GenerationParams,
   config: XaiConfig,
   seen: ReadonlySet<string> = new Set(),
+  /** Original prompt text already banked (or accepted this run) for model avoid-list. */
+  avoidPrompts: readonly string[] = [],
 ): Promise<GeneratedQuestion[]> {
   if (!config.apiKey) throw new GenerationError("Missing xAI API key");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
@@ -156,12 +192,19 @@ export async function generateQuestions(
     fetchImpl: config.fetchImpl ?? fetch,
     timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
-  const maxAttempts = config.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+  // Scale attempts with set size so a 100-question game can fill via many batches.
+  const maxAttempts =
+    config.maxAttempts ??
+    Math.max(DEFAULT_MAX_ATTEMPTS, Math.ceil(params.count / GENERATION_BATCH_SIZE) * 3 + 2);
 
   const collected: GeneratedQuestion[] = [];
   // Normalized prompts we must not emit: the bank's existing prompts plus the
   // ones accepted so far this run (so a single batch can't self-duplicate).
   const usedNorms = new Set<string>(seen);
+  // Correct-answer keys already used this set — no two questions share a winner.
+  const usedAnswers = new Set<string>();
+  const avoid = [...avoidPrompts];
+  const avoidAnswerLabels: string[] = [];
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
@@ -169,7 +212,18 @@ export async function generateQuestions(
     const remaining = params.count - collected.length;
     if (remaining <= 0) break;
 
-    const batch = await requestBatch(params, remaining, resolved);
+    // Request a medium batch (slight oversample for dup/invalid dropouts).
+    const requestCount = Math.min(GENERATION_BATCH_SIZE, remaining + Math.min(2, remaining));
+    // Diversify after the first pass so retries are less likely to echo banked prompts.
+    const temperature = Math.min(1.1, 0.7 + attempt * 0.05);
+    const batch = await requestBatch(
+      params,
+      requestCount,
+      resolved,
+      avoid,
+      avoidAnswerLabels,
+      temperature,
+    );
     for (const raw of batch) {
       if (collected.length >= params.count) break;
       const result = validateGeneratedQuestion(raw, params);
@@ -182,7 +236,22 @@ export async function generateQuestions(
         rejections.add("duplicate");
         continue;
       }
+      const answerKeys = correctAnswerKeys(result.question);
+      if (answerKeys.some((k) => usedAnswers.has(k))) {
+        rejections.add("duplicate_answer");
+        continue;
+      }
       usedNorms.add(norm);
+      for (const k of answerKeys) usedAnswers.add(k);
+      avoid.push(result.question.prompt);
+      // Human-readable labels for the model avoid-list (primary answer text).
+      if (result.question.mode === "multiple_choice" && result.question.options) {
+        const idx = result.question.correct_option ?? -1;
+        const label = result.question.options[idx];
+        if (label) avoidAnswerLabels.push(label);
+      } else if (result.question.accepted_variants?.[0]) {
+        avoidAnswerLabels.push(result.question.accepted_variants[0]);
+      }
       collected.push(result.question);
     }
   }

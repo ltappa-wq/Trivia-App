@@ -6,6 +6,7 @@
 // only sequences the reveal. The full standings still render alongside (R3.2).
 
 import { useEffect, useMemo, useState } from "react";
+import { formatScore } from "@/lib/formatScore";
 import { podium } from "@/lib/results";
 import type { LeaderboardEntry } from "@/lib/db/types";
 
@@ -57,7 +58,7 @@ export function Podium({ standings }: { standings: LeaderboardEntry[] }) {
               </span>
             ))}
           </div>
-          <div className="podium-step__score">{step.score}</div>
+          <div className="podium-step__score">{formatScore(step.score)}</div>
           <div className="podium-step__block" aria-hidden="true">
             {step.rank}
           </div>

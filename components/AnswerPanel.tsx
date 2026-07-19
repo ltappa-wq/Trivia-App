@@ -10,6 +10,7 @@ import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { Fireworks } from "@/components/Fireworks";
 import { TILE_SHAPES } from "@/lib/answerShapes";
 import type { ClientQuestion } from "@/lib/db/types";
+import { formatNumber } from "@/lib/formatScore";
 
 // Show the "in a row" badge only once it is worth celebrating (2+).
 const STREAK_BADGE_MIN = 2;
@@ -67,9 +68,11 @@ export function AnswerPanel({
         {/* Celebrate a correct answer on this device only (R1). */}
         {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
-        {result && result.points > 0 ? ` — +${result.points}` : ""}
+        {result && result.points > 0 ? ` — +${formatNumber(result.points)}` : ""}
         {result?.correct && (result.streak ?? 0) >= STREAK_BADGE_MIN && (
-          <span className="streak-badge">🔥 {result.streak} in a row!</span>
+          <span className="streak-badge">
+            🔥 {formatNumber(result.streak ?? 0)} in a row!
+          </span>
         )}
       </p>
     );

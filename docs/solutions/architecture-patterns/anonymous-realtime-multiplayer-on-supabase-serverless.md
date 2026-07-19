@@ -36,7 +36,7 @@ non-obvious and easy to get subtly wrong (several were caught only in code revie
 or against a live project). This captures the durable foundation so the next
 realtime feature — or a similar anonymous-multiplayer build — starts from the
 proven shape instead of re-deriving it. The pillars are cross-referenced by their
-Key Technical Decision IDs (KTD*) in `docs/plans/2026-06-30-001-feat-ai-trivia-game-plan.md`.
+Key Technical Decision IDs (KTD*) in `docs/PRODUCT-CHECKLIST.md (historical KTD ids may still appear in code comments)`.
 
 ## Guidance
 

@@ -12,18 +12,27 @@ import { advance } from "@/app/actions/advance";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
+import { challenge } from "@/app/actions/challenge";
 import { loadHostCredential } from "@/lib/clientSession";
 import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
-import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import {
+  useIsGetReady,
+  useJoinAnnouncements,
+  useQuestionCountdown,
+  useRoomState,
+} from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
-import { describeWinners, sortStandings } from "@/lib/results";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { formatNumber, formatScore } from "@/lib/formatScore";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
+import { GetReady } from "@/components/GetReady";
 import { JoinToast } from "@/components/JoinToast";
-import { Podium } from "@/components/Podium";
+import { GameOver } from "@/components/GameOver";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { AnswerDistribution } from "@/components/AnswerDistribution";
+import { ChallengeActions } from "@/components/ChallengeActions";
+import type { ChallengeKind } from "@/lib/challenge";
 import type {
   AnswerDistribution as AnswerDistributionData,
   OpenChallenge,
@@ -46,6 +55,8 @@ function HostView() {
   const [dist, setDist] = useState<AnswerDistributionData | null>(null);
   const [copied, setCopied] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challenging, setChallenging] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const game = state?.game ?? null;
@@ -135,6 +146,17 @@ function HostView() {
     }
   }
   const remaining = useQuestionCountdown(game, offset);
+  // Ticking get-ready flag (must run every render, before early returns).
+  const inGetReadyWindow = useIsGetReady(
+    game &&
+      game.current_index >= 0 &&
+      game.status !== "ended" &&
+      !game.paused &&
+      !game.reviewing
+      ? game.reveal_at
+      : null,
+    offset,
+  );
 
   // R5.1 timer path: when the answer window elapses without everyone answering,
   // the host (the pacing authority) closes the question into review. Fired once
@@ -184,6 +206,19 @@ function HostView() {
     }
   }
 
+  async function raiseChallenge(type: ChallengeKind) {
+    if (!cred?.playerToken) return;
+    setChallenging(true);
+    setChallengeError(null);
+    try {
+      await challenge(cred.playerToken, type);
+    } catch (err) {
+      setChallengeError(err instanceof Error ? err.message : "Could not challenge");
+    } finally {
+      setChallenging(false);
+    }
+  }
+
   if (!cred) {
     return (
       <main>
@@ -200,13 +235,20 @@ function HostView() {
   const started = game.current_index >= 0;
   const ended = game.status === "ended";
   const reviewing = game.reviewing;
+  const getReady = inGetReadyWindow;
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (
     <main className="host-view">
       <header>
         <h1>Room {game.code}</h1>
-        <p>{game.status === "lobby" ? "Waiting to start" : `Question ${game.current_index + 1} of ${game.question_count}`}</p>
+        <p>
+          {game.status === "lobby"
+            ? "Waiting to start"
+            : getReady
+              ? `Get ready — Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`
+              : `Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`}
+        </p>
       </header>
 
       {actionError && <p role="alert">{actionError}</p>}
@@ -230,7 +272,7 @@ function HostView() {
                       <strong>{c.challenger}</strong> disputes{" "}
                       {c.type === "answer" ? "their marked-wrong answer" : "this question"}.
                     </p>
-                    <p>Q{q.index + 1}: {q.prompt}</p>
+                    <p>Q{formatNumber(q.index + 1)}: {q.prompt}</p>
                     <p>Accepted answer: {answerKey}</p>
                     {c.type === "answer" && <p>Their answer: {c.submitted_text}</p>}
                     <button
@@ -294,7 +336,13 @@ function HostView() {
       )}
 
       <div className="host-live">
-      {started && !ended && !game.paused && !reviewing && state?.current_question && (
+      {started && !ended && !game.paused && !reviewing && getReady && game.reveal_at && (
+        <section aria-live="polite">
+          <GetReady revealAt={game.reveal_at} offset={offset} />
+        </section>
+      )}
+
+      {started && !ended && !game.paused && !reviewing && !getReady && state?.current_question && (
         <section aria-live="polite">
           <h2>{state.current_question.prompt}</h2>
           {remaining !== null && (
@@ -336,10 +384,20 @@ function HostView() {
 
       {started && !ended && reviewing && !game.paused && (
         <section aria-live="polite" className="review">
-          <h2>Time&apos;s up — Question {game.current_index + 1} review</h2>
+          <h2>
+            Time&apos;s up — Question {formatNumber(game.current_index + 1)} review
+          </h2>
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
           <AnswerDistribution dist={dist} />
+          {cred.playerToken && (
+            <ChallengeActions
+              challenging={challenging}
+              challengeError={challengeError}
+              showAnswerDispute={false}
+              onChallenge={(t) => void raiseChallenge(t)}
+            />
+          )}
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game
@@ -361,7 +419,7 @@ function HostView() {
             <ol>
               {leaderboard.map((p) => (
                 <li key={p.id}>
-                  {p.username} — {p.score}
+                  {p.username} — {formatScore(p.score)}
                 </li>
               ))}
             </ol>
@@ -371,27 +429,11 @@ function HostView() {
       </div>
 
       {ended && (
-        <section aria-live="polite">
-          <h2>Final results</h2>
-          {(() => {
-            const standings = sortStandings(leaderboard);
-            const { winnerIds, label } = describeWinners(standings);
-            return (
-              <>
-                <Podium standings={standings} />
-                <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
-                <ol>
-                  {standings.map((p) => (
-                    <li key={p.id}>
-                      {p.username} — {p.score}
-                      {winnerIds.has(p.id) && " ★"}
-                    </li>
-                  ))}
-                </ol>
-              </>
-            );
-          })()}
-        </section>
+        <GameOver
+          standings={leaderboard}
+          myPlayerId={state?.player?.id}
+          roomCode={game.code}
+        />
       )}
     </main>
   );

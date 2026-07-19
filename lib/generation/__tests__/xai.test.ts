@@ -27,7 +27,14 @@ const mcParams: GenerationParams = {
 };
 
 function mc(prompt: string) {
-  return { prompt, options: ["a", "b", "c", "d"], correct_option: 1, difficulty: "easy" };
+  // Unique correct answer per prompt so answer-dedup does not reject the batch.
+  const answer = `ans-${prompt}`;
+  return {
+    prompt,
+    options: [answer, "distractor-x", "distractor-y", "distractor-z"],
+    correct_option: 0,
+    difficulty: "easy",
+  };
 }
 
 describe("generateQuestions", () => {
@@ -94,6 +101,36 @@ describe("generateQuestions", () => {
     await expect(
       generateQuestions(mcParams, { apiKey: "k", fetchImpl, maxAttempts: 3 }, new Set(["dup"])),
     ).rejects.toBeInstanceOf(GenerationError);
+  });
+
+  it("rejects a repeated correct answer across questions and regenerates", async () => {
+    // Two different prompts that both claim the same correct answer text.
+    const sameAns = {
+      prompt: "Q1?",
+      options: ["Paris", "Lyon", "Nice", "Rome"],
+      correct_option: 0,
+      difficulty: "easy",
+    };
+    const sameAns2 = {
+      prompt: "Q2?",
+      options: ["Paris", "Madrid", "Berlin", "Oslo"],
+      correct_option: 0,
+      difficulty: "easy",
+    };
+    const fill = {
+      prompt: "Q3?",
+      options: ["Tokyo", "Osaka", "Kyoto", "Nara"],
+      correct_option: 0,
+      difficulty: "easy",
+    };
+    const fetchImpl = mockFetch([[sameAns, sameAns2], [fill, mc("q-extra")]]);
+    const out = await generateQuestions(
+      { ...mcParams, count: 2 },
+      { apiKey: "k", fetchImpl },
+    );
+    expect(out).toHaveLength(2);
+    const answers = out.map((q) => q.options?.[q.correct_option!]);
+    expect(new Set(answers).size).toBe(2);
   });
 
   it("surfaces a handled failure on an xAI HTTP error rather than a partial set", async () => {
