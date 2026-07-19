@@ -23,7 +23,7 @@ import {
 } from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
-import { formatScore } from "@/lib/formatScore";
+import { formatNumber, formatScore } from "@/lib/formatScore";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
 import { GetReady } from "@/components/GetReady";
@@ -246,8 +246,8 @@ function HostView() {
           {game.status === "lobby"
             ? "Waiting to start"
             : getReady
-              ? `Get ready — Question ${game.current_index + 1} of ${game.question_count}`
-              : `Question ${game.current_index + 1} of ${game.question_count}`}
+              ? `Get ready — Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`
+              : `Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`}
         </p>
       </header>
 
@@ -272,7 +272,7 @@ function HostView() {
                       <strong>{c.challenger}</strong> disputes{" "}
                       {c.type === "answer" ? "their marked-wrong answer" : "this question"}.
                     </p>
-                    <p>Q{q.index + 1}: {q.prompt}</p>
+                    <p>Q{formatNumber(q.index + 1)}: {q.prompt}</p>
                     <p>Accepted answer: {answerKey}</p>
                     {c.type === "answer" && <p>Their answer: {c.submitted_text}</p>}
                     <button
@@ -384,7 +384,9 @@ function HostView() {
 
       {started && !ended && reviewing && !game.paused && (
         <section aria-live="polite" className="review">
-          <h2>Time&apos;s up — Question {game.current_index + 1} review</h2>
+          <h2>
+            Time&apos;s up — Question {formatNumber(game.current_index + 1)} review
+          </h2>
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
           <AnswerDistribution dist={dist} />

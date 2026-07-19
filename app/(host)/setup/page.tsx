@@ -21,6 +21,7 @@ import {
   QUESTION_COUNT_MIN,
 } from "@/lib/gameConfig";
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
+import { formatNumber } from "@/lib/formatScore";
 
 type Status = "editing" | "generating" | "error";
 
@@ -382,7 +383,9 @@ export default function SetupPage() {
               +
             </button>
           </span>
-          <p className="field__hint">1–{QUESTION_COUNT_MAX} questions</p>
+          <p className="field__hint">
+            1–{formatNumber(QUESTION_COUNT_MAX)} questions
+          </p>
         </div>
 
         <fieldset>

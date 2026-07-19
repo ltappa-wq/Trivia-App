@@ -6,7 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Podium } from "@/components/Podium";
 import type { LeaderboardEntry } from "@/lib/db/types";
-import { formatScore } from "@/lib/formatScore";
+import { formatNumber, formatScore } from "@/lib/formatScore";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { submitFeedback } from "@/app/actions/submitFeedback";
 
@@ -56,7 +56,8 @@ export function GameOver({
             {iWon ? "🏆 You won!" : `You placed ${ordinal(myRank)}!`}
           </span>
           <p className="placement-card__sub">
-            out of {sorted.length} player{sorted.length === 1 ? "" : "s"}
+            out of {formatNumber(sorted.length)} player
+            {sorted.length === 1 ? "" : "s"}
           </p>
         </div>
       )}
@@ -72,7 +73,7 @@ export function GameOver({
             }`.trim()}
           >
             <span>
-              {i + 1}. {p.username} — {formatScore(p.score)}
+              {formatNumber(i + 1)}. {p.username} — {formatScore(p.score)}
             </span>
             {winnerIds.has(p.id) && <span> ★ winner</span>}
             {p.id === myPlayerId && <span> (you)</span>}
