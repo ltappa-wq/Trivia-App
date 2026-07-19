@@ -12,16 +12,16 @@ generation/fairness rules.
 
 ## Product summary
 
-Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
+Live, Kahoot-style multiplayer trivia for a large group or a small group of friends.
 
 - The **host** configures a game; **xAI/Grok** generates the question set.
-- **Players** join by room code on their own devices (no accounts).
+- **Players** join by room code on their own devices (no accounts or login required).
 - Play is real-time and **speed-scored**.
 - AI mistakes are handled with a **pause-to-adjudicate challenge** (host is final arbiter).
 - Play is **ephemeral** (no accounts or long-term history), except a durable
   **question bank / voided-question record** used to avoid repeats and bad reuse.
 
-**Stack:** Next.js (App Router) on Vercel · Supabase (Postgres + Realtime) · xAI · optional Sentry · Resend (feedback email).
+**Stack:** Next.js (App Router) on Vercel · Supabase (Postgres + Realtime) · xAI · Sentry · Resend (feedback email).
 
 ---
 
@@ -30,7 +30,7 @@ Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
 | Role | What they do |
 |------|----------------|
 | **Host (gamemaster)** | Creates the game, shares code/link, starts and advances questions, adjudicates challenges, ends the game. May optionally play as a seated player. |
-| **Player** | Joins with code + username, answers, can challenge questions (and disputed marks when marked wrong). |
+| **Player** | Joins with code + display name, answers, can challenge questions (and disputed marks when marked wrong). |
 | **AI generator** | Produces the question set at setup only; not used for live judging. |
 
 ---
@@ -59,7 +59,7 @@ Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
 - [x] Custom category **Add** runs an **AI viability check**; thin/joke topics that cannot support enough distinct questions are rejected.
 - [x] Total categories capped at **10** (built-in + custom combined).
 - [x] Custom categories additionally capped (e.g. max 5 free-text labels).
-- [x] Host sets **question count** from **1–100**.
+- [x] Host sets **question count** from **1–100** (default **10**).
 - [x] Host chooses **answer mode**: multiple choice or type-the-answer.
 - [x] Host chooses **difficulty**: easy / medium / hard.
 - [x] Submit shows a generating state; on success, room is created and host is taken to the host lobby with credentials stored for that tab.
@@ -82,7 +82,7 @@ Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
 
 ## 4. Join & lobby
 
-- [x] Players join with a **5-digit numeric** room code + username (no account).
+- [x] Players join with a **5-digit numeric** room code + display name (no account).
 - [x] Join is **rate-limited** per IP.
 - [x] Only **lobby / active** games are joinable; ended games do not accept joins (code reusable after end).
 - [x] Mid-game join seats a **spectator** for the current question; they play from the next question.
@@ -99,7 +99,8 @@ Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
 - [x] After get-ready, all players see the **same question** and a **server-anchored** countdown (multiple-choice ~20s, type-answer ~35s).
 - [x] Answers are judged **server-side**; clients never compute their own score.
 - [x] Multiple-choice: exact option match. Type-answer: normalized / fuzzy match against accepted variants.
-- [x] Speed scoring: correct answers up to **1000** points, decaying toward a deadline floor within the mode’s window; wrong/late = 0. (Implementation floor is the current code constant, e.g. 500 at deadline after first-second full points.)
+- [x] Speed scoring: correct answers score **500–1,000** points (full **1,000** in the first second, decaying to **500** at the mode’s deadline); wrong/late = 0.
+- [x] Scores are displayed with **US number formatting** (comma every three digits, e.g. **1,000**).
 - [x] Correct answers on the player’s device may show **celebration** (confetti / streak badge).
 - [x] Live **leaderboard** updates as answers land.
 - [x] When all active players have answered **or** the timer ends, the room enters **review** (answers locked).
@@ -156,14 +157,15 @@ Live, Kahoot-style multiplayer trivia for small groups (target ≤10 players).
 - [ ] Per-host private question banks.
 - [ ] Real model fine-tuning from challenges.
 - [ ] Compensating speed score for each client’s network latency beyond server submit time.
+- [ ] Ability to upload your own list of questions.
 
 ---
 
 ## Suggested review pass (manual)
 
-1. Host: multi-category (≤10), custom category AI check, 1–100 questions → create.  
+1. Host: multi-category (≤10), custom category AI check, 1–100 questions (default 10) → create.  
 2. Player join + host join toast + start → 3–2–1 → question.  
-3. Answer, leaderboard, review reveal, challenge → host uphold/reject.  
+3. Answer, leaderboard (US-formatted scores), review reveal, challenge → host uphold/reject.  
 4. Next question → 3–2–1 → play through finish.  
 5. Host and player end screens: podium, standings, home link, feedback email.  
 

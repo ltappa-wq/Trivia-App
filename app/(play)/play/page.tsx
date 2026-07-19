@@ -13,6 +13,7 @@ import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { formatScore } from "@/lib/formatScore";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { Countdown } from "@/components/Countdown";
@@ -199,7 +200,7 @@ function PlayView() {
           <ol>
             {(state?.leaderboard ?? []).map((p) => (
               <li key={p.id}>
-                {p.username} — {p.score}
+                {p.username} — {formatScore(p.score)}
               </li>
             ))}
           </ol>

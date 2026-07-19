@@ -6,6 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Podium } from "@/components/Podium";
 import type { LeaderboardEntry } from "@/lib/db/types";
+import { formatScore } from "@/lib/formatScore";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { submitFeedback } from "@/app/actions/submitFeedback";
 
@@ -71,7 +72,7 @@ export function GameOver({
             }`.trim()}
           >
             <span>
-              {i + 1}. {p.username} — {p.score}
+              {i + 1}. {p.username} — {formatScore(p.score)}
             </span>
             {winnerIds.has(p.id) && <span> ★ winner</span>}
             {p.id === myPlayerId && <span> (you)</span>}

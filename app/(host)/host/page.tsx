@@ -23,6 +23,7 @@ import {
 } from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { formatScore } from "@/lib/formatScore";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
 import { GetReady } from "@/components/GetReady";
@@ -416,7 +417,7 @@ function HostView() {
             <ol>
               {leaderboard.map((p) => (
                 <li key={p.id}>
-                  {p.username} — {p.score}
+                  {p.username} — {formatScore(p.score)}
                 </li>
               ))}
             </ol>
