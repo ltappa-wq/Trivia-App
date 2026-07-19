@@ -20,11 +20,10 @@ import {
   validateUsername,
 } from "@/lib/join";
 
-// Tightened (R6.2c): the 5-digit numeric code space is small (100k), so join
-// throttling is a primary defense against code enumeration, not just abuse. 5
-// attempts/min/IP makes a full scan impractical. Shared across serverless
-// instances via check_rate_limit (migration 0009).
-const JOIN_LIMIT = 5;
+// Per-IP join throttle (shared across serverless via check_rate_limit, migration
+// 0009). Kept for basic abuse control; 30/min is high enough for a room to fill
+// from a shared venue network without blocking legitimate players.
+const JOIN_LIMIT = 30;
 const JOIN_WINDOW_MS = 60_000;
 
 export interface JoinResult {
