@@ -44,6 +44,8 @@ Realtime) · xAI/Grok for generation.
 
 ## Documentation
 
+- `docs/PRODUCT-CHECKLIST.md` — product source of truth (expected functionality checklist).
+
 - `docs/solutions/` — documented solutions to past problems (bugs, best practices,
   architecture/workflow patterns), organized by category with YAML frontmatter
   (`module`, `tags`, `problem_type`, `component`). Relevant when implementing or
