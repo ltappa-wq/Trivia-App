@@ -57,8 +57,12 @@ describe("schema security invariants", () => {
     expect(init).toMatch(/unique \(question_id, player_id\)/);
   });
 
-  it("hashes player tokens (migration 0009) instead of storing plaintext", () => {
-    // 0001 still introduces plaintext for historical installs; 0009 migrates.
+  it("stores the player token hashed in a unique column, never in plaintext", () => {
+    expect(init).toMatch(/token_hash\s+text not null unique/);
+    expect(init).not.toMatch(/\btoken\s+text/); // no plaintext player-token column
+  });
+
+  it("migration 0009 rewires resolve_token to hash match and drops residual plaintext", () => {
     expect(phaseAuth).toMatch(/token_hash/);
     expect(phaseAuth).toMatch(/drop column token/i);
     expect(phaseAuth).toMatch(

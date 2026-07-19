@@ -53,8 +53,10 @@ create table if not exists public.players (
   id           uuid primary key default gen_random_uuid(),
   game_id      uuid not null references public.games(id) on delete cascade,
   username     text not null,
-  -- High-entropy server-issued token; the player's identity credential (KTD7).
-  token        text not null unique,
+  -- SHA-256 hash of the player's high-entropy server-issued token (KTD7). The
+  -- plaintext is returned once to the client at join; only the hash is stored,
+  -- so a DB read can't recover a credential that could impersonate the player.
+  token_hash   text not null unique,
   score        integer not null default 0,
   -- Seated after the game started: plays from the next question, not scored
   -- retroactively (U5 mid-game join rule).
