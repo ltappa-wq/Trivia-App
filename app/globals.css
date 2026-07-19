@@ -603,6 +603,50 @@ a:hover {
   .waiting__dots::after { animation: none; content: "…"; }
 }
 
+/* Screen-reader-only utility: keep content in the a11y tree, off-screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Between-question "get ready" lead-in ----------------------------- */
+.lead-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2.5rem 0;
+}
+.lead-in__label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.lead-in__count {
+  font-size: 5rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+  animation: lead-in-pop 1s ease-out;
+}
+@keyframes lead-in-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  30% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lead-in__count { animation: none; }
+}
+
 /* --- Copy-shareable-join-link row (host lobby) ------------------------- */
 .copy-link {
   display: flex;

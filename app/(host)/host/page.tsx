@@ -12,14 +12,22 @@ import { advance } from "@/app/actions/advance";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
+import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadHostCredential } from "@/lib/clientSession";
 import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
-import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import {
+  useJoinAnnouncements,
+  useLeadInCountdown,
+  useQuestionCountdown,
+  useRoomState,
+} from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { describeWinners, sortStandings } from "@/lib/results";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import { AnswerPanel } from "@/components/AnswerPanel";
+import { ChallengeControls } from "@/components/ChallengeControls";
 import { Countdown } from "@/components/Countdown";
+import { LeadIn } from "@/components/LeadIn";
 import { JoinToast } from "@/components/JoinToast";
 import { Podium } from "@/components/Podium";
 import { AnswerReveal } from "@/components/AnswerReveal";
@@ -46,6 +54,9 @@ function HostView() {
   const [dist, setDist] = useState<AnswerDistributionData | null>(null);
   const [copied, setCopied] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
+  // The playing host's own last answer result, so they get the same "my answer
+  // was wrongly marked" challenge as any player (U8).
+  const [hostResult, setHostResult] = useState<SubmitResult | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const game = state?.game ?? null;
@@ -135,6 +146,15 @@ function HostView() {
     }
   }
   const remaining = useQuestionCountdown(game, offset);
+  const leadInRemaining = useLeadInCountdown(game, offset);
+  const leadIn = (leadInRemaining ?? 0) > 0;
+
+  // Reset the playing host's stored result on each new question so `markedWrong`
+  // never reflects a stale prior answer.
+  const hostIndex = game?.current_index ?? -1;
+  useEffect(() => {
+    setHostResult(null);
+  }, [hostIndex]);
 
   // R5.1 timer path: when the answer window elapses without everyone answering,
   // the host (the pacing authority) closes the question into review. Fired once
@@ -201,6 +221,11 @@ function HostView() {
   const ended = game.status === "ended";
   const reviewing = game.reviewing;
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
+  // The host only gets the challenge affordance when they opted to play (they
+  // hold a player token). "My answer was wrongly marked" needs a scored wrong.
+  const hostPlays = !!cred.playerToken;
+  const hostMarkedWrong =
+    hostResult !== null && !hostResult.correct && !hostResult.spectating;
 
   return (
     <main className="host-view">
@@ -296,31 +321,44 @@ function HostView() {
       <div className="host-live">
       {started && !ended && !game.paused && !reviewing && state?.current_question && (
         <section aria-live="polite">
-          <h2>{state.current_question.prompt}</h2>
-          {remaining !== null && (
-            <Countdown
-              remaining={remaining}
-              total={ANSWER_TIMER_MS[state.current_question.mode]}
-            />
-          )}
-          {cred.playerToken ? (
-            <AnswerPanel
-              token={cred.playerToken}
-              question={state.current_question}
-              currentIndex={game.current_index}
-              timeUp={remaining !== null && remaining <= 0}
-            />
+          {leadIn ? (
+            <LeadIn remaining={leadInRemaining ?? 0} />
           ) : (
-            // Host-only gamemaster: show the question read-only on the shared
-            // screen. Multiple-choice options are listed; type-answer shows just
-            // the prompt/timer above.
-            state.current_question.mode === "multiple_choice" && (
-              <ol>
-                {(state.current_question.options ?? []).map((opt, i) => (
-                  <li key={i}>{opt}</li>
-                ))}
-              </ol>
-            )
+            <>
+              <h2>{state.current_question.prompt}</h2>
+              {remaining !== null && (
+                <Countdown
+                  remaining={remaining}
+                  total={ANSWER_TIMER_MS[state.current_question.mode]}
+                />
+              )}
+              {cred.playerToken ? (
+                <AnswerPanel
+                  token={cred.playerToken}
+                  question={state.current_question}
+                  currentIndex={game.current_index}
+                  timeUp={remaining !== null && remaining <= 0}
+                  onResult={setHostResult}
+                />
+              ) : (
+                // Host-only gamemaster: show the question read-only on the shared
+                // screen. Multiple-choice options are listed; type-answer shows
+                // just the prompt/timer above.
+                state.current_question.mode === "multiple_choice" && (
+                  <ol>
+                    {(state.current_question.options ?? []).map((opt, i) => (
+                      <li key={i}>{opt}</li>
+                    ))}
+                  </ol>
+                )
+              )}
+              {hostPlays && !state.current_question.voided && (
+                <ChallengeControls
+                  token={cred.playerToken!}
+                  markedWrong={hostMarkedWrong}
+                />
+              )}
+            </>
           )}
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
@@ -340,6 +378,9 @@ function HostView() {
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
           <AnswerDistribution dist={dist} />
+          {hostPlays && (
+            <ChallengeControls token={cred.playerToken!} markedWrong={hostMarkedWrong} />
+          )}
           {onLastQuestion ? (
             <button type="button" disabled={busy} onClick={handleFinish}>
               Finish game

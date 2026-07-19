@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { measureClockOffset, remainingMs } from "../clock";
+import { measureClockOffset, remainingMs, untilRevealMs } from "../clock";
 
 describe("measureClockOffset (KTD9)", () => {
   it("computes offset as server time minus the round-trip midpoint", async () => {
@@ -34,5 +34,26 @@ describe("remainingMs (KTD9)", () => {
 
   it("never goes negative past the deadline", () => {
     expect(remainingMs(10_000, 20_000, 0, 40_000)).toBe(0);
+  });
+});
+
+describe("untilRevealMs (lead-in)", () => {
+  it("counts down the ms until a future reveal, offset-corrected", () => {
+    const revealAt = 13_000; // reveal opens 3s after 'now'
+    // Offset 0, local now 10_000 → 3000ms of lead-in remain.
+    expect(untilRevealMs(revealAt, 0, 10_000)).toBe(3000);
+    // 2s later → 1000ms remain.
+    expect(untilRevealMs(revealAt, 0, 12_000)).toBe(1000);
+  });
+
+  it("applies the clock offset like the answer countdown", () => {
+    // Device is 3000ms behind server; offset pushes its clock forward, so the
+    // lead-in it sees is shorter.
+    const revealAt = 13_000;
+    expect(untilRevealMs(revealAt, 3000, 10_000)).toBe(13_000 - (10_000 + 3000));
+  });
+
+  it("is zero once the answer window has opened", () => {
+    expect(untilRevealMs(10_000, 0, 12_000)).toBe(0);
   });
 });

@@ -46,6 +46,13 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   }
   if (game.paused) throw new Error("The game is paused");
 
+  // Reject answers during the between-question lead-in (reveal_at still in the
+  // future). The UI hides answering until then; this is the authoritative guard
+  // so a client can't submit early and score a negative-elapsed max (KTD4).
+  if (submitAtMs < new Date(game.reveal_at).getTime()) {
+    throw new Error("The question hasn't started yet");
+  }
+
   // A spectator joined during this question — seated but not scored on it (U5).
   if (player.isSpectator) return { correct: false, points: 0, spectating: true };
 

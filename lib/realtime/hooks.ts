@@ -12,7 +12,7 @@ import { serverNow } from "@/app/actions/serverTime";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
 import { hydrate, subscribeToRoom } from "./channel";
-import { measureClockOffset, remainingMs } from "./clock";
+import { measureClockOffset, remainingMs, untilRevealMs } from "./clock";
 import { ROOM_EVENTS } from "./events";
 
 export interface RoomState {
@@ -145,6 +145,52 @@ export function useQuestionCountdown(
   const active = !!game && game.current_index >= 0;
   const timerMs = game && active ? ANSWER_TIMER_MS[game.answer_mode] : null;
   return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);
+}
+
+/**
+ * Between-question "get ready" lead-in (U6). Returns the ticking milliseconds
+ * until the current question's answer window opens (`reveal_at` in the future),
+ * or null when no lead-in is in effect — lobby, review, paused, ended, or once
+ * answering is already live. Server-anchored and offset-corrected like the
+ * answer countdown, so the 3-2-1 lands together across devices.
+ */
+export function useLeadInCountdown(
+  game: HydratedState["game"] | null,
+  offset: number,
+): number | null {
+  const revealAt = game?.reveal_at ?? null;
+  const eligible =
+    !!game &&
+    game.current_index >= 0 &&
+    game.status === "active" &&
+    !game.paused &&
+    !game.reviewing;
+  const [ms, setMs] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!eligible || !revealAt) {
+      setMs(null);
+      return;
+    }
+    const revealMs = new Date(revealAt).getTime();
+    let id: ReturnType<typeof setInterval> | null = null;
+    const tick = () => {
+      const v = untilRevealMs(revealMs, offset);
+      setMs(v);
+      // Once answering opens, stop ticking — the answer countdown takes over.
+      if (v <= 0 && id) {
+        clearInterval(id);
+        id = null;
+      }
+    };
+    tick();
+    id = setInterval(tick, 100);
+    return () => {
+      if (id) clearInterval(id);
+    };
+  }, [eligible, revealAt, offset]);
+
+  return ms;
 }
 
 /** Ticking remaining-milliseconds for the current question, or null when no

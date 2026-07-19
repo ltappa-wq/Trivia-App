@@ -7,16 +7,16 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
-import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { useLeadInCountdown, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
+import { ChallengeControls } from "@/components/ChallengeControls";
 import { Countdown } from "@/components/Countdown";
-import type { ChallengeKind } from "@/lib/challenge";
+import { LeadIn } from "@/components/LeadIn";
 import type { RevealedAnswer } from "@/lib/db/types";
 
 function PlayView() {
@@ -35,12 +35,12 @@ function PlayView() {
   }, [ended, code, router]);
 
   const [result, setResult] = useState<SubmitResult | null>(null);
-  const [challengeError, setChallengeError] = useState<string | null>(null);
-  const [challenging, setChallenging] = useState(false);
   const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
 
   const game = state?.game ?? null;
   const remaining = useQuestionCountdown(game, offset);
+  const leadInRemaining = useLeadInCountdown(game, offset);
+  const leadIn = (leadInRemaining ?? 0) > 0;
 
   const paused = game?.paused ?? false;
   const reviewing = game?.reviewing ?? false;
@@ -75,19 +75,6 @@ function PlayView() {
     setResult(null);
   }, [currentIndex]);
 
-  async function raiseChallenge(type: ChallengeKind) {
-    if (!token) return;
-    setChallenging(true);
-    setChallengeError(null);
-    try {
-      await challenge(token, type);
-    } catch (err) {
-      setChallengeError(err instanceof Error ? err.message : "Could not challenge");
-    } finally {
-      setChallenging(false);
-    }
-  }
-
   if (!cred) {
     return (
       <main>
@@ -121,7 +108,13 @@ function PlayView() {
         </div>
       )}
 
-      {started && question && (
+      {started && question && leadIn && !reviewing && !paused && (
+        <section>
+          <LeadIn remaining={leadInRemaining ?? 0} />
+        </section>
+      )}
+
+      {started && question && !leadIn && (
         <section aria-live="polite">
           <h2>{question.prompt}</h2>
           {!reviewing && remaining !== null && (
@@ -158,27 +151,7 @@ function PlayView() {
           )}
 
           {!paused && !question.voided && !spectating && (
-            <div>
-              {challengeError && <p role="alert">{challengeError}</p>}
-              <button
-                type="button"
-                className="ghost"
-                disabled={challenging}
-                onClick={() => raiseChallenge("question")}
-              >
-                Challenge this question
-              </button>
-              {markedWrong && (
-                <button
-                  type="button"
-                  className="ghost"
-                  disabled={challenging}
-                  onClick={() => raiseChallenge("answer")}
-                >
-                  My answer was wrongly marked
-                </button>
-              )}
-            </div>
+            <ChallengeControls token={cred.token} markedWrong={markedWrong} />
           )}
         </section>
       )}

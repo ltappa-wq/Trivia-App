@@ -35,3 +35,18 @@ export function remainingMs(
   const elapsed = serverNow - revealAtMs;
   return Math.max(0, timerMs - elapsed);
 }
+
+/**
+ * Milliseconds until the answer window opens, for a `reveal_at` the server
+ * stamped in the future (the between-question lead-in, LEAD_IN_MS). Positive
+ * while the "get ready" countdown runs; zero once answering is live. Evaluated
+ * at the offset-corrected local clock so every device counts down in step.
+ */
+export function untilRevealMs(
+  revealAtMs: number,
+  offsetMs: number,
+  now: number = Date.now(),
+): number {
+  const serverNow = now + offsetMs;
+  return Math.max(0, revealAtMs - serverNow);
+}

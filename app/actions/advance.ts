@@ -11,7 +11,7 @@ import { authorizeHostByCode } from "@/lib/serverAuth";
 import { computeNextIndex } from "@/lib/gameFlow";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { ANSWER_TIMER_MS, LEAD_IN_MS } from "@/lib/gameConfig";
 
 export type AdvanceResult =
   | { status: "advanced"; index: number; revealAt: string; timerMs: number }
@@ -43,7 +43,11 @@ export async function advance(
     return { status: "ended" };
   }
 
-  const revealAt = new Date().toISOString();
+  // Stamp the answer window to open one lead-in from now: clients show a brief
+  // "get ready" countdown until `reveal_at`, then answering opens. The whole
+  // window (timer + speed scoring) is anchored to this, so the pause costs
+  // nobody points. Submits before it are rejected in submitAnswer.
+  const revealAt = new Date(Date.now() + LEAD_IN_MS).toISOString();
   const { data: updated, error } = await supabase
     .from("games")
     .update({

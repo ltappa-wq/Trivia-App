@@ -40,6 +40,16 @@ export const ANSWER_TIMER_MS: Record<AnswerMode, number> = {
   type_answer: 35_000,
 };
 
+/**
+ * Between-question "get ready" lead-in (U6). When the host reveals a question,
+ * the server stamps `reveal_at` this far in the future: clients show a brief
+ * countdown and answering opens only once `reveal_at` passes. Because the whole
+ * answer window is anchored to `reveal_at`, shifting it forward by the lead-in
+ * shifts the timer and speed scoring with it — nobody is penalized for the
+ * pause. Answering before `reveal_at` is rejected server-side (submitAnswer).
+ */
+export const LEAD_IN_MS = 3_000;
+
 export interface SetupInput {
   categories: string[];
   questionCount: number;
