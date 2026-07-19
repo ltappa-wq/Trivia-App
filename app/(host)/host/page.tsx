@@ -15,10 +15,14 @@ import { endGame } from "@/app/actions/endGame";
 import { challenge } from "@/app/actions/challenge";
 import { loadHostCredential } from "@/lib/clientSession";
 import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
-import { useJoinAnnouncements, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import {
+  useIsGetReady,
+  useJoinAnnouncements,
+  useQuestionCountdown,
+  useRoomState,
+} from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
-import { isGetReadyPhase } from "@/lib/realtime/clock";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
 import { GetReady } from "@/components/GetReady";
@@ -141,6 +145,17 @@ function HostView() {
     }
   }
   const remaining = useQuestionCountdown(game, offset);
+  // Ticking get-ready flag (must run every render, before early returns).
+  const inGetReadyWindow = useIsGetReady(
+    game &&
+      game.current_index >= 0 &&
+      game.status !== "ended" &&
+      !game.paused &&
+      !game.reviewing
+      ? game.reveal_at
+      : null,
+    offset,
+  );
 
   // R5.1 timer path: when the answer window elapses without everyone answering,
   // the host (the pacing authority) closes the question into review. Fired once
@@ -219,12 +234,7 @@ function HostView() {
   const started = game.current_index >= 0;
   const ended = game.status === "ended";
   const reviewing = game.reviewing;
-  const getReady =
-    started &&
-    !ended &&
-    !game.paused &&
-    !reviewing &&
-    isGetReadyPhase(game.reveal_at, offset);
+  const getReady = inGetReadyWindow;
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
 
   return (

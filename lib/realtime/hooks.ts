@@ -12,7 +12,12 @@ import { serverNow } from "@/app/actions/serverTime";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
 import { hydrate, subscribeToRoom } from "./channel";
-import { isGetReadyPhase, measureClockOffset, remainingMs } from "./clock";
+import {
+  isGetReadyPhase,
+  measureClockOffset,
+  msUntilReveal,
+  remainingMs,
+} from "./clock";
 import { ROOM_EVENTS } from "./events";
 
 export interface RoomState {
@@ -138,14 +143,42 @@ export function useJoinAnnouncements(): {
  * the per-mode timer from the game and only ticks once a question is live
  * (current_index >= 0), server-anchored and offset-corrected (KTD9).
  */
+/**
+ * Ticking get-ready flag so parents re-render when the 3–2–1 interstitial ends.
+ * A one-shot `isGetReadyPhase(...)` at render time never flips false on its own,
+ * which left host/player stuck on GetReady after the countdown finished.
+ */
+export function useIsGetReady(
+  revealAt: string | null | undefined,
+  offset: number,
+): boolean {
+  const [getReady, setGetReady] = useState(() => isGetReadyPhase(revealAt, offset));
+
+  useEffect(() => {
+    if (!revealAt) {
+      setGetReady(false);
+      return;
+    }
+    const revealMs = new Date(revealAt).getTime();
+    const tick = () => {
+      setGetReady(msUntilReveal(revealMs, offset) > 0);
+    };
+    tick();
+    // Fast enough that we leave get-ready within ~100ms of reveal_at.
+    const id = setInterval(tick, 100);
+    return () => clearInterval(id);
+  }, [revealAt, offset]);
+
+  return getReady;
+}
+
 export function useQuestionCountdown(
   game: HydratedState["game"] | null,
   offset: number,
 ): number | null {
   const active = !!game && game.current_index >= 0;
-  // Hide the answer timer during the get-ready 3–2–1 interstitial.
-  const inGetReady =
-    active && isGetReadyPhase(game?.reveal_at, offset);
+  // Hide the answer timer during the get-ready 3–2–1 interstitial (ticking).
+  const inGetReady = useIsGetReady(active ? game?.reveal_at : null, offset);
   const timerMs =
     game && active && !inGetReady ? ANSWER_TIMER_MS[game.answer_mode] : null;
   return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);

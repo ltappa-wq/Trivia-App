@@ -11,9 +11,8 @@ import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
-import { useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
-import { isGetReadyPhase } from "@/lib/realtime/clock";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { AnswerReveal } from "@/components/AnswerReveal";
 import { Countdown } from "@/components/Countdown";
@@ -48,12 +47,11 @@ function PlayView() {
   const paused = game?.paused ?? false;
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
-  const getReady =
-    !!game &&
-    game.current_index >= 0 &&
-    !paused &&
-    !reviewing &&
-    isGetReadyPhase(game.reveal_at, offset);
+  // Ticking hook — re-renders when the 3s get-ready window ends so the question appears.
+  const getReady = useIsGetReady(
+    game && game.current_index >= 0 && !paused && !reviewing ? game.reveal_at : null,
+    offset,
+  );
   const timeUp = remaining !== null && remaining <= 0;
   const currentIndex = game?.current_index ?? -1;
   // The player was marked wrong on their answer -> offer the "wrongly marked"
