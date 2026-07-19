@@ -44,10 +44,12 @@ Realtime) · xAI/Grok for generation.
 
 ## Documentation
 
+- `docs/PRODUCT-CHECKLIST.md` — **product source of truth**: consolidated expected
+  functionality for review (setup, play, challenges, results, deferred scope).
 - `docs/solutions/` — documented solutions to past problems (bugs, best practices,
   architecture/workflow patterns), organized by category with YAML frontmatter
   (`module`, `tags`, `problem_type`, `component`). Relevant when implementing or
   debugging in a documented area — e.g. the anonymous realtime/RLS/token-auth
   architecture is captured under `architecture-patterns/`.
-- `docs/plans/` — implementation plans and their Key Technical Decisions (KTD*),
-  which the code comments reference by id.
+- Code comments may still reference historical KTD* ids from retired plan docs;
+  prefer the product checklist for “what should the app do?”
