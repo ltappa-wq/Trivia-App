@@ -157,6 +157,7 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [ ] Per-host private question banks.
 - [ ] Real model fine-tuning from challenges.
 - [ ] Compensating speed score for each client’s network latency beyond server submit time.
+- [ ] Hiding the question payload during the between-question lead-in. The prompt/options are broadcast at reveal (3s before answering opens); the server blocks early *scoring* but not early *reading*, so a modified client could pre-read (esp. type-answer) during the lead-in. Accepted for ephemeral social play; the anti-cheat guard still prevents early submits.
 - [ ] Ability to upload your own list of questions.
 
 ---
