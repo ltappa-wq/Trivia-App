@@ -165,32 +165,31 @@ export function useLeadInCountdown(
     game.status === "active" &&
     !game.paused &&
     !game.reviewing;
-  const [ms, setMs] = useState<number | null>(null);
+  // Re-render heartbeat only. The value is derived synchronously below so the
+  // first render after `reveal_at` moves into the future already reflects the
+  // lead-in — no one-frame flash of the question before the "get ready" mounts.
+  const [, tick] = useState(0);
 
   useEffect(() => {
-    if (!eligible || !revealAt) {
-      setMs(null);
-      return;
-    }
+    if (!eligible || !revealAt) return;
     const revealMs = new Date(revealAt).getTime();
-    let id: ReturnType<typeof setInterval> | null = null;
-    const tick = () => {
-      const v = untilRevealMs(revealMs, offset);
-      setMs(v);
-      // Once answering opens, stop ticking — the answer countdown takes over.
-      if (v <= 0 && id) {
+    // Already open — nothing to count down; the answer countdown takes over.
+    if (untilRevealMs(revealMs, offset) <= 0) return;
+    let id: ReturnType<typeof setInterval> | null = setInterval(() => {
+      tick((n) => n + 1);
+      // Once answering opens, stop ticking.
+      if (untilRevealMs(revealMs, offset) <= 0 && id) {
         clearInterval(id);
         id = null;
       }
-    };
-    tick();
-    id = setInterval(tick, 100);
+    }, 100);
     return () => {
       if (id) clearInterval(id);
     };
   }, [eligible, revealAt, offset]);
 
-  return ms;
+  if (!eligible || !revealAt) return null;
+  return untilRevealMs(new Date(revealAt).getTime(), offset);
 }
 
 /** Ticking remaining-milliseconds for the current question, or null when no

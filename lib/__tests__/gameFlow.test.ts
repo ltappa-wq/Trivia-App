@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNextIndex, isLastIndex, shouldAutoClose } from "../gameFlow";
+import { computeNextIndex, isBeforeReveal, isLastIndex, shouldAutoClose } from "../gameFlow";
 import { ANSWER_TIMER_MS } from "../gameConfig";
 
 describe("computeNextIndex (U6 advance idempotency support)", () => {
@@ -21,6 +21,28 @@ describe("isLastIndex", () => {
   it("identifies the final question", () => {
     expect(isLastIndex(4, 5)).toBe(true);
     expect(isLastIndex(3, 5)).toBe(false);
+  });
+});
+
+describe("isBeforeReveal (KTD4 lead-in early-submit guard)", () => {
+  const revealAt = new Date(10_000).toISOString();
+
+  it("rejects a submit strictly before reveal_at (during the lead-in)", () => {
+    expect(isBeforeReveal(9_999, revealAt)).toBe(true);
+    expect(isBeforeReveal(0, revealAt)).toBe(true);
+  });
+
+  it("admits a submit at the exact reveal instant (elapsed 0, legit open)", () => {
+    expect(isBeforeReveal(10_000, revealAt)).toBe(false);
+  });
+
+  it("admits a submit after the answer window has opened", () => {
+    expect(isBeforeReveal(10_001, revealAt)).toBe(false);
+    expect(isBeforeReveal(25_000, revealAt)).toBe(false);
+  });
+
+  it("never guards when there is no reveal_at", () => {
+    expect(isBeforeReveal(0, null)).toBe(false);
   });
 });
 

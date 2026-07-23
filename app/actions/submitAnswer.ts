@@ -8,6 +8,7 @@
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
+import { isBeforeReveal } from "@/lib/gameFlow";
 import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
 import { computeScore } from "@/lib/scoring/speed";
 import { currentStreak } from "@/lib/scoring/streak";
@@ -49,7 +50,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   // Reject answers during the between-question lead-in (reveal_at still in the
   // future). The UI hides answering until then; this is the authoritative guard
   // so a client can't submit early and score a negative-elapsed max (KTD4).
-  if (submitAtMs < new Date(game.reveal_at).getTime()) {
+  if (isBeforeReveal(submitAtMs, game.reveal_at)) {
     throw new Error("The question hasn't started yet");
   }
 

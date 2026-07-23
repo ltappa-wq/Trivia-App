@@ -22,6 +22,18 @@ export function isLastIndex(index: number, count: number): boolean {
 }
 
 /**
+ * KTD4. Whether a submit stamped at `submitAtMs` lands during the between-question
+ * lead-in — i.e. before the answer window opens (`reveal_at` still in the future).
+ * The authoritative early-submit guard: the UI hides answering until `reveal_at`,
+ * but this is what stops a crafted client from submitting early and scoring a
+ * negative-elapsed max. Pure so it can be unit-tested without a DB/action harness.
+ */
+export function isBeforeReveal(submitAtMs: number, revealAt: string | null): boolean {
+  if (!revealAt) return false;
+  return submitAtMs < new Date(revealAt).getTime();
+}
+
+/**
  * R4. Whether the host's timer-expiry auto-close should fire *right now* for the
  * current question. Deliberately recomputes remaining time from `reveal_at`
  * directly rather than trusting a React `remaining` render value: on the commit

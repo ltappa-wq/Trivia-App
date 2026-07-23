@@ -360,12 +360,14 @@ function HostView() {
               )}
             </>
           )}
+          {/* Hold the advance controls during the lead-in so a mis-click can't
+              skip the just-revealed question before anyone can answer. */}
           {onLastQuestion ? (
-            <button type="button" disabled={busy} onClick={handleFinish}>
+            <button type="button" disabled={busy || leadIn} onClick={handleFinish}>
               Finish game
             </button>
           ) : (
-            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
+            <button type="button" disabled={busy || leadIn} onClick={() => handleAdvance(game.current_index)}>
               Next question
             </button>
           )}
@@ -378,7 +380,7 @@ function HostView() {
           <p>Answers are locked. Here&apos;s where things stand.</p>
           <AnswerReveal reveal={reveal} />
           <AnswerDistribution dist={dist} />
-          {hostPlays && (
+          {hostPlays && !state?.current_question?.voided && (
             <ChallengeControls token={cred.playerToken!} markedWrong={hostMarkedWrong} />
           )}
           {onLastQuestion ? (
