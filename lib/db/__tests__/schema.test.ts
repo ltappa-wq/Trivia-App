@@ -34,6 +34,12 @@ const phaseAuth = readFileSync(
   ),
   "utf8",
 );
+const answerKeyColumn = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0011_question_bank_answer_key.sql", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -171,5 +177,48 @@ describe("phase/auth hardening migration (0009)", () => {
       /alter table public\.rate_limit_hits enable row level security/i,
     );
     expect(phaseAuth).not.toMatch(/create policy/i);
+  });
+});
+
+describe("question_bank answer anchor migration (0011, U2, R1-R3)", () => {
+  it("adds answer_norm as a nullable column", () => {
+    expect(answerKeyColumn).toMatch(
+      /alter table public\.question_bank\s+add column if not exists answer_norm text;/,
+    );
+    // Nullable is load-bearing: an underivable key must store null, not "".
+    expect(answerKeyColumn).not.toMatch(/answer_norm text not null/);
+  });
+
+  it("indexes answer_norm NON-uniquely so two questions may share an answer (R2)", () => {
+    expect(answerKeyColumn).toMatch(
+      /create index if not exists idx_question_bank_answer_norm\s+on public\.question_bank \(answer_norm\)/,
+    );
+    // A unique index here would reject exactly the case R2 protects.
+    expect(answerKeyColumn).not.toMatch(/create unique index[^;]*answer_norm/);
+  });
+
+  it("indexes categories for the category-scoped bank read (U3, R3)", () => {
+    expect(answerKeyColumn).toMatch(
+      /create index if not exists idx_question_bank_categories\s+on public\.question_bank using gin \(categories\)/,
+    );
+  });
+
+  it("backfills only rows missing a key, and only where one is derivable", () => {
+    expect(answerKeyColumn).toMatch(/update public\.question_bank/);
+    expect(answerKeyColumn).toMatch(/where answer_norm is null/);
+    // 0-based correct_option against a 1-based Postgres array.
+    expect(answerKeyColumn).toMatch(/options\[correct_option \+ 1\]/);
+    expect(answerKeyColumn).toMatch(/accepted_variants\[1\]/);
+    // Out-of-range correct_option must fall through to null, never index blindly.
+    expect(answerKeyColumn).toMatch(/correct_option < array_length\(options, 1\)/);
+  });
+
+  it("backfills with the same normalization discipline as normalizePrompt", () => {
+    expect(answerKeyColumn).toMatch(/lower\(/);
+    expect(answerKeyColumn).toMatch(/\[\^\[:alnum:\]\[:space:\]\]', ' '/);
+    expect(answerKeyColumn).toMatch(/'\\s\+', ' '/);
+    expect(answerKeyColumn).toMatch(/btrim\(/);
+    // Empty string collapses to null so it can never anchor a match.
+    expect(answerKeyColumn).toMatch(/nullif\(/);
   });
 });

@@ -8,6 +8,8 @@ import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
 import { generateQuestions } from "@/lib/generation/xai";
 import { normalizePrompt } from "@/lib/generation/dedup";
+import { normalizedAnswerKey } from "@/lib/generation/answerKey";
+import { buildBankExclusions, fetchBankEntries, type BankQueryClient } from "@/lib/generation/bankQuery";
 import type { GenerationParams } from "@/lib/generation/schema";
 
 /**
@@ -28,18 +30,16 @@ export async function generateAndPersistQuestions(
 
   const supabase = getServiceClient();
 
-  // Exclusion set: normalized prompts already in the bank (R7.2). Best-effort —
-  // if the read fails we generate without exclusion rather than blocking a game,
-  // but log it so a persistent outage that silently disables dedup is detectable.
-  // Also pass original prompt text so the model can avoid rephrasing banked items.
-  const { data: banked, error: bankReadError } = await supabase
-    .from("question_bank")
-    .select("prompt_norm, prompt");
-  if (bankReadError) {
-    console.error(`[generate] question_bank read failed; dedup disabled: ${bankReadError.message}`);
-  }
-  const seen = new Set<string>((banked ?? []).map((r) => r.prompt_norm as string));
-  const avoidPrompts = (banked ?? []).map((r) => r.prompt as string).filter(Boolean);
+  // Exclusion set from the durable bank (U3 / R3): scoped to the categories in
+  // play, deterministically ordered and explicitly bounded, so it can never be a
+  // silently truncated slice of the whole table. Best-effort — a bank read
+  // failure logs and generates without exclusions rather than blocking a game
+  // the host is waiting on.
+  const { entries } = await fetchBankEntries(
+    supabase as unknown as BankQueryClient,
+    params.categories,
+  );
+  const exclusions = buildBankExclusions(entries);
 
   const questions = await generateQuestions(
     params,
@@ -48,8 +48,7 @@ export async function generateAndPersistQuestions(
       baseUrl: process.env.XAI_BASE_URL,
       model: process.env.XAI_MODEL,
     },
-    seen,
-    avoidPrompts,
+    exclusions,
   );
 
   const rows = questions.map((q, index) => ({
@@ -73,6 +72,10 @@ export async function generateAndPersistQuestions(
   const bankRows = questions.map((q) => ({
     prompt: q.prompt,
     prompt_norm: normalizePrompt(q.prompt),
+    // The answer anchor future generations match against (U2). Application code
+    // is the authority for this column — migration 0011 only backfilled rows
+    // banked before it existed.
+    answer_norm: normalizedAnswerKey(q),
     mode: q.mode,
     options: q.options ?? null,
     correct_option: q.correct_option ?? null,
