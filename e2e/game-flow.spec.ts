@@ -55,9 +55,11 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
   await expect(questionPrompt(ada)).not.toHaveText(prompt); // new question synced
   await host.getByRole("button", { name: "Finish game" }).click();
 
-  // U9: players land on results with a final standings view.
-  await ada.waitForURL(/\/results/);
+  // U7 / R6 / AE5: the end screen renders in place, with no route change. The
+  // old redirect to /results was the only path players had to their standings,
+  // so it depended on this view staying mounted and reconciling in time.
   await expect(ada.getByRole("heading", { name: "Final results" })).toBeVisible();
+  expect(new URL(ada.url()).pathname).toBe("/play");
   await expect(host.getByRole("heading", { name: "Final results" })).toBeVisible();
 
   await hostCtx.close();

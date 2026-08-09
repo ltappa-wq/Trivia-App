@@ -13,6 +13,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Node by default — most of the suite is pure logic. Component tests opt
+    // into jsdom with a `// @vitest-environment jsdom` docblock, so the fast
+    // majority never pays for a DOM.
     environment: "node",
     // Playwright specs live in e2e/ and run via `npm run test:e2e`, not Vitest.
     exclude: ["node_modules/**", "e2e/**", ".next/**"],
