@@ -13,6 +13,7 @@ import type {
   OpenChallenge,
   RevealedAnswer,
 } from "@/lib/db/types";
+import type { SuggestionRow } from "@/lib/suggestions";
 
 export async function hydrate(token: string): Promise<HydratedState | null> {
   const { data, error } = await getBrowserClient().rpc("hydrate_game_state", {
@@ -23,6 +24,19 @@ export async function hydrate(token: string): Promise<HydratedState | null> {
 }
 
 /** Host-only: authoritative open challenges for the adjudication panel (U8). */
+/**
+ * U10 / R8. This room's player category suggestions, host-gated. The RPC returns
+ * an empty list for any non-host token rather than an error, so it never becomes
+ * an oracle for whether a token is a host token.
+ */
+export async function listCategorySuggestions(token: string): Promise<SuggestionRow[]> {
+  const { data, error } = await getBrowserClient().rpc("list_category_suggestions", {
+    p_token: token,
+  });
+  if (error) throw new Error(error.message);
+  return (data as SuggestionRow[] | null) ?? [];
+}
+
 export async function listOpenChallenges(token: string): Promise<OpenChallenge[]> {
   const { data, error } = await getBrowserClient().rpc("list_open_challenges", {
     p_token: token,

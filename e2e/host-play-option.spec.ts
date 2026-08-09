@@ -48,9 +48,9 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   // Only question → finish.
   await host.getByRole("button", { name: "Finish game" }).click();
 
-  // Both land on results.
-  await ada.waitForURL(/\/results/);
+  // U7 / R6 / AE5: both reach the end screen in place, without a route change.
   await expect(ada.getByRole("heading", { name: "Final results" })).toBeVisible();
+  expect(new URL(ada.url()).pathname).toBe("/play");
   await expect(host.getByRole("heading", { name: "Final results" })).toBeVisible();
 
   await hostCtx.close();

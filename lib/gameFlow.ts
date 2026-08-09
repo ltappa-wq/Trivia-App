@@ -22,6 +22,19 @@ export function isLastIndex(index: number, count: number): boolean {
 }
 
 /**
+ * R10. Whether a room may be advanced into its questions.
+ *
+ * Generation moved from createGame to startGame (U8), which makes "joinable but
+ * has no questions yet" a legal state rather than the half-initialized game it
+ * used to indicate. Every path that reveals a question must therefore check that
+ * questions actually exist — `games.question_count` records what the host *asked
+ * for*, not what was generated, so it cannot answer this on its own.
+ */
+export function hasQuestions(questionsAvailable: number): boolean {
+  return questionsAvailable > 0;
+}
+
+/**
  * R4. Whether the host's timer-expiry auto-close should fire *right now* for the
  * current question. Deliberately recomputes remaining time from `reveal_at`
  * directly rather than trusting a React `remaining` render value: on the commit

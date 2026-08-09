@@ -72,6 +72,31 @@ export interface ChallengeRow {
   created_at: string;
 }
 
+/**
+ * A row in the durable cross-game question bank. Server-side only — the bank
+ * carries answer keys and is never read by a client.
+ */
+export interface QuestionBankRow {
+  id: string;
+  prompt: string;
+  /** Normalized prompt; unique, the exact-match dedup key. */
+  prompt_norm: string;
+  /**
+   * Normalized canonical correct answer — the anchor for cross-game duplicate
+   * detection (U2). Non-unique: two different questions may share an answer
+   * (R2). Null when the row's answer key isn't derivable, in which case it
+   * simply never anchors a match.
+   */
+  answer_norm: string | null;
+  mode: AnswerMode;
+  options: string[] | null;
+  correct_option: number | null;
+  accepted_variants: string[] | null;
+  difficulty: Difficulty;
+  categories: string[];
+  created_at: string;
+}
+
 // --- Client-facing shapes returned by hydrate_game_state (answer keys omitted) ---
 
 export interface LeaderboardEntry {

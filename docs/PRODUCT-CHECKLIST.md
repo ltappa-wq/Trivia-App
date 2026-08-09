@@ -62,19 +62,22 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Host sets **question count** from **1–100** (default **10**).
 - [x] Host chooses **answer mode**: multiple choice or type-the-answer.
 - [x] Host chooses **difficulty**: easy / medium / hard.
-- [x] Submit shows a generating state; on success, room is created and host is taken to the host lobby with credentials stored for that tab.
-- [x] Generation failure surfaces error with **Retry** / **Back to edit**; no half-initialized joinable game left behind.
+- [x] Submit is fast — it creates the room only; the host is taken to the host lobby with credentials stored for that tab.
+- [x] Question generation runs at **Start game**, not at setup, so the host can review player category suggestions first.
+- [x] A room that exists but has not generated questions yet is **joinable but not startable** — an expected state, not a half-initialized game.
+- [x] Generation failure at start leaves the host in the lobby with an error and a **retry**; players stay seated and nothing is torn down.
 - [x] Create-game is **rate-limited** (abuse / cost protection).
 
 ---
 
 ## 3. Generation quality
 
-- [x] Full set is generated at setup via xAI (structured JSON), then persisted.
+- [x] Full set is generated at **game start** via xAI (structured JSON), then persisted.
 - [x] Type-the-answer answers constrained to **one or two easy-to-spell words**.
 - [x] Multiple-choice options are validated; **correct option is shuffled** so the right answer is not always first.
-- [x] **No two questions in a set share the same correct answer** (normalized).
-- [x] Prompts are de-duplicated against a durable **question bank** (normalized prompt text).
+- [x] **No two questions in a set share the same correct answer** (normalized). Across *different* games the same answer is permitted, provided the prompts are dissimilar — two unrelated questions may both answer "Paris".
+- [x] Prompts are de-duplicated against a durable **question bank**: exact normalized-prompt match, plus **answer-anchored** near-duplicate detection — a candidate sharing a banked question's correct answer is rejected when its prompt is also similar, so rewordings no longer slip through.
+- [x] The bank read at generation is scoped to the categories in play and explicitly bounded, never a silently truncated slice of the table.
 - [x] Short/invalid batches are **tail-regenerated** until count is met or attempts exhaust (loud failure).
 - [x] Difficulty on each stored question matches the host’s selected difficulty.
 
@@ -86,6 +89,9 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Join is **rate-limited** per IP.
 - [x] Only **lobby / active** games are joinable; ended games do not accept joins (code reusable after end).
 - [x] Mid-game join seats a **spectator** for the current question; they play from the next question.
+- [x] Players may **suggest categories** on the join screen (optional, from the built-in catalog, capped per player); suggestions travel with the join.
+- [x] Host lobby shows suggested categories live, aggregated with a count of how many players asked, and the host **accepts or ignores** each one — nothing a player submits changes the game until the host accepts it.
+- [x] Accepted suggestions merge into the host's categories at start and shape the generated set; the category cap still applies.
 - [x] Host lobby shows room code, shareable **copy join link**, and live roster.
 - [x] New joins produce a short **join toast** animation on the host lobby.
 - [x] Host can start once at least one player is present (host-only); host-as-player is already seated at create when that option is on.
@@ -153,7 +159,7 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [ ] Pre-game host edit/review of every AI question before the room opens.
 - [ ] Large-crowd scaling (100+ players) and associated infra.
 - [ ] Classroom / public content-safety filtering of AI questions.
-- [ ] Semantic/embedding-based question dedup (beyond normalized text).
+- [ ] Semantic/embedding-based question dedup. Lexical, answer-anchored dedup now exists (§3); embeddings remain out of scope — revisit only if rewordings still get through after threshold tuning.
 - [ ] Per-host private question banks.
 - [ ] Real model fine-tuning from challenges.
 - [ ] Compensating speed score for each client’s network latency beyond server submit time.

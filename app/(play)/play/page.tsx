@@ -1,41 +1,37 @@
 "use client";
-// U6. Player view — phone-first (UI conventions). Shows the lobby wait, the
-// active question with a server-anchored countdown (KTD9), and the between-
-// question leaderboard. Answering is delegated to the shared AnswerPanel; the
-// challenge affordance (U8) reacts to that panel's result. State hydrates from
-// Postgres and reconciles on every Broadcast delta (KTD8).
+// U6 / U7. Player view — phone-first (UI conventions). This page owns the
+// player's shell: identity header, the lobby waiting state, the leaderboard and
+// the end screen. Everything between get-ready and review is rendered by the
+// shared GameStage, from the phase derived in lib/gamePhase — the same module
+// and the same components the host uses, so the two can no longer drift (R5).
+//
+// The game-ended path renders GameOver in place rather than pushing to
+// /results (R6): the redirect was the only way a player reached the final
+// screen, so it depended on this view being mounted and reconciling in time,
+// and it re-mounted and re-hydrated the whole app to show standings this page
+// already holds. /results remains for direct links and refreshes.
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { derivePhase } from "@/lib/gamePhase";
 import { formatScore } from "@/lib/formatScore";
-import { AnswerPanel } from "@/components/AnswerPanel";
-import { AnswerReveal } from "@/components/AnswerReveal";
-import { Countdown } from "@/components/Countdown";
-import { GetReady } from "@/components/GetReady";
-import { ChallengeActions } from "@/components/ChallengeActions";
+import { GameOver } from "@/components/GameOver";
+import { GameStage } from "@/components/GameStage";
 import type { ChallengeKind } from "@/lib/challenge";
 import type { RevealedAnswer } from "@/lib/db/types";
 
 function PlayView() {
-  const router = useRouter();
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
   const cred = loadPlayerCredential(code);
   const token = cred?.token ?? null;
 
   const { state, offset, error, loading } = useRoomState(code, token);
-
-  // When the host ends the game, send players to the results view.
-  const ended = state?.game?.status === "ended";
-  useEffect(() => {
-    if (ended) router.push(`/results?code=${code}`);
-  }, [ended, code, router]);
 
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [challengeError, setChallengeError] = useState<string | null>(null);
@@ -45,16 +41,14 @@ function PlayView() {
   const game = state?.game ?? null;
   const remaining = useQuestionCountdown(game, offset);
 
-  const paused = game?.paused ?? false;
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
-  // Ticking hook — re-renders when the 3s get-ready window ends so the question appears.
-  const getReady = useIsGetReady(
-    game && game.current_index >= 0 && !paused && !reviewing ? game.reveal_at : null,
-    offset,
-  );
-  const timeUp = remaining !== null && remaining <= 0;
   const currentIndex = game?.current_index ?? -1;
+  // Ticking heartbeat: re-renders this view when the 3s get-ready window ends so
+  // derivePhase below is re-evaluated and the question appears. The hook is the
+  // clock; derivePhase remains the authority on which phase that means.
+  useIsGetReady(game && currentIndex >= 0 ? game.reveal_at : null, offset);
+
   // The player was marked wrong on their answer -> offer the "wrongly marked"
   // challenge variant. A spectator's non-scoring result doesn't count.
   const markedWrong = result !== null && !result.correct && !result.spectating;
@@ -109,7 +103,9 @@ function PlayView() {
   if (!game) return <main><p>Game not found.</p></main>;
 
   const question = state?.current_question ?? null;
-  const started = game.current_index >= 0;
+  const phase = derivePhase(game, question, offset);
+  const started = phase.phase !== "lobby";
+  const leaderboard = state?.leaderboard ?? [];
 
   return (
     <main>
@@ -118,7 +114,7 @@ function PlayView() {
         <p>Room {game.code}</p>
       </header>
 
-      {!started && (
+      {phase.phase === "lobby" && (
         <div className="waiting" aria-live="polite">
           <span className="waiting__emoji" aria-hidden="true">
             🎮
@@ -134,77 +130,44 @@ function PlayView() {
         </div>
       )}
 
-      {started && getReady && game.reveal_at && (
-        <section aria-live="polite">
-          <GetReady revealAt={game.reveal_at} offset={offset} />
-        </section>
-      )}
+      <GameStage
+        phase={phase}
+        question={question}
+        currentIndex={game.current_index}
+        revealAt={game.reveal_at}
+        offset={offset}
+        remaining={remaining}
+        isHost={false}
+        spectating={spectating}
+        playerToken={cred.token}
+        reveal={reveal}
+        distribution={null}
+        challenging={challenging}
+        challengeError={challengeError}
+        showAnswerDispute={markedWrong}
+        onChallenge={(t) => void raiseChallenge(t)}
+        onResult={setResult}
+      />
 
-      {started && question && !getReady && (
-        <section aria-live="polite">
-          <h2>{question.prompt}</h2>
-          {!reviewing && remaining !== null && (
-            <Countdown remaining={remaining} total={ANSWER_TIMER_MS[question.mode]} />
-          )}
-
-          {question.voided ? (
-            <p className="overlay" aria-live="assertive">
-              This question was voided — waiting for the host.
-            </p>
-          ) : spectating ? (
-            <p className="overlay" aria-live="polite">
-              You joined mid-game — sitting out this question. You’ll play from the next one.
-            </p>
-          ) : paused ? (
-            <p className="overlay" aria-live="assertive">
-              ⏸ Paused for review — answering is disabled.
-            </p>
-          ) : reviewing ? (
-            <>
-              <p className="overlay" aria-live="polite">
-                ⏱ Answers locked — here’s the correct answer.
-              </p>
-              <AnswerReveal reveal={reveal} />
-              <ChallengeActions
-                challenging={challenging}
-                challengeError={challengeError}
-                showAnswerDispute={markedWrong}
-                onChallenge={(t) => void raiseChallenge(t)}
-              />
-            </>
-          ) : (
-            <AnswerPanel
-              token={cred.token}
-              question={question}
-              currentIndex={game.current_index}
-              timeUp={timeUp}
-              onResult={setResult}
-            />
-          )}
-
-          {/* Live-phase challenges stay available; review uses ChallengeActions above. */}
-          {!paused && !question.voided && !spectating && !reviewing && (
-            <ChallengeActions
-              challenging={challenging}
-              challengeError={challengeError}
-              showAnswerDispute={markedWrong}
-              onChallenge={(t) => void raiseChallenge(t)}
-            />
-          )}
-        </section>
-      )}
-
-      {started && (
+      {started && phase.phase !== "ended" && (
         <section>
           <h2>Leaderboard</h2>
           <ol>
-            {(state?.leaderboard ?? []).map((p) => (
+            {leaderboard.map((p) => (
               <li key={p.id}>
                 {p.username} — {formatScore(p.score)}
               </li>
             ))}
           </ol>
         </section>
+      )}
+
+      {phase.phase === "ended" && (
+        <GameOver
+          standings={leaderboard}
+          myPlayerId={state?.player?.id}
+          roomCode={game.code}
+        />
       )}
     </main>
   );

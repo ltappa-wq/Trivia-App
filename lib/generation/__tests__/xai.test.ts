@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateQuestions, GenerationError } from "../xai";
 import type { GenerationParams } from "../schema";
+import type { BankExclusions } from "../bankQuery";
+import * as similarity from "../similarity";
+
+/** A bank exclusion set with only the parts a given test cares about. */
+function bank(over: Partial<BankExclusions> = {}): BankExclusions {
+  return {
+    seen: over.seen ?? new Set(),
+    promptsByAnswer: over.promptsByAnswer ?? new Map(),
+    avoidPrompts: over.avoidPrompts ?? [],
+  };
+}
 
 // A fetch stub that returns a queued xAI completion per call, so a test can
 // script a first (short/invalid) response followed by a tail-fill response.
@@ -82,7 +93,7 @@ describe("generateQuestions", () => {
     // the banked one is rejected and the tail attempt fills the gap.
     const fetchImpl = mockFetch([[mc("Banked One"), mc("q2"), mc("q3")], [mc("q4")]]);
     const seen = new Set(["banked one"]); // normalized form of "Banked One"
-    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, seen);
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, bank({ seen }));
     expect(out).toHaveLength(3);
     expect(out.map((q) => q.prompt)).not.toContain("Banked One");
   });
@@ -99,7 +110,11 @@ describe("generateQuestions", () => {
   it("throws when only duplicates are available (fails loud, R7.3)", async () => {
     const fetchImpl = mockFetch([[mc("dup")]]); // every attempt is the same banked prompt
     await expect(
-      generateQuestions(mcParams, { apiKey: "k", fetchImpl, maxAttempts: 3 }, new Set(["dup"])),
+      generateQuestions(
+        mcParams,
+        { apiKey: "k", fetchImpl, maxAttempts: 3 },
+        bank({ seen: new Set(["dup"]) }),
+      ),
     ).rejects.toBeInstanceOf(GenerationError);
   });
 
@@ -158,5 +173,151 @@ describe("generateQuestions", () => {
     await expect(
       generateQuestions(mcParams, { apiKey: "k", fetchImpl, timeoutMs: 5 }),
     ).rejects.toThrow(/timed out/);
+  });
+});
+
+// U4 / R1 / R2 / R4. The answer-anchored gate: reject rewordings of banked
+// questions, keep genuinely different questions that share an answer, and do
+// neither at the cost of the existing tail-regeneration behavior.
+describe("answer-anchored duplicate detection (U4)", () => {
+  /** A banked "What is the capital of France?" indexed under its answer. */
+  function franceBank(): BankExclusions {
+    return bank({
+      seen: new Set(["what is the capital of france"]),
+      promptsByAnswer: new Map([["paris", ["what is the capital of france"]]]),
+    });
+  }
+
+  /** An MC question with an explicit correct answer, so the anchor is known. */
+  function withAnswer(prompt: string, answer: string) {
+    return {
+      prompt,
+      options: [answer, "distractor-x", "distractor-y", "distractor-z"],
+      correct_option: 0,
+      difficulty: "easy",
+    };
+  }
+
+  it("AE1: rejects a reworded banked question sharing its answer", async () => {
+    const fetchImpl = mockFetch([
+      [withAnswer("Which city is France's capital?", "Paris"), mc("q2"), mc("q3")],
+      [mc("q4")],
+    ]);
+
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, franceBank());
+
+    expect(out).toHaveLength(3);
+    expect(out.map((q) => q.prompt)).not.toContain("Which city is France's capital?");
+  });
+
+  it("AE2: keeps a different question that happens to share the same answer", async () => {
+    const fetchImpl = mockFetch([
+      [withAnswer("Which city hosts the Louvre?", "Paris"), mc("q2"), mc("q3")],
+    ]);
+
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, franceBank());
+
+    expect(out).toHaveLength(3);
+    // R2: same answer, dissimilar prompt — this is a keeper, not a duplicate.
+    expect(out.map((q) => q.prompt)).toContain("Which city hosts the Louvre?");
+  });
+
+  it("skips the similarity comparison entirely when the answer anchors nothing", async () => {
+    const spy = vi.spyOn(similarity, "isNearDuplicate");
+    try {
+      // Every candidate's answer ("ans-qN") is absent from the bank index.
+      const fetchImpl = mockFetch([[mc("q1"), mc("q2"), mc("q3")]]);
+
+      const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, franceBank());
+
+      expect(out).toHaveLength(3);
+      // The anchor must actually be doing the narrowing — if this fires, every
+      // candidate is being compared against the bank and the anchor is decorative.
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("R4: still rejects a second question reusing an answer within the same set", async () => {
+    // Prompts are wildly dissimilar, so only the within-set answer rule can
+    // reject the second one. That rule stays strict across the set (KTD4).
+    const fetchImpl = mockFetch([
+      [
+        withAnswer("Which city hosts the Louvre?", "Paris"),
+        withAnswer("Who wrote Hamlet?", "Paris"),
+      ],
+      [withAnswer("Which planet is largest?", "Jupiter")],
+    ]);
+
+    const out = await generateQuestions(
+      { ...mcParams, count: 2 },
+      { apiKey: "k", fetchImpl },
+      bank(),
+    );
+
+    expect(out).toHaveLength(2);
+    const answers = out.map((q) => q.options?.[q.correct_option!]);
+    expect(new Set(answers).size).toBe(2);
+  });
+
+  it("still rejects an identical banked prompt whose answer differs", async () => {
+    // The cheap exact-prompt pre-filter runs regardless of the anchor.
+    const fetchImpl = mockFetch([
+      [withAnswer("What is the capital of France?", "Lyon"), mc("q2"), mc("q3")],
+      [mc("q4")],
+    ]);
+
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, franceBank());
+
+    expect(out).toHaveLength(3);
+    expect(out.map((q) => q.prompt)).not.toContain("What is the capital of France?");
+  });
+
+  it("compares later candidates against questions accepted earlier in the same run", async () => {
+    // Nothing banked; the first candidate seeds the anchor index itself.
+    const fetchImpl = mockFetch([
+      [
+        withAnswer("Which city is the capital of France?", "Paris"),
+        withAnswer("What is France's capital city?", "Paris"),
+        mc("q2"),
+      ],
+      [mc("q3")],
+    ]);
+
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, bank());
+
+    expect(out).toHaveLength(3);
+    expect(out.map((q) => q.prompt)).not.toContain("What is France's capital city?");
+  });
+
+  it("fills the requested count despite a batch that is half near-duplicates", async () => {
+    const fetchImpl = mockFetch([
+      [
+        withAnswer("Which city is France's capital?", "Paris"),
+        withAnswer("What is the capital of France today?", "Paris"),
+        mc("keep1"),
+        mc("keep2"),
+      ],
+      [mc("keep3")],
+    ]);
+
+    const out = await generateQuestions(mcParams, { apiKey: "k", fetchImpl }, franceBank());
+
+    // Rejections drive tail regeneration rather than shrinking the set.
+    expect(out).toHaveLength(3);
+  });
+
+  it("names near-duplicate among the rejection reasons when attempts run out", async () => {
+    // Every attempt returns only rewordings of the same banked question.
+    const fetchImpl = mockFetch([[withAnswer("Which city is France's capital?", "Paris")]]);
+
+    await expect(
+      generateQuestions(
+        mcParams,
+        { apiKey: "k", fetchImpl, maxAttempts: 3 },
+        franceBank(),
+      ),
+    ).rejects.toThrow(/near-duplicate/);
   });
 });

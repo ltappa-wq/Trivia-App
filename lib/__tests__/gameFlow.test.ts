@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNextIndex, isLastIndex, shouldAutoClose } from "../gameFlow";
+import { computeNextIndex, hasQuestions, isLastIndex, shouldAutoClose } from "../gameFlow";
 import { ANSWER_TIMER_MS } from "../gameConfig";
 
 describe("computeNextIndex (U6 advance idempotency support)", () => {
@@ -69,5 +69,18 @@ describe("shouldAutoClose (R4 next-question race fix)", () => {
     expect(
       shouldAutoClose({ reveal_at: revealAt, answer_mode: "multiple_choice", current_index: 3 }, offset, now),
     ).toBe(false);
+  });
+});
+
+describe("hasQuestions (U8, R10)", () => {
+  it("blocks a room that has generated nothing yet", () => {
+    // Deferred generation (U8) makes this a legal, joinable state — advancing
+    // it would reveal a question that does not exist.
+    expect(hasQuestions(0)).toBe(false);
+  });
+
+  it("allows a room whose questions exist", () => {
+    expect(hasQuestions(1)).toBe(true);
+    expect(hasQuestions(100)).toBe(true);
   });
 });

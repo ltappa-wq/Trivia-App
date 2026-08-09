@@ -34,6 +34,18 @@ const phaseAuth = readFileSync(
   ),
   "utf8",
 );
+const suggestionsMigration = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0012_category_suggestions.sql", import.meta.url),
+  ),
+  "utf8",
+);
+const answerKeyColumn = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0011_question_bank_answer_key.sql", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -171,5 +183,101 @@ describe("phase/auth hardening migration (0009)", () => {
       /alter table public\.rate_limit_hits enable row level security/i,
     );
     expect(phaseAuth).not.toMatch(/create policy/i);
+  });
+});
+
+describe("question_bank answer anchor migration (0011, U2, R1-R3)", () => {
+  it("adds answer_norm as a nullable column", () => {
+    expect(answerKeyColumn).toMatch(
+      /alter table public\.question_bank\s+add column if not exists answer_norm text;/,
+    );
+    // Nullable is load-bearing: an underivable key must store null, not "".
+    expect(answerKeyColumn).not.toMatch(/answer_norm text not null/);
+  });
+
+  it("indexes answer_norm NON-uniquely so two questions may share an answer (R2)", () => {
+    expect(answerKeyColumn).toMatch(
+      /create index if not exists idx_question_bank_answer_norm\s+on public\.question_bank \(answer_norm\)/,
+    );
+    // A unique index here would reject exactly the case R2 protects.
+    expect(answerKeyColumn).not.toMatch(/create unique index[^;]*answer_norm/);
+  });
+
+  it("indexes categories for the category-scoped bank read (U3, R3)", () => {
+    expect(answerKeyColumn).toMatch(
+      /create index if not exists idx_question_bank_categories\s+on public\.question_bank using gin \(categories\)/,
+    );
+  });
+
+  it("backfills only rows missing a key, and only where one is derivable", () => {
+    expect(answerKeyColumn).toMatch(/update public\.question_bank/);
+    expect(answerKeyColumn).toMatch(/where answer_norm is null/);
+    // 0-based correct_option against a 1-based Postgres array.
+    expect(answerKeyColumn).toMatch(/options\[correct_option \+ 1\]/);
+    expect(answerKeyColumn).toMatch(/accepted_variants\[1\]/);
+    // Out-of-range correct_option must fall through to null, never index blindly.
+    expect(answerKeyColumn).toMatch(/correct_option < array_length\(options, 1\)/);
+  });
+
+  it("backfills with the same normalization discipline as normalizePrompt", () => {
+    expect(answerKeyColumn).toMatch(/lower\(/);
+    expect(answerKeyColumn).toMatch(/\[\^\[:alnum:\]\[:space:\]\]', ' '/);
+    expect(answerKeyColumn).toMatch(/'\\s\+', ' '/);
+    expect(answerKeyColumn).toMatch(/btrim\(/);
+    // Empty string collapses to null so it can never anchor a match.
+    expect(answerKeyColumn).toMatch(/nullif\(/);
+  });
+});
+
+describe("category_suggestions migration (0012, U9, U10, R7, R8)", () => {
+  it("creates the table keyed to a game and player", () => {
+    expect(suggestionsMigration).toMatch(
+      /create table if not exists public\.category_suggestions/,
+    );
+    expect(suggestionsMigration).toMatch(/game_id\s+uuid not null references public\.games/);
+    expect(suggestionsMigration).toMatch(/player_id\s+uuid not null references public\.players/);
+  });
+
+  it("cascades with the game and the player so suggestions never outlive them", () => {
+    const cascades = suggestionsMigration.match(/on delete cascade/g) ?? [];
+    expect(cascades.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("makes one player suggesting one category idempotent, not two votes", () => {
+    expect(suggestionsMigration).toMatch(/unique \(game_id, player_id, category\)/);
+  });
+
+  it("enables default-deny RLS with no permissive policies", () => {
+    expect(suggestionsMigration).toMatch(
+      /alter table public\.category_suggestions enable row level security/,
+    );
+    expect(suggestionsMigration).not.toMatch(/create policy/i);
+  });
+});
+
+describe("list_category_suggestions RPC invariants (0012, U10, R8)", () => {
+  it("is a security-definer function executable by anon", () => {
+    expect(suggestionsMigration).toMatch(
+      /create or replace function public\.list_category_suggestions/,
+    );
+    expect(suggestionsMigration).toMatch(/security definer/);
+    expect(suggestionsMigration).toMatch(
+      /grant execute on function public\.list_category_suggestions\(text\) to anon/,
+    );
+  });
+
+  it("returns nothing to a non-host token", () => {
+    // Suggestions name the players who made them, so a player must not be able
+    // to enumerate what everyone else asked for.
+    expect(suggestionsMigration).toMatch(/v_role is distinct from 'host'/);
+    expect(suggestionsMigration).toMatch(/return '\[\]'::jsonb/);
+  });
+
+  it("pins search_path including extensions so nested digest() resolves", () => {
+    expect(suggestionsMigration).toMatch(/set search_path = public, extensions/);
+  });
+
+  it("scopes the read to the caller's own game", () => {
+    expect(suggestionsMigration).toMatch(/where s\.game_id = v_game_id/);
   });
 });

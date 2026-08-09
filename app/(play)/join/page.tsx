@@ -1,12 +1,17 @@
 "use client";
-// U5. Player join form. Player-facing view: phone-first (UI conventions).
+// U5 / U9. Player join form. Player-facing view: phone-first (UI conventions).
 // On success it stores the server-issued token (KTD7) in the tab session and
 // routes to the play view, which subscribes to the room and hydrates (U6).
+//
+// Players may also suggest categories here (R7). They travel with the join in
+// one round trip rather than a separate call, so there is no pre-join room
+// lookup to enumerate room codes against (KTD7).
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { joinGame } from "@/app/actions/joinGame";
 import { savePlayerCredential } from "@/lib/clientSession";
+import { CategoryPicker } from "@/components/CategoryPicker";
 
 function JoinForm() {
   const router = useRouter();
@@ -15,12 +20,19 @@ function JoinForm() {
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [suggested, setSuggested] = useState<string[]>([]);
+
+  function toggleCategory(category: string) {
+    setSuggested((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
+    );
+  }
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await joinGame(code, username);
+      const result = await joinGame(code, username, suggested);
       savePlayerCredential({
         code: result.code,
         token: result.token,
@@ -65,6 +77,11 @@ function JoinForm() {
             required
           />
         </label>
+        <CategoryPicker
+          selected={suggested}
+          onToggle={toggleCategory}
+          disabled={submitting}
+        />
         <button type="submit" disabled={submitting || !code || !username}>
           {submitting ? "Joining…" : "Join"}
         </button>

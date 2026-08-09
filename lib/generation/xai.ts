@@ -12,6 +12,9 @@ import {
   type GenerationParams,
 } from "./schema";
 import { normalizePrompt } from "./dedup";
+import { normalizedAnswerKey } from "./answerKey";
+import { isNearDuplicate } from "./similarity";
+import type { BankExclusions } from "./bankQuery";
 
 const DEFAULT_BASE_URL = "https://api.x.ai/v1";
 // Non-reasoning model: structured trivia generation needs no chain-of-thought,
@@ -164,23 +167,30 @@ async function requestBatch(
   }
 }
 
+/** An exclusion set that blocks nothing — the default when no bank is consulted. */
+const NO_EXCLUSIONS: BankExclusions = {
+  seen: new Set(),
+  promptsByAnswer: new Map(),
+  avoidPrompts: [],
+};
+
 /**
  * Generate a validated set of exactly `params.count` questions. Invalid,
  * missing, or duplicate questions from one attempt are re-requested (tail
  * regeneration) up to `maxAttempts`; if the set still can't be filled, throws
  * GenerationError.
  *
- * `seen` holds normalized prompts already in the question bank (R7.2); any
- * generated question whose normalized prompt is in `seen` — or that repeats a
- * prompt already accepted this run — is rejected like an invalid one, which
- * drives tail regeneration until `count` unique questions are produced (R7.3).
+ * `exclusions` carries what the bank knows (U3): normalized prompts already
+ * banked, banked prompts indexed by their correct answer, and prompt text for
+ * the model's avoid-list. A candidate is rejected when it repeats a banked or
+ * already-accepted prompt exactly, reuses a correct answer within this set (R4),
+ * or is a rewording of a banked question that shares its answer (R1). Each
+ * rejection drives tail regeneration until `count` questions are produced.
  */
 export async function generateQuestions(
   params: GenerationParams,
   config: XaiConfig,
-  seen: ReadonlySet<string> = new Set(),
-  /** Original prompt text already banked (or accepted this run) for model avoid-list. */
-  avoidPrompts: readonly string[] = [],
+  exclusions: BankExclusions = NO_EXCLUSIONS,
 ): Promise<GeneratedQuestion[]> {
   if (!config.apiKey) throw new GenerationError("Missing xAI API key");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
@@ -200,10 +210,17 @@ export async function generateQuestions(
   const collected: GeneratedQuestion[] = [];
   // Normalized prompts we must not emit: the bank's existing prompts plus the
   // ones accepted so far this run (so a single batch can't self-duplicate).
-  const usedNorms = new Set<string>(seen);
+  const usedNorms = new Set<string>(exclusions.seen);
   // Correct-answer keys already used this set — no two questions share a winner.
   const usedAnswers = new Set<string>();
-  const avoid = [...avoidPrompts];
+  // Answer anchor index (U2/U3): normalized answer -> normalized prompts banked
+  // under it. Seeded from the bank and extended with questions accepted this run
+  // so a later candidate is measured against earlier ones too, not just the bank.
+  const promptsByAnswer = new Map<string, string[]>();
+  for (const [answer, prompts] of exclusions.promptsByAnswer) {
+    promptsByAnswer.set(answer, [...prompts]);
+  }
+  const avoid = [...exclusions.avoidPrompts];
   const avoidAnswerLabels: string[] = [];
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
@@ -237,12 +254,33 @@ export async function generateQuestions(
         continue;
       }
       const answerKeys = correctAnswerKeys(result.question);
+      // R4, unchanged: within a single set, two questions may never share a
+      // correct answer even if the questions differ. The cross-game rule below
+      // is looser (R2) — a set with two "Paris" answers still reads as a bug.
       if (answerKeys.some((k) => usedAnswers.has(k))) {
         rejections.add("duplicate_answer");
         continue;
       }
+
+      // R1: answer-anchored near-duplicate check. The anchor narrows to the
+      // banked questions sharing this candidate's answer — nearly always none,
+      // in which case isNearDuplicate does no comparison at all — and only then
+      // is prompt similarity paid for. R2 lives here too: a shared answer with a
+      // dissimilar prompt falls through and is kept.
+      const anchor = normalizedAnswerKey(result.question);
+      const anchored = anchor ? promptsByAnswer.get(anchor) : undefined;
+      if (anchored && isNearDuplicate(norm, anchored)) {
+        rejections.add("near-duplicate");
+        continue;
+      }
+
       usedNorms.add(norm);
       for (const k of answerKeys) usedAnswers.add(k);
+      if (anchor) {
+        const bucket = promptsByAnswer.get(anchor);
+        if (bucket) bucket.push(norm);
+        else promptsByAnswer.set(anchor, [norm]);
+      }
       avoid.push(result.question.prompt);
       // Human-readable labels for the model avoid-list (primary answer text).
       if (result.question.mode === "multiple_choice" && result.question.options) {

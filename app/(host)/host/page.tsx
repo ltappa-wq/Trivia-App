@@ -9,12 +9,19 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { challenge } from "@/app/actions/challenge";
 import { loadHostCredential } from "@/lib/clientSession";
-import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
+import {
+  answerDistribution,
+  listCategorySuggestions,
+  listOpenChallenges,
+  revealAnswer,
+} from "@/lib/realtime/channel";
+import { aggregateSuggestions, type AggregatedSuggestion } from "@/lib/suggestions";
 import {
   useIsGetReady,
   useJoinAnnouncements,
@@ -22,16 +29,12 @@ import {
   useRoomState,
 } from "@/lib/realtime/hooks";
 import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { derivePhase } from "@/lib/gamePhase";
 import { formatNumber, formatScore } from "@/lib/formatScore";
-import { AnswerPanel } from "@/components/AnswerPanel";
-import { Countdown } from "@/components/Countdown";
-import { GetReady } from "@/components/GetReady";
 import { JoinToast } from "@/components/JoinToast";
 import { GameOver } from "@/components/GameOver";
-import { AnswerReveal } from "@/components/AnswerReveal";
-import { AnswerDistribution } from "@/components/AnswerDistribution";
-import { ChallengeActions } from "@/components/ChallengeActions";
+import { GameStage } from "@/components/GameStage";
+import { SuggestionsPanel } from "@/components/SuggestionsPanel";
 import type { ChallengeKind } from "@/lib/challenge";
 import type {
   AnswerDistribution as AnswerDistributionData,
@@ -49,7 +52,20 @@ function HostView() {
   const { items: joinAnnouncements, announce: announceJoin } = useJoinAnnouncements();
   const { state, offset, error, loading } = useRoomState(code, token, announceJoin);
   const [busy, setBusy] = useState(false);
+  // Separate from `busy`: starting runs generation, so it is a long, blocking
+  // operation the lobby reports on its own rather than a quick pacing action.
+  const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Player-suggested categories the host has accepted (U10, R8). Nothing a
+  // player submits reaches generation until it appears in here.
+  const [accepted, setAccepted] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<AggregatedSuggestion[]>([]);
+
+  function toggleAccepted(category: string) {
+    setAccepted((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
+    );
+  }
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
   const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
   const [dist, setDist] = useState<AnswerDistributionData | null>(null);
@@ -88,6 +104,23 @@ function HostView() {
     if (copyTimer.current) clearTimeout(copyTimer.current);
     copyTimer.current = setTimeout(() => setCopied(false), 1600);
   }
+
+  // U10. Load player category suggestions while the room is still in the lobby.
+  // Keyed on `state` so it re-reads whenever the room reconciles — a join
+  // broadcasts player_joined, which reconciles state, so a suggestion arriving
+  // after the host opened the lobby appears without a manual refresh.
+  useEffect(() => {
+    if (!token || game?.status !== "lobby") return;
+    let active = true;
+    listCategorySuggestions(token)
+      .then((rows) => {
+        if (active) setSuggestions(aggregateSuggestions(rows));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token, game?.status, state]);
 
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
@@ -146,17 +179,10 @@ function HostView() {
     }
   }
   const remaining = useQuestionCountdown(game, offset);
-  // Ticking get-ready flag (must run every render, before early returns).
-  const inGetReadyWindow = useIsGetReady(
-    game &&
-      game.current_index >= 0 &&
-      game.status !== "ended" &&
-      !game.paused &&
-      !game.reviewing
-      ? game.reveal_at
-      : null,
-    offset,
-  );
+  // Ticking heartbeat so the view re-renders when the 3s get-ready window ends
+  // (must run every render, before early returns). derivePhase below is the
+  // authority on what that means — this hook only supplies the clock.
+  useIsGetReady(game && game.current_index >= 0 ? game.reveal_at : null, offset);
 
   // R5.1 timer path: when the answer window elapses without everyone answering,
   // the host (the pacing authority) closes the question into review. Fired once
@@ -190,6 +216,26 @@ function HostView() {
       setActionError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // U8 / AE8. Start now carries generation, so it is the long operation and it
+  // can fail. On failure the room stays in the lobby with its players seated and
+  // the host free to retry — nothing is torn down.
+  async function handleStart() {
+    if (!token) return;
+    setStarting(true);
+    setActionError(null);
+    try {
+      // Only the accepted suggestions travel; startGame merges them with the
+      // host's stored categories server-side.
+      await startGame(code, token, accepted);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not start the game — please retry.",
+      );
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -232,11 +278,24 @@ function HostView() {
   if (!game) return <main><p>Game not found.</p></main>;
 
   const leaderboard = state?.leaderboard ?? [];
-  const started = game.current_index >= 0;
-  const ended = game.status === "ended";
-  const reviewing = game.reviewing;
-  const getReady = inGetReadyWindow;
+  const question = state?.current_question ?? null;
+  const phase = derivePhase(game, question, offset);
+  const started = phase.phase !== "lobby";
+  const ended = phase.phase === "ended";
+  const getReady = phase.phase === "get_ready";
   const onLastQuestion = isLastIndex(game.current_index, game.question_count);
+
+  // Pacing authority stays here — the shared stage renders it, but only the host
+  // decides when the room moves on.
+  const pacingControls = onLastQuestion ? (
+    <button type="button" disabled={busy} onClick={handleFinish}>
+      Finish game
+    </button>
+  ) : (
+    <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
+      Next question
+    </button>
+  );
 
   return (
     <main className="host-view">
@@ -325,90 +384,50 @@ function HostView() {
               ))}
             </ul>
           )}
+          <SuggestionsPanel
+            suggestions={suggestions}
+            accepted={accepted}
+            onToggle={toggleAccepted}
+          />
+          {/* U8: Start now generates the question set, so it is a long operation
+              with a real failure mode — reported here, in the lobby, instead of
+              on the setup form it used to block. */}
           <button
             type="button"
-            disabled={busy || leaderboard.length === 0}
-            onClick={() => handleAdvance(-1)}
+            disabled={busy || starting || leaderboard.length === 0}
+            onClick={handleStart}
           >
-            Start game
+            {starting ? "Writing your questions…" : "Start game"}
           </button>
+          {starting && (
+            <p aria-live="polite">
+              The AI is writing your game — this can take a moment. Players stay seated.
+            </p>
+          )}
         </section>
       )}
 
       <div className="host-live">
-      {started && !ended && !game.paused && !reviewing && getReady && game.reveal_at && (
-        <section aria-live="polite">
-          <GetReady revealAt={game.reveal_at} offset={offset} />
-        </section>
-      )}
-
-      {started && !ended && !game.paused && !reviewing && !getReady && state?.current_question && (
-        <section aria-live="polite">
-          <h2>{state.current_question.prompt}</h2>
-          {remaining !== null && (
-            <Countdown
-              remaining={remaining}
-              total={ANSWER_TIMER_MS[state.current_question.mode]}
-            />
-          )}
-          {cred.playerToken ? (
-            <AnswerPanel
-              token={cred.playerToken}
-              question={state.current_question}
-              currentIndex={game.current_index}
-              timeUp={remaining !== null && remaining <= 0}
-            />
-          ) : (
-            // Host-only gamemaster: show the question read-only on the shared
-            // screen. Multiple-choice options are listed; type-answer shows just
-            // the prompt/timer above.
-            state.current_question.mode === "multiple_choice" && (
-              <ol>
-                {(state.current_question.options ?? []).map((opt, i) => (
-                  <li key={i}>{opt}</li>
-                ))}
-              </ol>
-            )
-          )}
-          {onLastQuestion ? (
-            <button type="button" disabled={busy} onClick={handleFinish}>
-              Finish game
-            </button>
-          ) : (
-            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
-              Next question
-            </button>
-          )}
-        </section>
-      )}
-
-      {started && !ended && reviewing && !game.paused && (
-        <section aria-live="polite" className="review">
-          <h2>
-            Time&apos;s up — Question {formatNumber(game.current_index + 1)} review
-          </h2>
-          <p>Answers are locked. Here&apos;s where things stand.</p>
-          <AnswerReveal reveal={reveal} />
-          <AnswerDistribution dist={dist} />
-          {cred.playerToken && (
-            <ChallengeActions
-              challenging={challenging}
-              challengeError={challengeError}
-              showAnswerDispute={false}
-              onChallenge={(t) => void raiseChallenge(t)}
-            />
-          )}
-          {onLastQuestion ? (
-            <button type="button" disabled={busy} onClick={handleFinish}>
-              Finish game
-            </button>
-          ) : (
-            <button type="button" disabled={busy} onClick={() => handleAdvance(game.current_index)}>
-              Next question
-            </button>
-          )}
-        </section>
-      )}
+      <GameStage
+        phase={phase}
+        question={question}
+        currentIndex={game.current_index}
+        revealAt={game.reveal_at}
+        offset={offset}
+        remaining={remaining}
+        isHost
+        // The host is never a spectator: they hold the room, not a seat taken
+        // mid-game. A host who plays answers through their own player token.
+        spectating={false}
+        playerToken={cred.playerToken ?? null}
+        reveal={reveal}
+        distribution={dist}
+        challenging={challenging}
+        challengeError={challengeError}
+        showAnswerDispute={false}
+        onChallenge={(t) => void raiseChallenge(t)}
+        controls={pacingControls}
+      />
 
       {started && !ended && (
         <section>
