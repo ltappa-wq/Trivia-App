@@ -34,6 +34,12 @@ const phaseAuth = readFileSync(
   ),
   "utf8",
 );
+const suggestionsMigration = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0012_category_suggestions.sql", import.meta.url),
+  ),
+  "utf8",
+);
 const answerKeyColumn = readFileSync(
   fileURLToPath(
     new URL("../../../supabase/migrations/0011_question_bank_answer_key.sql", import.meta.url),
@@ -220,5 +226,58 @@ describe("question_bank answer anchor migration (0011, U2, R1-R3)", () => {
     expect(answerKeyColumn).toMatch(/btrim\(/);
     // Empty string collapses to null so it can never anchor a match.
     expect(answerKeyColumn).toMatch(/nullif\(/);
+  });
+});
+
+describe("category_suggestions migration (0012, U9, U10, R7, R8)", () => {
+  it("creates the table keyed to a game and player", () => {
+    expect(suggestionsMigration).toMatch(
+      /create table if not exists public\.category_suggestions/,
+    );
+    expect(suggestionsMigration).toMatch(/game_id\s+uuid not null references public\.games/);
+    expect(suggestionsMigration).toMatch(/player_id\s+uuid not null references public\.players/);
+  });
+
+  it("cascades with the game and the player so suggestions never outlive them", () => {
+    const cascades = suggestionsMigration.match(/on delete cascade/g) ?? [];
+    expect(cascades.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("makes one player suggesting one category idempotent, not two votes", () => {
+    expect(suggestionsMigration).toMatch(/unique \(game_id, player_id, category\)/);
+  });
+
+  it("enables default-deny RLS with no permissive policies", () => {
+    expect(suggestionsMigration).toMatch(
+      /alter table public\.category_suggestions enable row level security/,
+    );
+    expect(suggestionsMigration).not.toMatch(/create policy/i);
+  });
+});
+
+describe("list_category_suggestions RPC invariants (0012, U10, R8)", () => {
+  it("is a security-definer function executable by anon", () => {
+    expect(suggestionsMigration).toMatch(
+      /create or replace function public\.list_category_suggestions/,
+    );
+    expect(suggestionsMigration).toMatch(/security definer/);
+    expect(suggestionsMigration).toMatch(
+      /grant execute on function public\.list_category_suggestions\(text\) to anon/,
+    );
+  });
+
+  it("returns nothing to a non-host token", () => {
+    // Suggestions name the players who made them, so a player must not be able
+    // to enumerate what everyone else asked for.
+    expect(suggestionsMigration).toMatch(/v_role is distinct from 'host'/);
+    expect(suggestionsMigration).toMatch(/return '\[\]'::jsonb/);
+  });
+
+  it("pins search_path including extensions so nested digest() resolves", () => {
+    expect(suggestionsMigration).toMatch(/set search_path = public, extensions/);
+  });
+
+  it("scopes the read to the caller's own game", () => {
+    expect(suggestionsMigration).toMatch(/where s\.game_id = v_game_id/);
   });
 });

@@ -1,8 +1,12 @@
 "use client";
-// U4. Gamemaster setup form. Host-facing view: targets a larger screen (UI
-// conventions). Three states drive the submit lifecycle: the form, a blocking
-// "generating" state (whole-set generation takes a moment, KTD10), and an error
-// state offering Retry (re-run) and Back-to-edit (preserve the form).
+// U4 / U8. Gamemaster setup form. Host-facing view: targets a larger screen (UI
+// conventions). Three states drive the submit lifecycle: the form, a brief
+// "creating" state, and an error state offering Retry (re-run) and Back-to-edit
+// (preserve the form).
+//
+// Submit is fast now (U8): it creates the room and nothing more. Question
+// generation moved to the lobby's Start game, so the host can review the
+// categories players suggest at join before the set is written (R9).
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -23,7 +27,7 @@ import {
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
 import { formatNumber } from "@/lib/formatScore";
 
-type Status = "editing" | "generating" | "error";
+type Status = "editing" | "creating" | "error";
 
 const MODE_LABELS: Record<AnswerMode, string> = {
   multiple_choice: "Multiple choice",
@@ -162,7 +166,7 @@ export default function SetupPage() {
   }
 
   async function submit() {
-    setStatus("generating");
+    setStatus("creating");
     setError(null);
     try {
       const result = await createGame(
@@ -188,11 +192,14 @@ export default function SetupPage() {
     }
   }
 
-  if (status === "generating") {
+  // U8: creation no longer generates, so this is a brief round trip rather than
+  // the long "AI is writing your game" wait. That wait now lives in the lobby,
+  // where the host triggers it after reviewing player category suggestions.
+  if (status === "creating") {
     return (
       <main aria-busy="true">
-        <h1>Generating questions…</h1>
-        <p>This can take a moment while the AI writes your game.</p>
+        <h1>Creating your room…</h1>
+        <p>Almost there.</p>
       </main>
     );
   }
@@ -200,7 +207,7 @@ export default function SetupPage() {
   if (status === "error") {
     return (
       <main>
-        <h1>Couldn’t create the game</h1>
+        <h1>Couldn’t create the room</h1>
         <p role="alert">{error}</p>
         <button type="button" onClick={submit}>
           Retry

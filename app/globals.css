@@ -1298,3 +1298,67 @@ fieldset label.is-disabled {
   background: transparent;
   cursor: default;
 }
+
+/* U9 / U10. Chip buttons — the join screen's category picker and the host's
+   suggestion toggles. Styled to match the setup form's checkbox chips above so
+   "selected" reads identically wherever a category is chosen. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: inherit;
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.9rem;
+  margin: 0.3rem 0.4rem 0.1rem 0;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 1rem;
+  min-height: 40px;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.07s ease;
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.chip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.chip.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.category-picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.suggestions__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.suggestions__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* Who asked, kept quieter than the category itself. */
+.suggestions__who,
+.suggestions__count {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}

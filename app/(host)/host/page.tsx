@@ -9,12 +9,19 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { challenge } from "@/app/actions/challenge";
 import { loadHostCredential } from "@/lib/clientSession";
-import { answerDistribution, listOpenChallenges, revealAnswer } from "@/lib/realtime/channel";
+import {
+  answerDistribution,
+  listCategorySuggestions,
+  listOpenChallenges,
+  revealAnswer,
+} from "@/lib/realtime/channel";
+import { aggregateSuggestions, type AggregatedSuggestion } from "@/lib/suggestions";
 import {
   useIsGetReady,
   useJoinAnnouncements,
@@ -27,6 +34,7 @@ import { formatNumber, formatScore } from "@/lib/formatScore";
 import { JoinToast } from "@/components/JoinToast";
 import { GameOver } from "@/components/GameOver";
 import { GameStage } from "@/components/GameStage";
+import { SuggestionsPanel } from "@/components/SuggestionsPanel";
 import type { ChallengeKind } from "@/lib/challenge";
 import type {
   AnswerDistribution as AnswerDistributionData,
@@ -44,7 +52,20 @@ function HostView() {
   const { items: joinAnnouncements, announce: announceJoin } = useJoinAnnouncements();
   const { state, offset, error, loading } = useRoomState(code, token, announceJoin);
   const [busy, setBusy] = useState(false);
+  // Separate from `busy`: starting runs generation, so it is a long, blocking
+  // operation the lobby reports on its own rather than a quick pacing action.
+  const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Player-suggested categories the host has accepted (U10, R8). Nothing a
+  // player submits reaches generation until it appears in here.
+  const [accepted, setAccepted] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<AggregatedSuggestion[]>([]);
+
+  function toggleAccepted(category: string) {
+    setAccepted((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
+    );
+  }
   const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
   const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
   const [dist, setDist] = useState<AnswerDistributionData | null>(null);
@@ -83,6 +104,23 @@ function HostView() {
     if (copyTimer.current) clearTimeout(copyTimer.current);
     copyTimer.current = setTimeout(() => setCopied(false), 1600);
   }
+
+  // U10. Load player category suggestions while the room is still in the lobby.
+  // Keyed on `state` so it re-reads whenever the room reconciles — a join
+  // broadcasts player_joined, which reconciles state, so a suggestion arriving
+  // after the host opened the lobby appears without a manual refresh.
+  useEffect(() => {
+    if (!token || game?.status !== "lobby") return;
+    let active = true;
+    listCategorySuggestions(token)
+      .then((rows) => {
+        if (active) setSuggestions(aggregateSuggestions(rows));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [token, game?.status, state]);
 
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
@@ -178,6 +216,26 @@ function HostView() {
       setActionError(err instanceof Error ? err.message : "Action failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // U8 / AE8. Start now carries generation, so it is the long operation and it
+  // can fail. On failure the room stays in the lobby with its players seated and
+  // the host free to retry — nothing is torn down.
+  async function handleStart() {
+    if (!token) return;
+    setStarting(true);
+    setActionError(null);
+    try {
+      // Only the accepted suggestions travel; startGame merges them with the
+      // host's stored categories server-side.
+      await startGame(code, token, accepted);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Could not start the game — please retry.",
+      );
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -326,13 +384,26 @@ function HostView() {
               ))}
             </ul>
           )}
+          <SuggestionsPanel
+            suggestions={suggestions}
+            accepted={accepted}
+            onToggle={toggleAccepted}
+          />
+          {/* U8: Start now generates the question set, so it is a long operation
+              with a real failure mode — reported here, in the lobby, instead of
+              on the setup form it used to block. */}
           <button
             type="button"
-            disabled={busy || leaderboard.length === 0}
-            onClick={() => handleAdvance(-1)}
+            disabled={busy || starting || leaderboard.length === 0}
+            onClick={handleStart}
           >
-            Start game
+            {starting ? "Writing your questions…" : "Start game"}
           </button>
+          {starting && (
+            <p aria-live="polite">
+              The AI is writing your game — this can take a moment. Players stay seated.
+            </p>
+          )}
         </section>
       )}
 

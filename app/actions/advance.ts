@@ -10,7 +10,7 @@
 
 import { getServiceClient } from "@/lib/supabase/server";
 import { authorizeHostByCode } from "@/lib/serverAuth";
-import { computeNextIndex } from "@/lib/gameFlow";
+import { computeNextIndex, hasQuestions } from "@/lib/gameFlow";
 import { ADVANCEABLE_STATUSES, isAdvanceableStatus } from "@/lib/phaseGuards";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
@@ -44,6 +44,24 @@ export async function advance(
   // against a stale reveal_at. The host must adjudicate first.
   if (game.paused) {
     throw new Error("Resolve the open challenge before advancing");
+  }
+
+  // R10. Generation now happens at start (U8), so a joinable room with zero
+  // questions is a legal state. Advancing one would reveal a question that does
+  // not exist and broadcast a null prompt to every device in the room.
+  //
+  // Only the start path needs the check: a game already past index 0 has
+  // demonstrably revealed a question, and a stale expectation on an empty room
+  // loses the compare-and-set below anyway. This keeps mid-game pacing at one
+  // round trip rather than paying for a count on every question.
+  if (expectedIndex < 0) {
+    const { count: questionsAvailable } = await supabase
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("game_id", game.id);
+    if (!hasQuestions(questionsAvailable ?? 0)) {
+      throw new Error("This room has no questions yet — start the game to generate them.");
+    }
   }
 
   const next = computeNextIndex(expectedIndex, game.question_count);
