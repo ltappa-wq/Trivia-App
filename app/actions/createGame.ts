@@ -116,13 +116,24 @@ export async function createGame(
   });
   if (seatError) {
     // Don't leave a game the host can pace but not play — roll back.
-    await supabase.from("games").delete().eq("id", gameId);
+    const rollbackError = await deleteGame(supabase, gameId);
+    if (rollbackError) {
+      console.error(
+        `[createGame] rollback delete failed for game ${gameId}: ${rollbackError.message}`,
+      );
+    }
     throw new Error(
-      seatError.code === "23505"
-        ? "Could not seat the host — please retry."
-        : `Could not seat the host: ${seatError.message}`,
+      `${seatError.code === "23505" ? "Could not seat the host — please retry." : `Could not seat the host: ${seatError.message}`}${rollbackError ? " Game cleanup also failed; contact support." : ""}`,
     );
   }
 
   return { gameId, code, hostToken, hostPlayerToken, username };
+}
+
+async function deleteGame(
+  supabase: ReturnType<typeof getServiceClient>,
+  gameId: string,
+): Promise<{ message: string } | null> {
+  const { error } = await supabase.from("games").delete().eq("id", gameId);
+  return error ? { message: error.message } : null;
 }

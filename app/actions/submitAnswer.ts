@@ -12,7 +12,6 @@ import { resolvePlayerByToken } from "@/lib/serverAuth";
 import { assertCanSubmitAnswer } from "@/lib/phaseGuards";
 import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
 import { computeScore } from "@/lib/scoring/speed";
-import { addPlayerPoints } from "@/lib/scoring/adjust";
 import { currentStreak } from "@/lib/scoring/streak";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
@@ -76,29 +75,29 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
     submitAtMs,
   });
 
-  const { error: insertError } = await supabase.from("answers").insert({
-    question_id: question.id,
-    player_id: player.playerId,
-    raw_answer: rawAnswer,
-    is_correct: correct,
-    awarded_points: points,
-    submitted_at: new Date(submitAtMs).toISOString(),
+  const { data: enteredReview, error: commitError } = await supabase.rpc("commit_answer", {
+    p_game_id: game.id,
+    p_question_id: question.id,
+    p_player_id: player.playerId,
+    p_expected_index: game.current_index,
+    p_raw_answer: rawAnswer,
+    p_is_correct: correct,
+    p_points: points,
+    p_submitted_at: new Date(submitAtMs).toISOString(),
   });
-  if (insertError) {
-    if (insertError.code === "23505") {
-      throw new Error("You already answered this question");
-    }
-    throw new Error(`Could not record answer: ${insertError.message}`);
+  if (commitError) {
+    if (commitError.code === "23505") throw new Error("You already answered this question");
+    throw new Error(`Could not record answer: ${commitError.message}`);
   }
-
-  await addPlayerPoints(supabase, player.playerId, points);
 
   await broadcastToRoom(game.code, ROOM_EVENTS.leaderboard, { by: player.playerId });
 
   // R5.1/R5.4: once every active (non-spectator) player has answered this
   // question, close it into the review phase. Counts are server-side; spectators
   // can't answer (guarded above), so every answer row is from an active player.
-  await maybeEnterReview(supabase, game.id, question.id, game.code, game.current_index);
+  if (enteredReview) {
+    await broadcastToRoom(game.code, ROOM_EVENTS.review, { index: game.current_index });
+  }
 
   // Celebration flourish: the player's trailing correct-answer streak, derived
   // from their own persisted history (the row just inserted is included), so it
@@ -126,50 +125,4 @@ async function computeStreak(
     return { index: q?.index ?? -1, correct: row.is_correct };
   });
   return currentStreak(history.filter((r) => r.index >= 0));
-}
-
-/**
- * Enter the review phase if all active players have now answered the current
- * question. Uses a compare-and-set on `reviewing` so the `review` broadcast
- * fires exactly once even if the last two submits race.
- */
-async function maybeEnterReview(
-  supabase: ReturnType<typeof getServiceClient>,
-  gameId: string,
-  questionId: string,
-  code: string,
-  currentIndex: number,
-): Promise<void> {
-  const [{ count: activeCount }, { count: answeredCount }] = await Promise.all([
-    supabase
-      .from("players")
-      .select("id", { count: "exact", head: true })
-      .eq("game_id", gameId)
-      .eq("is_spectator", false),
-    supabase
-      .from("answers")
-      .select("id", { count: "exact", head: true })
-      .eq("question_id", questionId),
-  ]);
-
-  if (activeCount === null || answeredCount === null) return;
-  if (answeredCount < activeCount) return;
-
-  // CAS: flip reviewing only from false, and only while still on this question,
-  // so a late resume/advance can't be clobbered and the broadcast fires once.
-  const { data: flipped } = await supabase
-    .from("games")
-    .update({ reviewing: true })
-    .eq("id", gameId)
-    .eq("current_index", currentIndex)
-    .eq("reviewing", false)
-    // Don't enter review on a game a challenge just paused (atomic guard).
-    .eq("paused", false)
-    .eq("status", "active")
-    .select("id")
-    .maybeSingle();
-
-  if (flipped) {
-    await broadcastToRoom(code, ROOM_EVENTS.review, { index: currentIndex });
-  }
 }
