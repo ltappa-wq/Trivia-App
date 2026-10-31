@@ -109,7 +109,9 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Scores are displayed with **US number formatting** (comma every three digits, e.g. **1,000**).
 - [x] Correct answers on the player’s device may show **celebration** (confetti / streak badge).
 - [x] Live **leaderboard** updates as answers land.
-- [x] When all active players have answered **or** the timer ends, the room enters **review** (answers locked).
+- [x] When all active players have answered **or** the timer ends, the room enters **review** (answers locked). Host and player clients can request timer close after the server deadline plus 750 ms, so a backgrounded host tab does not stall play.
+- [x] During a question, everyone sees the answered count; the host also sees player chips light up as answers lock in and can **End question now** early. Player progress exposes counts only, never answer text or correctness.
+- [x] Ending a game atomically rejects open challenges and clears pause/review state; repeated end requests are safe.
 - [x] During review, host and players see the **correct answer** (and host sees distribution where applicable).
 - [x] Host advances with **Next question** or **Finish game** on the last question.
 - [x] Open challenges **block** advancing until adjudicated.
