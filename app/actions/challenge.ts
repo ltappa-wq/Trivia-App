@@ -8,7 +8,7 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
 import { assertCanChallenge } from "@/lib/phaseGuards";
-import { isAtChallengeCap, type ChallengeKind } from "@/lib/challenge";
+import type { ChallengeKind } from "@/lib/challenge";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
 
@@ -32,16 +32,6 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
     .single();
   if (!question) throw new Error("No active question to challenge");
 
-  // Cap keyed to the validated player (KTD7, R13) — count this player's
-  // challenges across the whole game.
-  const { count } = await supabase
-    .from("challenges")
-    .select("id", { count: "exact", head: true })
-    .eq("player_id", player.playerId);
-  if (isAtChallengeCap(count ?? 0)) {
-    throw new Error("You've reached the challenge limit for this game");
-  }
-
   // For a disputed-answer challenge, capture the player's own submission so the
   // host can review it (R11).
   let submittedText: string | null = null;
@@ -56,35 +46,20 @@ export async function challenge(token: string, type: ChallengeKind): Promise<{ i
     submittedText = answer.raw_answer as string;
   }
 
-  const { data: inserted, error } = await supabase
-    .from("challenges")
-    .insert({
-      question_id: question.id,
-      player_id: player.playerId,
-      type,
-      status: "open",
-      submitted_text: submittedText,
-    })
-    .select("id")
-    .single();
+  const { data: challengeId, error } = await supabase.rpc("create_challenge_and_pause", {
+    p_game_id: game.id,
+    p_question_id: question.id,
+    p_player_id: player.playerId,
+    p_type: type,
+    p_submitted_text: submittedText,
+  });
   if (error) {
-    // Partial unique index (question_id, player_id) where status='open' — a
-    // rapid-fire second open challenge on the same question is rejected here.
     if (error.code === "23505") {
       throw new Error("You already have an open challenge on this question");
     }
     throw new Error(`Could not raise challenge: ${error.message}`);
   }
+  await broadcastToRoom(game.code, ROOM_EVENTS.pause, { challengeId });
 
-  // Pause play for all devices; the host's panel reads authoritative detail via
-  // list_open_challenges (KTD8).
-  const { error: pauseError } = await supabase
-    .from("games")
-    .update({ paused: true })
-    .eq("id", game.id)
-    .eq("status", "active");
-  if (pauseError) throw new Error(`Could not pause the game: ${pauseError.message}`);
-  await broadcastToRoom(game.code, ROOM_EVENTS.pause, { challengeId: inserted.id });
-
-  return { id: inserted.id as string };
+  return { id: challengeId as string };
 }

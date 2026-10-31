@@ -46,6 +46,12 @@ const answerKeyColumn = readFileSync(
   ),
   "utf8",
 );
+const atomicWrites = readFileSync(
+  fileURLToPath(
+    new URL("../../../supabase/migrations/0013_atomic_game_writes.sql", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("schema security invariants", () => {
   const tables = ["games", "questions", "players", "answers", "challenges"];
@@ -279,5 +285,30 @@ describe("list_category_suggestions RPC invariants (0012, U10, R8)", () => {
 
   it("scopes the read to the caller's own game", () => {
     expect(suggestionsMigration).toMatch(/where s\.game_id = v_game_id/);
+  });
+});
+
+describe("atomic gameplay writes migration (0013)", () => {
+  it("commits answer, score, and all-answered review state in one transaction", () => {
+    expect(atomicWrites).toMatch(/create or replace function public\.commit_answer/);
+    expect(atomicWrites).toMatch(/insert into public\.answers/);
+    expect(atomicWrites).toMatch(/update public\.players set score = score \+ p_points/);
+    expect(atomicWrites).toMatch(/update public\.games set reviewing = true/);
+    expect(atomicWrites).toMatch(/revoke execute on function public\.commit_answer[\s\S]*from public, anon, authenticated/i);
+  });
+
+  it("creates and pauses for challenges atomically with the database cap", () => {
+    expect(atomicWrites).toMatch(/create or replace function public\.create_challenge_and_pause/);
+    expect(atomicWrites).toMatch(/insert into public\.challenges[\s\S]*update public\.games set paused = true/);
+    expect(atomicWrites).toMatch(/count\(\*\).*challenges where player_id = p_player_id/s);
+  });
+
+  it("resolves the challenge, score changes, voiding, and resume state atomically", () => {
+    expect(atomicWrites).toMatch(/create or replace function public\.resolve_challenge/);
+    expect(atomicWrites).toMatch(/for update/);
+    expect(atomicWrites).toMatch(/update public\.answers set awarded_points = 0/);
+    expect(atomicWrites).toMatch(/update public\.questions[\s\S]*set voided = true/);
+    expect(atomicWrites).toMatch(/return jsonb_build_object\('resumed', v_resumed\)/);
+    expect(atomicWrites).toMatch(/revoke execute on function public\.resolve_challenge[\s\S]*from public, anon, authenticated/i);
   });
 });
