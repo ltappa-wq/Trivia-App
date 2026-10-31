@@ -23,7 +23,7 @@ import { advance, type AdvanceResult } from "@/app/actions/advance";
 import { generateAndPersistQuestions } from "@/app/actions/generate";
 import { validateSetupInput } from "@/lib/gameConfig";
 import { GenerationError, generationFailureMessage } from "@/lib/generation/xai";
-import { GENERATION_LEASE_MS, generationProgress } from "@/lib/generation/progress";
+import { GENERATION_LEASE_MS } from "@/lib/generation/progress";
 import { hasQuestions } from "@/lib/gameFlow";
 
 // Module-scoped concurrent-generation bound (best-effort per instance, KTD10).
@@ -164,10 +164,4 @@ async function revealFirstQuestion(
   }
   // A concurrent start won the race, or there is nothing to reveal.
   return { status: "already_started", index: result.status === "noop" ? result.index : 0 };
-}
-
-/** Reload-safe host-only progress; no service-role data reaches other callers. */
-export async function getGenerationProgress(code: string, hostToken: string) {
-  const game = await authorizeHostByCode(getServiceClient(), code, hostToken);
-  return generationProgress(game);
 }

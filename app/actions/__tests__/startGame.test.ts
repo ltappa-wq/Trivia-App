@@ -232,16 +232,6 @@ describe("AE8: a generation failure leaves the room intact (U8)", () => {
 });
 
 describe("R5: progress and host-visible failures", () => {
-  it("reads persisted progress only after host authorization", async () => {
-    authorizeHostByCode.mockResolvedValue(game({ question_count: 100, generation_progress: 36,
-      generation_started_at: new Date().toISOString() }));
-    const { getGenerationProgress } = await import("../startGame");
-    await expect(getGenerationProgress("12345", "host-token"))
-      .resolves.toMatchObject({ completed: 36, total: 100, running: true });
-    authorizeHostByCode.mockRejectedValue(new Error("Not authorized"));
-    await expect(getGenerationProgress("12345", "wrong")).rejects.toThrow("Not authorized");
-  });
-
   it.each(["provider", "invalid_output"] as const)("returns an unredacted %s message and supports retry", async (kind) => {
     wireTables();
     authorizeHostByCode.mockResolvedValue(game());

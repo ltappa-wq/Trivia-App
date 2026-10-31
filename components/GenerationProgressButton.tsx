@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getGenerationProgress } from "@/app/actions/startGame";
 import type { GenerationProgress } from "@/lib/generation/progress";
 
 /** Kept inside the lobby: polling also recovers after reload or lost events. */
@@ -18,10 +17,18 @@ export function GenerationProgressButton({ code, token, total, starting, disable
   useEffect(() => {
     if (!token) return;
     let active = true;
+    const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     async function refresh() {
       try {
-        const next = await getGenerationProgress(code, token!);
+        // fetch stays independent while startGame occupies the action queue.
+        const response = await fetch(`/api/generation-progress?code=${encodeURIComponent(code)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error("Could not load generation progress");
+        const next = await response.json() as GenerationProgress;
         if (active) { setProgress(next); setLoadError(false); }
       } catch {
         if (active) setLoadError(true);
@@ -29,7 +36,7 @@ export function GenerationProgressButton({ code, token, total, starting, disable
       if (active) timer = setTimeout(refresh, 2000);
     }
     void refresh();
-    return () => { active = false; clearTimeout(timer); };
+    return () => { active = false; controller.abort(); clearTimeout(timer); };
   }, [code, token, starting]);
   const running = starting || progress?.running;
   return <>
