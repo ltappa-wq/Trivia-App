@@ -7,6 +7,7 @@ import {
   AUTO_CLOSE_MAX_ATTEMPTS,
   AUTO_CLOSE_RETRY_MS,
   canAutoClose,
+  autoCloseDelay,
   type AutoCloseGame,
 } from "./autoClose";
 
@@ -35,7 +36,7 @@ export function useAutoClose(
     if (budget.current.key !== key) {
       budget.current = { key, attempts: 0, nextAt: 0, done: false };
     }
-    const jitter = isHost ? 0 : Math.floor(Math.random() * 151);
+    const delay = autoCloseDelay(isHost, Math.random());
     let active = true;
     let inFlight = false;
     const tick = () => {
@@ -43,7 +44,7 @@ export function useAutoClose(
       const b = budget.current;
       if (
         !active || inFlight || b.done || b.attempts >= AUTO_CLOSE_MAX_ATTEMPTS ||
-        now < b.nextAt || !canAutoClose(snapshot, now - jitter)
+        now < b.nextAt || !canAutoClose(snapshot, now, delay)
       ) return;
       b.attempts++;
       b.nextAt = now + AUTO_CLOSE_RETRY_MS;
