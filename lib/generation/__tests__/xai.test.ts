@@ -321,3 +321,114 @@ describe("answer-anchored duplicate detection (U4)", () => {
     ).rejects.toThrow(/near-duplicate/);
   });
 });
+
+describe("parallel generation (R5)", () => {
+  it("fills 100 questions with three concurrent batches well within the route budget", async () => {
+    vi.useFakeTimers();
+    try {
+      let active = 0;
+      let peak = 0;
+      let serial = 0;
+      const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+        active++;
+        peak = Math.max(peak, active);
+        const body = JSON.parse(init!.body as string);
+        const count = Number(body.messages[1].content.match(/Generate exactly (\d+)/)[1]);
+        const questions = Array.from({ length: count }, () => mc(`fresh ${serial++}`));
+        await new Promise((resolve) => setTimeout(resolve, 30_000));
+        active--;
+        return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ questions }) } }] }) } as Response;
+      });
+      const progress: number[] = [];
+      const began = Date.now();
+      const promise = generateQuestions({ ...mcParams, count: 100 }, {
+        apiKey: "k", fetchImpl, onProgress: (count) => { progress.push(count); },
+      });
+      await vi.runAllTimersAsync();
+      const result = await promise;
+      expect(result).toHaveLength(100);
+      expect(peak).toBe(3);
+      expect(Date.now() - began).toBe(90_000);
+      expect(progress).toContain(36);
+      expect(progress.at(-1)).toBe(100);
+      expect(result.every((q) => q.difficulty === "medium")).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("serially merges out-of-order siblings, rejecting shared prompts and answers and refilling the tail", async () => {
+    let call = 0;
+    const batches = [
+      Array.from({ length: 12 }, (_, i) => mc(`first ${i}`)),
+      [mc("FIRST 0?"), { ...mc("different prompt"), options: ["ans-first 1", "x", "y", "z"] },
+        ...Array.from({ length: 10 }, (_, i) => mc(`second ${i}`))],
+      [mc("tail one"), mc("tail two")],
+    ];
+    const fetchImpl = vi.fn(async (_url: unknown, _init?: RequestInit) => {
+      const index = call++;
+      // Later request completes first; acceptance still follows dispatch order.
+      await new Promise((resolve) => setTimeout(resolve, index === 0 ? 10 : 0));
+      return { ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ questions: batches[index] }) } }] }) } as Response;
+    });
+    const out = await generateQuestions({ ...mcParams, count: 24 }, { apiKey: "k", fetchImpl });
+    expect(out).toHaveLength(24);
+    expect(out[0].prompt).toBe("first 0");
+    expect(out.map((q) => q.prompt)).not.toContain("different prompt");
+    expect(out.map((q) => q.prompt)).not.toContain("FIRST 0?");
+    expect(new Set(out.map((q) => q.options![q.correct_option!])).size).toBe(24);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const retry = JSON.parse(fetchImpl.mock.calls[2]?.[1]?.body as string ?? "null");
+    expect(retry.messages[1].content).toContain("first 0");
+    expect(retry.messages[1].content).toContain("second 9");
+  });
+
+  it.each([429, 500, 503])("retries transient HTTP %s and can recover", async (status) => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce({ ok: false, status })
+      .mockImplementation(mockFetch([[mc("one"), mc("two"), mc("three")]]));
+    await expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl })).resolves.toHaveLength(3);
+  });
+
+  it("classifies exhausted provider errors separately from invalid output", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 429 }) as Response);
+    await expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl, maxAttempts: 2 }))
+      .rejects.toMatchObject({ kind: "provider" });
+    await expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl: mockFetch([[]]), maxAttempts: 2 }))
+      .rejects.toMatchObject({ kind: "invalid_output" });
+  });
+
+  it("does not retry provider configuration errors", async () => {
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 401 }) as Response);
+    await expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl }))
+      .rejects.toMatchObject({ kind: "configuration" });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+it("R5: stops tail regeneration at the wall-clock budget", async () => {
+  vi.useFakeTimers();
+  try {
+    const fetchImpl = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      return { ok: true, json: async () => ({ choices: [{ message: { content: '{"questions":[]}' } }] }) } as Response;
+    });
+    const result = expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl, budgetMs: 25 }))
+      .rejects.toMatchObject({ kind: "provider", message: expect.stringMatching(/timed out/) });
+    await vi.runAllTimersAsync();
+    await result;
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+});
+
+it("R5: keeps the timeout active while reading the provider response body", async () => {
+  vi.useFakeTimers();
+  try {
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => ({ ok: true,
+      json: () => new Promise((_resolve, reject) => {
+        init!.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      }),
+    }) as Response);
+    const result = expect(generateQuestions(mcParams, { apiKey: "k", fetchImpl, timeoutMs: 100, maxAttempts: 1 }))
+      .rejects.toMatchObject({ kind: "provider", message: expect.stringMatching(/timed out/) });
+    await vi.runAllTimersAsync();
+    await result;
+  } finally { vi.useRealTimers(); }
+});

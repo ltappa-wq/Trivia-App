@@ -24,6 +24,7 @@ import type { GenerationParams } from "@/lib/generation/schema";
 export async function generateAndPersistQuestions(
   gameId: string,
   params: GenerationParams,
+  onProgress?: (completed: number) => Promise<void>,
 ): Promise<number> {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) throw new Error("Missing XAI_API_KEY");
@@ -45,6 +46,7 @@ export async function generateAndPersistQuestions(
     params,
     {
       apiKey,
+      onProgress,
       baseUrl: process.env.XAI_BASE_URL,
       model: process.env.XAI_MODEL,
     },

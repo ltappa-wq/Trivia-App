@@ -9,6 +9,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
+import { GenerationProgressButton } from "@/components/GenerationProgressButton";
 import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
@@ -41,6 +42,10 @@ import type {
   OpenChallenge,
   RevealedAnswer,
 } from "@/lib/db/types";
+
+// Assumes Vercel Fluid Compute (including Hobby: maximum 300 seconds).
+// Next 16 applies page maxDuration to Server Actions invoked from this page.
+export const maxDuration = 300;
 
 function HostView() {
   const params = useSearchParams();
@@ -229,7 +234,8 @@ function HostView() {
     try {
       // Only the accepted suggestions travel; startGame merges them with the
       // host's stored categories server-side.
-      await startGame(code, token, accepted);
+      const result = await startGame(code, token, accepted);
+      if (result.status === "generation_failed") setActionError(result.message);
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : "Could not start the game — please retry.",
@@ -392,18 +398,14 @@ function HostView() {
           {/* U8: Start now generates the question set, so it is a long operation
               with a real failure mode — reported here, in the lobby, instead of
               on the setup form it used to block. */}
-          <button
-            type="button"
-            disabled={busy || starting || leaderboard.length === 0}
-            onClick={handleStart}
-          >
-            {starting ? "Writing your questions…" : "Start game"}
-          </button>
-          {starting && (
-            <p aria-live="polite">
-              The AI is writing your game — this can take a moment. Players stay seated.
-            </p>
-          )}
+          <GenerationProgressButton
+            code={code}
+            token={token}
+            total={game.question_count}
+            starting={starting}
+            disabled={busy || leaderboard.length === 0}
+            onStart={handleStart}
+          />
         </section>
       )}
 
