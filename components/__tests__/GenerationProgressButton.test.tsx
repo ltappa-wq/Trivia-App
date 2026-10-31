@@ -75,3 +75,24 @@ it("keeps polling after an HTTP failure without enabling a second Start", async 
   expect(screen.getByRole("button", { name: "Writing questions… 36/100" })).toBeTruthy();
   expect(screen.queryByText(/Reconnecting/)).toBeNull();
 });
+
+it.each(["HTTP", "network"])("enables Start after an initial %s progress failure, even if polling keeps failing", async (failure) => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", fetchProgress);
+  let failFirstRead!: () => void;
+  fetchProgress.mockImplementationOnce(() => new Promise((resolve, reject) => {
+    failFirstRead = () => failure === "HTTP" ? resolve({ ok: false }) : reject(new Error("Network unavailable"));
+  })).mockRejectedValue(new Error("Still unavailable"));
+  const onStart = vi.fn(async () => {});
+  await act(async () => { render(<GenerationProgressButton code="12345" token="host" total={100} starting={false} disabled={false} onStart={onStart} />); });
+  const button = screen.getByRole("button", { name: "Start game" }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  await act(async () => { failFirstRead(); });
+  expect(screen.getByText(/Reconnecting/)).toBeTruthy();
+  expect(button.disabled).toBe(false);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(fetchProgress).toHaveBeenCalledTimes(2);
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  expect(onStart).toHaveBeenCalledOnce();
+});

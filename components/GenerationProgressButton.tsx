@@ -40,7 +40,7 @@ export function GenerationProgressButton({ code, token, total, starting, disable
   }, [code, token, starting]);
   const running = starting || progress?.running;
   return <>
-    <button type="button" disabled={disabled || Boolean(running) || !progress}
+    <button type="button" disabled={disabled || Boolean(running) || (!progress && !loadError)}
       onClick={() => { setProgress(null); void onStart(); }}>
       {running ? `Writing questions… ${progress?.completed ?? 0}/${total}`
         : progress?.error ? "Retry" : "Start game"}
