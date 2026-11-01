@@ -1,19 +1,17 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { answerFirstOption, hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 
 // Full multi-client happy path (Verification Contract: U5, U6, U8, U9).
-// Exercises real generation, live-lobby roster, host-authoritative reveal,
+// Exercises fixture generation, live-lobby roster, host-authoritative reveal,
 // cross-device question sync, a challenge pause + adjudication, and results.
-// NOTE: hits live Supabase + xAI — needs env configured and costs a little.
+// Uses deterministic server fixtures and an isolated local Supabase.
 
-test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ browser }) => {
+test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ browser, trackGame }) => {
   const hostCtx = await browser.newContext();
   const adaCtx = await browser.newContext();
   const bobCtx = await browser.newContext();
 
-  // Distinct category from other e2e specs so bank dedup does not exhaust a
-  // single category mid-suite (tests share one live question_bank).
-  const { page: host, code } = await hostCreateGame(hostCtx, {
+  const { page: host, code } = await hostCreateGame(hostCtx, trackGame, {
     category: "Sports",
     count: 2,
   });
@@ -32,13 +30,13 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
 
   await expect(questionPrompt(ada)).toBeVisible();
   const prompt = await questionPrompt(ada).innerText();
-  expect(prompt.length).toBeGreaterThan(0);
+  expect(prompt).toBe("Fixture 1: spell the number 0.");
   await expect(questionPrompt(bob)).toHaveText(prompt);
   await expect(questionPrompt(host)).toHaveText(prompt);
 
   // U7 (surface): a player answers and locks in.
   await answerFirstOption(ada);
-  await expect(ada.getByText(/✓ Correct|✗ Answer locked in/i)).toBeVisible();
+  await expect(ada.getByText(/✓ Correct/i)).toBeVisible();
 
   // U8: Bob challenges -> game pauses for everyone; host gets the panel.
   await bob.getByRole("button", { name: "Challenge this question" }).click();
@@ -52,7 +50,7 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
 
   // Advance to the last question, then finish.
   await host.getByRole("button", { name: "Next question" }).click();
-  await expect(questionPrompt(ada)).not.toHaveText(prompt); // new question synced
+  await expect(questionPrompt(ada)).toHaveText("Fixture 2: spell the number 1."); // new question synced
   await host.getByRole("button", { name: "Finish game" }).click();
 
   // U7 / R6 / AE5: the end screen renders in place, with no route change. The

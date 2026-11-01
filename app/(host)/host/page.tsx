@@ -6,8 +6,9 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
+import { useScopedState } from "@/lib/useScopedState";
 import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
 import { startGame } from "@/app/actions/startGame";
@@ -49,6 +50,9 @@ import type {
 // Next 16 applies page maxDuration to Server Actions invoked from this page.
 export const maxDuration = 300;
 
+const subscribeOrigin = () => () => {};
+const readOrigin = () => window.location.origin;
+
 function HostView() {
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
@@ -75,23 +79,19 @@ function HostView() {
       prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
     );
   }
-  const [challenges, setChallenges] = useState<OpenChallenge[]>([]);
-  const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
-  const [dist, setDist] = useState<AnswerDistributionData | null>(null);
+  const game = state?.game ?? null;
+  const challengeScope = `${token}:${game?.current_index}:${game?.paused}`;
+  const reviewScope = `${token}:${game?.current_index}:${game?.reviewing}`;
+  const [challenges, setChallenges] = useScopedState<OpenChallenge[]>(challengeScope, []);
+  const [reveal, setReveal] = useScopedState<RevealedAnswer | null>(reviewScope, null);
+  const [dist, setDist] = useScopedState<AnswerDistributionData | null>(reviewScope, null);
   const [copied, setCopied] = useState(false);
-  const [joinUrl, setJoinUrl] = useState("");
+  const origin = useSyncExternalStore(subscribeOrigin, readOrigin, () => "");
+  const joinUrl = origin && game?.code ? `${origin}/join?code=${game.code}` : "";
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challenging, setChallenging] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const game = state?.game ?? null;
-
-  // Build the shareable join link on the client (needs window.origin) and tear
-  // down the "Copied" reset timer on unmount so it never fires after teardown.
-  useEffect(() => {
-    if (typeof window === "undefined" || !game?.code) return;
-    setJoinUrl(`${window.location.origin}/join?code=${game.code}`);
-  }, [game?.code]);
   useEffect(() => {
     return () => {
       if (copyTimer.current) clearTimeout(copyTimer.current);
@@ -134,10 +134,7 @@ function HostView() {
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
   useEffect(() => {
-    if (!token || !game?.paused) {
-      setChallenges([]);
-      return;
-    }
+    if (!token || !game?.paused) return;
     let active = true;
     listOpenChallenges(token)
       .then((c) => {
@@ -147,18 +144,14 @@ function HostView() {
     return () => {
       active = false;
     };
-  }, [token, game?.paused, state]);
+  }, [token, game?.paused, state, setChallenges]);
 
   // R1/R5. Once the room enters review, fetch the correct answer and the per-
   // option answer distribution for the shared screen (both phase-gated RPCs).
   // Clear them when the question changes or review ends. The distribution RPC may
   // not exist until migration 0008 is applied, so a failure degrades to no bar.
   useEffect(() => {
-    if (!token || !game?.reviewing) {
-      setReveal(null);
-      setDist(null);
-      return;
-    }
+    if (!token || !game?.reviewing) return;
     let active = true;
     revealAnswer(token)
       .then((r) => {
@@ -173,7 +166,7 @@ function HostView() {
     return () => {
       active = false;
     };
-  }, [token, game?.reviewing, game?.current_index]);
+  }, [token, game?.reviewing, game?.current_index, setReveal, setDist]);
 
   async function rule(challengeId: string, ruling: Ruling) {
     if (!token) return;

@@ -2,6 +2,7 @@
 // Authoritative hydration on subscribe/reconnect and coalesced room events.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useScopedState } from "@/lib/useScopedState";
 import { serverNow } from "@/app/actions/serverTime";
 import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
@@ -9,7 +10,6 @@ import { hydrate, subscribeToRoom } from "./channel";
 import {
   isGetReadyPhase,
   measureClockOffset,
-  msUntilReveal,
   remainingMs,
 } from "./clock";
 import { createReconciler } from "./reconcile";
@@ -37,16 +37,13 @@ export function useRoomState(
   const [loading, setLoading] = useState(true);
   // Ref so a changing callback identity doesn't re-subscribe the channel.
   const onPlayerJoinedRef = useRef(onPlayerJoined);
-  onPlayerJoinedRef.current = onPlayerJoined;
+  useEffect(() => { onPlayerJoinedRef.current = onPlayerJoined; }, [onPlayerJoined]);
 
   const reconcilerRef = useRef<ReturnType<typeof createReconciler> | null>(null);
   const refresh = useCallback(() => reconcilerRef.current?.immediate() ?? Promise.resolve(), []);
 
   useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     let active = true;
     measureClockOffset(() => serverNow())
       .then((o) => {
@@ -95,7 +92,7 @@ export function useRoomState(
     };
   }, [code, token]);
 
-  return { state, offset, error, loading, refresh };
+  return { state, offset, error, loading: !!token && loading, refresh };
 }
 
 export interface JoinAnnouncement {
@@ -151,23 +148,12 @@ export function useIsGetReady(
   revealAt: string | null | undefined,
   offset: number,
 ): boolean {
-  const [getReady, setGetReady] = useState(() => isGetReadyPhase(revealAt, offset));
-
+  const [getReady, setGetReady] = useScopedState(`${revealAt}:${offset}`, isGetReadyPhase(revealAt, offset));
   useEffect(() => {
-    if (!revealAt) {
-      setGetReady(false);
-      return;
-    }
-    const revealMs = new Date(revealAt).getTime();
-    const tick = () => {
-      setGetReady(msUntilReveal(revealMs, offset) > 0);
-    };
-    tick();
-    // Fast enough that we leave get-ready within ~100ms of reveal_at.
-    const id = setInterval(tick, 100);
+    if (!revealAt) return;
+    const id = setInterval(() => setGetReady(isGetReadyPhase(revealAt, offset)), 100);
     return () => clearInterval(id);
-  }, [revealAt, offset]);
-
+  }, [revealAt, offset, setGetReady]);
   return getReady;
 }
 
@@ -191,23 +177,20 @@ export function useCountdown(
   offset: number,
   paused: boolean,
 ): number | null {
-  const [remaining, setRemaining] = useState<number | null>(null);
+  const [remaining, setRemaining] = useScopedState<number | null>(`${revealAt}:${timerMs}:${offset}`,
+    revealAt && timerMs !== null ? remainingMs(new Date(revealAt).getTime(), timerMs, offset) : null);
 
   useEffect(() => {
-    if (!revealAt || timerMs === null) {
-      setRemaining(null); // lobby / between questions
-      return;
-    }
+    if (!revealAt || timerMs === null) return;
     if (paused) {
       // Freeze the last displayed value: stop ticking without resetting.
       return;
     }
     const revealMs = new Date(revealAt).getTime();
     const tick = () => setRemaining(remainingMs(revealMs, timerMs, offset));
-    tick();
     const id = setInterval(tick, 250);
     return () => clearInterval(id);
-  }, [revealAt, timerMs, offset, paused]);
+  }, [revealAt, timerMs, offset, paused, setRemaining]);
 
-  return remaining;
+  return !revealAt || timerMs === null ? null : remaining;
 }

@@ -21,10 +21,14 @@ export function Podium({ standings }: { standings: LeaderboardEntry[] }) {
   // reveal (an upheld challenge that rescored would change it and replay — the
   // intended behavior).
   const signature = steps.map((s) => `${s.rank}:${s.score}:${s.players.map((p) => p.id).join(",")}`).join("|");
+  return <PodiumReveal key={signature} steps={steps} />;
+}
+
+function PodiumReveal({ steps: initialSteps }: { steps: ReturnType<typeof podium> }) {
+  const [steps] = useState(initialSteps);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    setRevealed(new Set());
     // Reveal by descending rank first: 3rd, then 2nd, then 1st.
     const order = [...steps].sort((a, b) => b.rank - a.rank);
     const timers = order.map((s, i) =>
@@ -33,8 +37,7 @@ export function Podium({ standings }: { standings: LeaderboardEntry[] }) {
       }, (i + 1) * REVEAL_STEP_MS),
     );
     return () => timers.forEach(clearTimeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [steps]);
 
   if (steps.length === 0) return null;
 

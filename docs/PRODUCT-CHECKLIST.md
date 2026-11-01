@@ -195,3 +195,8 @@ This checklist **replaces** the interim plan set previously under `docs/plans/`:
 - `2026-07-03-001-fix-review-phase-fixes-plan.md`
 
 Those files were removed to avoid conflicting/outdated requirement lists. Architecture notes may still live under `docs/solutions/`. Agent setup notes remain in `AGENTS.md`.
+
+## Deterministic verification
+
+- Multiplayer E2E runs against local Supabase with server-only canned questions in both answer modes (up to 100); no paid AI calls or hosted credentials in CI.
+- A separate, initially non-blocking E2E workflow applies repository migrations to its disposable local stack and cleans created games. Real xAI compatibility is an explicit opt-in smoke test.

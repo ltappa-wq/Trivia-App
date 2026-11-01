@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type BrowserContext, type Page, expect } from "@playwright/test";
 
 // Shared helpers for the multi-client realtime specs. Each participant runs in
@@ -10,20 +11,23 @@ export function questionPrompt(page: Page) {
 }
 
 /**
- * Drive the setup form to create a game. Uses a small question count to keep
- * real xAI generation fast/cheap. By default the host plays too (with a name);
+ * Drive the setup form to create a game. Uses a small deterministic set. By default the host plays too (with a name);
  * pass `hostPlays: false` to create a host-only game. Returns the host page and
  * the issued code.
  */
 export async function hostCreateGame(
   context: BrowserContext,
+  trackGame: (gameId: string) => void,
   opts: {
     category?: string;
     count?: number;
+    mode?: "multiple_choice" | "type_answer";
     hostPlays?: boolean;
     hostName?: string;
   } = {},
 ): Promise<{ page: Page; code: string }> {
+  // Isolate the real per-IP create limit across local retries without changing app guards.
+  await context.setExtraHTTPHeaders({ "x-real-ip": `e2e-${randomUUID()}` });
   const page = await context.newPage();
   await page.goto("/setup");
   const hostPlays = opts.hostPlays ?? true;
@@ -33,12 +37,19 @@ export async function hostCreateGame(
     await page.getByLabel("I’ll play too").uncheck();
   }
   await page.getByLabel(opts.category ?? "Geography").check();
+  if (opts.mode === "type_answer") await page.getByLabel("Type the answer", { exact: true }).check();
   await page.getByLabel("Number of questions").fill(String(opts.count ?? 2));
   await page.getByRole("button", { name: "Create game" }).click();
 
-  // Generation runs before the redirect; allow generous time.
+  // Setup creates the lobby; generation happens on Start game.
   await page.waitForURL(/\/host\?code=/, { timeout: 90_000 });
   const code = new URL(page.url()).searchParams.get("code")!;
+  const gameId = await page.evaluate((roomCode) => {
+    const raw = sessionStorage.getItem(`trivia:host:${roomCode}`);
+    return raw ? (JSON.parse(raw) as { gameId: string }).gameId : null;
+  }, code);
+  if (!gameId) throw new Error("Created game credential missing");
+  trackGame(gameId);
   await expect(page.getByRole("heading", { name: `Room ${code}` })).toBeVisible();
   return { page, code };
 }
