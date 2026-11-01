@@ -1391,7 +1391,7 @@ fieldset label.is-disabled {
 :focus-visible { outline: 3px solid #201c33; outline-offset: 4px; }
 .answer-tiles li button { color: var(--text); border-color: var(--control-border); }
 .answer-tile__shape { color: var(--text); }
-.adjudication .uphold, .copy-link button.is-copied { background: #226b3b; }
+.adjudication .uphold, .copy-link button.is-copied { background: #226b3b; color: #fff; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important; transition: none !important; scroll-behavior: auto !important;

@@ -16,7 +16,8 @@ async function scan(page: Page, phase: string) {
       expect(moving, "Reduced motion must disable animation and transitions throughout the screen").toEqual([]);
     }
     const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-    expect(result.violations.filter(v => v.impact === "serious" || v.impact === "critical"),
+    // Collect findings across phases; soft assertions still fail the test/job.
+    expect.soft(result.violations.filter(v => v.impact === "serious" || v.impact === "critical"),
       JSON.stringify(result.violations, null, 2)).toEqual([]);
   });
 }
