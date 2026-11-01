@@ -6,6 +6,7 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
+import { JoinQrCode } from "@/components/JoinQrCode";
 import { Suspense, useMemo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { SaveHostLink, SessionRecovery } from "@/components/SessionRecovery";
@@ -379,9 +380,12 @@ function HostView() {
       {!started && (
         <section>
           <JoinToast items={joinAnnouncements} />
+          <div style={{ display: "flex", alignItems: "center", gap: "2rem", flexWrap: "wrap" }}>
+          {joinUrl && <JoinQrCode url={joinUrl} />}
           <p>
             Room code: <span className="room-code">{game.code}</span>
           </p>
+          </div>
           <div className="copy-link">
             <span className="copy-link__url">{joinUrl || `…/join?code=${game.code}`}</span>
             <button
