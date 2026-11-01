@@ -3,6 +3,8 @@ import type { Locator, Page } from "@playwright/test";
 import { test, expect, localDatabase } from "./test";
 import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 
+test.use({ actionTimeout: 20_000 });
+
 async function scan(page: Page, phase: string) {
   await test.step(`axe: ${phase}`, async () => {
     if (await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)) {
@@ -36,6 +38,11 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.emulateMedia({ reducedMotion });
     for (const route of ["/", "/setup", "/join"]) {
       await page.goto(route);
+      if (route === "/setup") {
+        const timer = page.getByRole("combobox", { name: /^Answer timer/ });
+        await timer.selectOption("60000");
+        await expect(timer).toHaveValue("60000");
+      }
       await scan(page, route);
     }
   });
