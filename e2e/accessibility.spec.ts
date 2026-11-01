@@ -58,6 +58,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       const player = await playerJoin(playerContext, code, "Keyboard player");
       await Promise.all([scan(host, "host lobby"), scan(player, "player lobby")]);
       await keyboardActivate(host, host.getByRole("button", { name: "Start game" }));
+      await expect(host.getByRole("timer", { name: /Next question in/ })).toBeVisible();
       // Extend only this isolated fixture's reveal window: axe must finish
       // while both devices are still showing get-ready, even on a cold runner.
       const db = localDatabase();

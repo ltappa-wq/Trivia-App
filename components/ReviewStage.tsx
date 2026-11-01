@@ -48,7 +48,7 @@ export function ReviewStage({
           This question was voided — it doesn’t count.
         </p>
       ) : (
-        <p className="overlay" aria-live="polite">
+        <p className="overlay">
           ⏱ Answers locked — here’s the correct answer.
         </p>
       )}

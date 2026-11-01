@@ -1363,7 +1363,7 @@ fieldset label.is-disabled {
 }
 
 .answer-progress__players { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; }
-.answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 0.6; }
+.answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 1; }
 .answer-progress__player--answered { background: var(--success-soft); color: var(--success-strong); opacity: 1; }
 
 /* Round feedback remains readable when motion is disabled. */
