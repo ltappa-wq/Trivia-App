@@ -1,11 +1,5 @@
 "use client";
-// U6. Client hooks for the live loop.
-// useRoomState: hydrate on mount + on every Broadcast delta (hydrate-then-delta,
-// KTD8) and run the clock-offset handshake once (KTD9). Re-hydrating on each
-// event is a little chatty but is self-healing and correct for the ≤10-player
-// target — a dropped pause/resume/void reconciles on the next event.
-// useCountdown: render remaining time from the server-anchored reveal, corrected
-// by the measured offset.
+// Authoritative hydration on subscribe/reconnect and coalesced room events.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { serverNow } from "@/app/actions/serverTime";
@@ -18,6 +12,7 @@ import {
   msUntilReveal,
   remainingMs,
 } from "./clock";
+import { createReconciler } from "./reconcile";
 import { ROOM_EVENTS } from "./events";
 
 export interface RoomState {
@@ -44,17 +39,8 @@ export function useRoomState(
   const onPlayerJoinedRef = useRef(onPlayerJoined);
   onPlayerJoinedRef.current = onPlayerJoined;
 
-  const refresh = useCallback(async () => {
-    if (!token) return;
-    try {
-      setState(await hydrate(token));
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load game state");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const reconcilerRef = useRef<ReturnType<typeof createReconciler> | null>(null);
+  const refresh = useCallback(() => reconcilerRef.current?.immediate() ?? Promise.resolve(), []);
 
   useEffect(() => {
     if (!token) {
@@ -67,20 +53,31 @@ export function useRoomState(
         if (active) setOffset(o);
       })
       .catch(() => {});
-    void refresh();
-
-    const reconcile = () => {
-      if (active) void refresh();
-    };
+    const reconciler = createReconciler(async () => {
+      try {
+        const next = await hydrate(token);
+        if (active) {
+          setState(next);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Failed to load game state");
+      } finally {
+        if (active) setLoading(false);
+      }
+    });
+    reconcilerRef.current = reconciler;
+    const reconcile = () => { void reconciler.immediate(); };
+    reconcile();
     const unsubscribe = subscribeToRoom(
       code,
       {
         [ROOM_EVENTS.playerJoined]: (payload) => {
-          reconcile();
+          reconciler.schedule();
           onPlayerJoinedRef.current?.(payload);
         },
         [ROOM_EVENTS.question]: reconcile,
-        [ROOM_EVENTS.leaderboard]: reconcile,
+        [ROOM_EVENTS.leaderboard]: reconciler.schedule,
         [ROOM_EVENTS.review]: reconcile,
         [ROOM_EVENTS.pause]: reconcile,
         [ROOM_EVENTS.resume]: reconcile,
@@ -92,9 +89,11 @@ export function useRoomState(
     );
     return () => {
       active = false;
+      reconciler.dispose();
+      reconcilerRef.current = null;
       unsubscribe();
     };
-  }, [code, token, refresh]);
+  }, [code, token]);
 
   return { state, offset, error, loading, refresh };
 }

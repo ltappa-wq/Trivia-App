@@ -46,6 +46,7 @@ function props(over: Partial<GameStageProps> = {}): GameStageProps {
     showAnswerDispute: over.showAnswerDispute ?? false,
     onChallenge: over.onChallenge ?? vi.fn(),
     onResult: over.onResult,
+    myAnswer: over.myAnswer,
     controls: over.controls,
   };
 }
@@ -273,3 +274,12 @@ describe("page-owned phases and the controls slot (U6)", () => {
     expect(screen.getByRole("button", { name: "Finish game" })).toBeTruthy();
   });
 });
+
+ it("restores the playing host's locked answer through the shared stage", () => {
+   render(<GameStage {...props({ ...asHostWhoPlays,
+     myAnswer: { raw_answer: "0", is_correct: true, points: 700, streak: 2 },
+   })} />);
+   expect(screen.queryByRole("button", { name: /Paris/ })).toBeNull();
+   expect(screen.getByText(/Correct/).textContent).toContain("+700");
+   expect(screen.getByText(/Your answer: Paris/)).toBeTruthy();
+ });

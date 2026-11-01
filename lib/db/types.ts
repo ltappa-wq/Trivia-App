@@ -127,7 +127,15 @@ export interface ClientGame {
   reviewing: boolean;
 }
 
+export interface MyAnswer {
+  raw_answer: string;
+  is_correct: boolean;
+  points: number;
+  streak: number;
+}
+
 export interface HydratedState {
+  my_answer: MyAnswer | null;
   role: PlayerRole;
   game: ClientGame;
   player: { id: string; username: string; score: number } | null;

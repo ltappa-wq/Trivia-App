@@ -50,7 +50,9 @@ function HostView() {
 
   // Lobby join announcements (U9): fed by the single room channel via onPlayerJoined.
   const { items: joinAnnouncements, announce: announceJoin } = useJoinAnnouncements();
-  const { state, offset, error, loading } = useRoomState(code, token, announceJoin);
+  // Room state is also readable with the playing host’s player token, which
+  // restores their own answer. Host-only actions/RPCs still use `token`.
+  const { state, offset, error, loading } = useRoomState(code, cred?.playerToken ?? token, announceJoin);
   const [busy, setBusy] = useState(false);
   // Separate from `busy`: starting runs generation, so it is a long, blocking
   // operation the lobby reports on its own rather than a quick pacing action.
@@ -419,6 +421,7 @@ function HostView() {
         // The host is never a spectator: they hold the room, not a seat taken
         // mid-game. A host who plays answers through their own player token.
         spectating={false}
+        myAnswer={state?.my_answer}
         playerToken={cred.playerToken ?? null}
         reveal={reveal}
         distribution={dist}
