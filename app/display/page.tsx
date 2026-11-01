@@ -16,8 +16,13 @@ const readOrigin = () => window.location.origin;
 function DisplayRoom({ code }: { code: string }) {
   const [credential, setCredential] = useState<{ token: string | null } | null>(null);
   useEffect(() => {
-    const token = consumeDisplayToken(code);
-    queueMicrotask(() => setCredential({ token }));
+    const consume = () => {
+      const token = consumeDisplayToken(code);
+      queueMicrotask(() => setCredential({ token }));
+    };
+    consume();
+    window.addEventListener("hashchange", consume);
+    return () => window.removeEventListener("hashchange", consume);
   }, [code]);
   const token = credential?.token ?? null;
   const { state, offset, loading, error, refresh } = useRoomState(code, token);

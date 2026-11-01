@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 const { room, reveal, distribution } = vi.hoisted(() => ({ room: vi.fn(), reveal: vi.fn(), distribution: vi.fn() }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("code=12345") }));
 vi.mock("@/lib/realtime/hooks", () => ({ useRoomState: room, useQuestionCountdown: () => 1000 }));
@@ -27,4 +27,15 @@ it("never reads challenge details or review keys when paused", async () => {
   render(<Page />);
   expect(await screen.findByText("The host is reviewing a challenge.")).toBeTruthy();
   expect(reveal).not.toHaveBeenCalled(); expect(distribution).not.toHaveBeenCalled();
+});
+
+it("consumes and scrubs a regenerated link pasted into the same TV tab", async () => {
+  render(<Page />);
+  await waitFor(() => expect(room).toHaveBeenLastCalledWith("12345", "a".repeat(43)));
+  await act(async () => {
+    window.history.replaceState(null, "", `/display?code=12345#t=${"b".repeat(43)}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  await waitFor(() => expect(room).toHaveBeenLastCalledWith("12345", "b".repeat(43)));
+  expect(window.location.hash).toBe("");
 });
