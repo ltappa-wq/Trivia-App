@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { Fireworks } from "@/components/Fireworks";
 import { TILE_SHAPES } from "@/lib/answerShapes";
-import type { ClientQuestion } from "@/lib/db/types";
+import type { ClientQuestion, MyAnswer } from "@/lib/db/types";
 import { formatNumber } from "@/lib/formatScore";
 
 // Show the "in a row" badge only once it is worth celebrating (2+).
@@ -17,23 +17,27 @@ const STREAK_BADGE_MIN = 2;
 
 export function AnswerPanel({
   token,
+  myAnswer,
   question,
   currentIndex,
   timeUp,
   onResult,
 }: {
   token: string;
+  myAnswer?: MyAnswer | null;
   question: ClientQuestion;
   currentIndex: number;
   timeUp: boolean;
   onResult?: (result: SubmitResult | null) => void;
 }) {
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
-  const [result, setResult] = useState<SubmitResult | null>(null);
+  const [localResult, setResult] = useState<SubmitResult | null>(null);
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const locked = answeredIndex === currentIndex;
+  const restoredResult = myAnswer ? { correct: myAnswer.is_correct, points: myAnswer.points, streak: myAnswer.streak } : null;
+  const result = restoredResult ?? localResult;
+  const locked = !!myAnswer || answeredIndex === currentIndex;
 
   // Reset per question. Ref keeps the effect from re-firing on onResult identity.
   const onResultRef = useRef(onResult);
@@ -68,6 +72,7 @@ export function AnswerPanel({
         {/* Celebrate a correct answer on this device only (R1). */}
         {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
+        {myAnswer && <span> — Your answer: {question.mode === "multiple_choice" ? question.options?.[Number(myAnswer.raw_answer)] ?? myAnswer.raw_answer : myAnswer.raw_answer}</span>}
         {result && result.points > 0 ? ` — +${formatNumber(result.points)}` : ""}
         {result?.correct && (result.streak ?? 0) >= STREAK_BADGE_MIN && (
           <span className="streak-badge">

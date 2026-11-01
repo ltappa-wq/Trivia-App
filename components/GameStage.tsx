@@ -21,6 +21,7 @@ import type { ChallengeKind } from "@/lib/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import type {
   AnswerDistribution as AnswerDistributionData,
+  MyAnswer,
   ClientQuestion,
   RevealedAnswer,
 } from "@/lib/db/types";
@@ -36,6 +37,7 @@ export interface GameStageProps {
   isHost: boolean;
   spectating: boolean;
   playerToken: string | null;
+  myAnswer?: MyAnswer | null;
   reveal: RevealedAnswer | null;
   distribution: AnswerDistributionData | null;
   challenging: boolean;
@@ -57,6 +59,7 @@ export function GameStage({
   isHost,
   spectating,
   playerToken,
+  myAnswer,
   reveal,
   distribution,
   challenging,
@@ -118,6 +121,7 @@ export function GameStage({
         paused={paused}
         spectating={spectating}
         playerToken={playerToken}
+        myAnswer={myAnswer}
         onResult={onResult}
       />
       {/* Live-phase challenges stay open while a question is answerable. */}
