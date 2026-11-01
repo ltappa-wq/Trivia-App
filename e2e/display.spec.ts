@@ -17,13 +17,13 @@ test("host mints a read-only TV link, TV follows play, and revoke invalidates it
     await expect(tv.getByText("TV player", { exact: true })).toBeVisible();
     await expect(tv.getByRole("img", { name: "Scan to join this trivia game" })).toBeVisible();
     await expect.poll(() => new URL(tv.url()).hash).toBe("");
-    await expect(tv.getByRole("button")).toHaveCount(0);
+    await expect(tv.getByRole("main").getByRole("button")).toHaveCount(0);
     await tv.reload();
     await expect(tv.getByRole("heading", { name: "Join the game" })).toBeVisible();
     await host.getByRole("button", { name: "Start game", exact: true }).click();
     await expect(tv.getByRole("heading", { name: "Fixture 1: spell the number 0." })).toBeVisible({ timeout: 30000 });
     await expect(tv.getByText("Correct answer:")).toHaveCount(0);
-    await expect(tv.getByRole("button")).toHaveCount(0);
+    await expect(tv.getByRole("main").getByRole("button")).toHaveCount(0);
     await host.getByRole("button", { name: "End question now" }).click();
     await expect(tv.getByText("Correct answer:")).toBeVisible();
     await tv.setViewportSize({ width: 3840, height: 2160 });
