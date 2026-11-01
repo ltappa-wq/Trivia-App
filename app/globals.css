@@ -1366,3 +1366,19 @@ fieldset label.is-disabled {
 .answer-progress__players { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; }
 .answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 0.6; }
 .answer-progress__player--answered { background: var(--success-soft); color: var(--success-strong); opacity: 1; }
+
+/* Round feedback remains readable when motion is disabled. */
+.round-recap {
+  padding: 1rem;
+  border: 2px solid currentColor;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+.sound-toggle { margin-block: .5rem; }
+.rank-movement { display: inline-block; font-weight: 800; margin-inline-start: .5rem; }
+.round-leaderboard li { position: relative; }
+.share-result { margin-block: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  .round-leaderboard li { animation: none; transition: none; }
+}
