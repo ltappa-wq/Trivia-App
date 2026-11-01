@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useScopedState } from "@/lib/useScopedState";
 import { serverNow } from "@/app/actions/serverTime";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { answerTimerMs } from "@/lib/gameConfig";
 import type { HydratedState } from "@/lib/db/types";
 import { hydrate, subscribeToRoom } from "./channel";
 import {
@@ -165,7 +165,7 @@ export function useQuestionCountdown(
   // Hide the answer timer during the get-ready 3–2–1 interstitial (ticking).
   const inGetReady = useIsGetReady(active ? game?.reveal_at : null, offset);
   const timerMs =
-    game && active && !inGetReady ? ANSWER_TIMER_MS[game.answer_mode] : null;
+    game && active && !inGetReady ? answerTimerMs(game) : null;
   return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);
 }
 

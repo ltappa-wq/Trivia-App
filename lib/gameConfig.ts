@@ -73,7 +73,28 @@ export const ANSWER_TIMER_MS: Record<AnswerMode, number> = {
   type_answer: 35_000,
 };
 
-export interface SetupInput {
+export const ANSWER_TIMER_OPTIONS = [10000, 20000, 30000, 40000, 50000, 60000] as const;
+export const AUTO_ADVANCE_OPTIONS = [5000, 8000, 10000, 15000] as const;
+
+/** Optional extension shared by setup, remembered settings, and room creation. */
+export interface GameOptionsInput {
+  answerTimerMs?: number | null;
+  autoAdvanceMs?: number | null;
+  doublePointsFinale?: boolean;
+}
+
+export function answerTimerMs(game: { answer_mode: AnswerMode; answer_timer_ms?: number | null }): number {
+  return game.answer_timer_ms ?? ANSWER_TIMER_MS[game.answer_mode];
+}
+
+export function questionMultiplier(game: {
+  current_index: number; question_count: number; double_points_finale?: boolean | null;
+}): number {
+  return game.double_points_finale && game.current_index >= 0 &&
+    game.current_index === game.question_count - 1 ? 2 : 1;
+}
+
+export interface SetupInput extends GameOptionsInput {
   categories: string[];
   questionCount: number;
   answerMode: AnswerMode;
@@ -160,9 +181,22 @@ export function validateSetupInput(raw: unknown): SetupValidation {
     return { ok: false, error: "Choose a difficulty" };
   }
 
+  if (r.answerTimerMs != null && !(ANSWER_TIMER_OPTIONS as readonly unknown[]).includes(r.answerTimerMs)) {
+    return { ok: false, error: "Choose an answer timer" };
+  }
+  if (r.autoAdvanceMs != null && !(AUTO_ADVANCE_OPTIONS as readonly unknown[]).includes(r.autoAdvanceMs)) {
+    return { ok: false, error: "Choose an auto-advance delay" };
+  }
+  if (r.doublePointsFinale !== undefined && typeof r.doublePointsFinale !== "boolean") {
+    return { ok: false, error: "Choose a valid finale setting" };
+  }
+
   return {
     ok: true,
     value: {
+      ...(r.answerTimerMs !== undefined ? { answerTimerMs: r.answerTimerMs as number | null } : {}),
+      ...(r.autoAdvanceMs !== undefined ? { autoAdvanceMs: r.autoAdvanceMs as number | null } : {}),
+      ...(r.doublePointsFinale !== undefined ? { doublePointsFinale: r.doublePointsFinale as boolean } : {}),
       categories,
       questionCount,
       answerMode: r.answerMode as AnswerMode,

@@ -27,6 +27,8 @@ import type {
 } from "@/lib/db/types";
 
 export interface GameStageProps {
+  timerMs?: number;
+  doublePoints?: boolean;
   phase: GamePhase;
   question: ClientQuestion | null;
   currentIndex: number;
@@ -51,6 +53,8 @@ export interface GameStageProps {
 
 export function GameStage({
   phase,
+  timerMs,
+  doublePoints,
   question,
   currentIndex,
   revealAt,
@@ -77,7 +81,7 @@ export function GameStage({
     if (!revealAt) return null;
     return (
       <section className="stage" aria-live="polite">
-        <GetReady revealAt={revealAt} offset={offset} />
+        <GetReady revealAt={revealAt} offset={offset} doublePoints={doublePoints} />
       </section>
     );
   }
@@ -115,6 +119,7 @@ export function GameStage({
     <section className="stage" aria-live="polite">
       <QuestionStage
         question={question}
+        timerMs={timerMs}
         currentIndex={currentIndex}
         remaining={remaining}
         voided={voided}

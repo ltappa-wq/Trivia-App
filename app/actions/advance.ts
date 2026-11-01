@@ -14,7 +14,7 @@ import { computeNextIndex, hasQuestions } from "@/lib/gameFlow";
 import { ADVANCEABLE_STATUSES, isAdvanceableStatus } from "@/lib/phaseGuards";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
 import { ROOM_EVENTS } from "@/lib/realtime/events";
-import { ANSWER_TIMER_MS, GET_READY_MS } from "@/lib/gameConfig";
+import { answerTimerMs, GET_READY_MS } from "@/lib/gameConfig";
 
 export type AdvanceResult =
   | { status: "advanced"; index: number; revealAt: string; timerMs: number }
@@ -81,6 +81,7 @@ export async function advance(
       paused: false,
       // Leave the review phase as the next question is revealed (R5.2).
       reviewing: false,
+      auto_advance_at: null,
       status: "active",
     })
     .eq("id", game.id)
@@ -118,7 +119,7 @@ export async function advance(
     .eq("game_id", game.id)
     .eq("is_spectator", true);
 
-  const timerMs = ANSWER_TIMER_MS[game.answer_mode];
+  const timerMs = answerTimerMs(game);
 
   // Client-safe question shape — answer keys stay server-side (KTD4).
   const { data: question } = await supabase

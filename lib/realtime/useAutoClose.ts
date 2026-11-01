@@ -21,13 +21,14 @@ export function useAutoClose(
   isHost: boolean,
 ): void {
   const budget = useRef({ key: "", attempts: 0, nextAt: 0, done: false });
-  const { id, current_index, reveal_at, answer_mode, status, paused, reviewing } = game ?? {};
+  const { id, current_index, reveal_at, answer_mode, answer_timer_ms, status, paused, reviewing } = game ?? {};
   useEffect(() => {
     if (!token || !id || current_index == null || !answer_mode || !status) return;
     const snapshot: AutoCloseGame = {
       current_index,
       reveal_at: reveal_at ?? null,
       answer_mode,
+      answer_timer_ms,
       status,
       paused: !!paused,
       reviewing: !!reviewing,
@@ -61,5 +62,5 @@ export function useAutoClose(
     tick();
     const timer = setInterval(tick, 100);
     return () => { active = false; clearInterval(timer); };
-  }, [code, token, id, current_index, reveal_at, answer_mode, status, paused, reviewing, offset, isHost]);
+  }, [code, token, id, current_index, reveal_at, answer_mode, answer_timer_ms, status, paused, reviewing, offset, isHost]);
 }

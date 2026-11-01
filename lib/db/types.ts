@@ -16,6 +16,10 @@ export interface GameRow {
   categories: string[];
   question_count: number;
   answer_mode: AnswerMode;
+  answer_timer_ms?: number | null;
+  auto_advance_ms?: number | null;
+  auto_advance_at?: string | null;
+  double_points_finale?: boolean | null;
   difficulty: Difficulty;
   /** -1 until the host starts; 0-based index into questions once live. */
   current_index: number;
@@ -123,6 +127,10 @@ export interface ClientGame {
   code: string;
   status: GameStatus;
   answer_mode: AnswerMode;
+  answer_timer_ms?: number | null;
+  auto_advance_ms?: number | null;
+  auto_advance_at?: string | null;
+  double_points_finale?: boolean | null;
   difficulty: Difficulty;
   question_count: number;
   current_index: number;

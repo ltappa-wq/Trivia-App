@@ -9,7 +9,9 @@ import { msUntilReveal } from "@/lib/realtime/clock";
 export function GetReady({
   revealAt,
   offset,
+  doublePoints,
 }: {
+  doublePoints?: boolean;
   revealAt: string;
   offset: number;
 }) {
@@ -35,7 +37,7 @@ export function GetReady({
 
   return (
     <div className="get-ready" aria-live="polite" role="timer" aria-label={`${digit}`}>
-      <p className="get-ready__label">Get ready</p>
+      <p className="get-ready__label">{doublePoints ? "Final question — double points!" : "Get ready"}</p>
       <div
         className="get-ready__ring"
         style={{ ["--pct" as string]: pctInSecond }}

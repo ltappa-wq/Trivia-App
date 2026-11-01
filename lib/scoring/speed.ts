@@ -2,13 +2,13 @@
 // MAX_POINTS if it lands within the first second of the answer window, then the
 // score slides down linearly to DEADLINE_POINTS for an answer given right before
 // the window closes. A wrong, late, or missing answer scores 0. The decay runs
-// against *that* mode's own timer (ANSWER_TIMER_MS), so type-the-answer — which
+// against the game's configured window, falling back to its mode timer. Type-answer — which
 // has a longer window — decays more gently across its extra time rather than
 // being penalized for being inherently slower (AE2). All timestamps are
 // server-side (KTD4); the client never computes its own score.
 
 import type { AnswerMode } from "@/lib/db/types";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { answerTimerMs } from "@/lib/gameConfig";
 
 // Range 500–1000: an answer in the first second earns MAX_POINTS; the score then
 // decays linearly to DEADLINE_POINTS at the deadline and never below it in-window.
@@ -18,6 +18,8 @@ export const DEADLINE_POINTS = 500;
 export const FULL_POINTS_MS = 1000;
 
 export interface ScoreInput {
+  timerMs?: number | null;
+  multiplier?: number;
   correct: boolean;
   mode: AnswerMode;
   revealAtMs: number;
@@ -30,23 +32,23 @@ export interface ScoreInput {
  * after that it decays linearly with elapsed time to exactly DEADLINE_POINTS at
  * the deadline, and never below DEADLINE_POINTS while still in the window.
  */
-export function computeScore({ correct, mode, revealAtMs, submitAtMs }: ScoreInput): number {
+export function computeScore({ correct, mode, revealAtMs, submitAtMs, timerMs: customTimer, multiplier = 1 }: ScoreInput): number {
   if (!correct) return 0;
 
-  const timerMs = ANSWER_TIMER_MS[mode];
+  const timerMs = answerTimerMs({ answer_mode: mode, answer_timer_ms: customTimer });
   const elapsed = submitAtMs - revealAtMs;
   if (elapsed > timerMs) return 0; // late — outside the window
   const clamped = Math.max(0, elapsed); // guard clock skew before reveal
 
   // The opening grace second earns full points.
-  if (clamped <= FULL_POINTS_MS) return MAX_POINTS;
+  if (clamped <= FULL_POINTS_MS) return MAX_POINTS * multiplier;
 
   // Decay window is the time after the grace second up to the deadline. Guard the
   // degenerate case where a mode's timer is shorter than the grace itself.
   const decayWindow = timerMs - FULL_POINTS_MS;
-  if (decayWindow <= 0) return MAX_POINTS;
+  if (decayWindow <= 0) return MAX_POINTS * multiplier;
 
   const fraction = (clamped - FULL_POINTS_MS) / decayWindow; // 0 just after 1s, 1 at deadline
   const drop = Math.round((MAX_POINTS - DEADLINE_POINTS) * fraction);
-  return MAX_POINTS - drop;
+  return (MAX_POINTS - drop) * multiplier;
 }

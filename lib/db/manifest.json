@@ -149,35 +149,18 @@
   "0013_atomic_game_writes.sql": {
     "functions": [
       {
-        "signature": "commit_answer(uuid,uuid,uuid,integer,text,boolean,integer,timestamp with time zone)",
-        "access": "service"
-      },
-      {
         "signature": "create_challenge_and_pause(uuid,uuid,uuid,text,text)",
-        "access": "service"
-      },
-      {
-        "signature": "resolve_challenge(uuid,uuid,boolean,text)",
         "access": "service"
       }
     ],
     "columns": []
   },
   "0014_hydrate_my_answer.sql": {
-    "functions": [
-      {
-        "signature": "hydrate_game_state(text)",
-        "access": "client"
-      }
-    ],
+    "functions": [],
     "columns": []
   },
   "0015_room_reliability.sql": {
     "functions": [
-      {
-        "signature": "close_question(text,text,integer,boolean)",
-        "access": "service"
-      },
       {
         "signature": "answer_progress(text)",
         "access": "client"
@@ -227,6 +210,40 @@
     "columns": [
       "questions.explanation",
       "question_bank.explanation"
+    ]
+  },
+  "0019_game_options.sql": {
+    "functions": [
+      {
+        "signature": "commit_answer(uuid,uuid,uuid,integer,text,boolean,integer,timestamp with time zone)",
+        "access": "service"
+      },
+      {
+        "signature": "resolve_challenge(uuid,uuid,boolean,text)",
+        "access": "service"
+      },
+      {
+        "signature": "hydrate_game_state(text)",
+        "access": "client"
+      },
+      {
+        "signature": "close_question(text,text,integer,boolean)",
+        "access": "service"
+      },
+      {
+        "signature": "auto_advance_question(text,text,integer)",
+        "access": "service"
+      },
+      {
+        "signature": "set_review_auto_advance(text,text,integer,boolean)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.answer_timer_ms",
+      "games.auto_advance_ms",
+      "games.auto_advance_at",
+      "games.double_points_finale"
     ]
   }
 }

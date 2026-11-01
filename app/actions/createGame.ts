@@ -85,6 +85,9 @@ export async function createGame(
         question_count: input.questionCount,
         answer_mode: input.answerMode,
         difficulty: input.difficulty,
+        answer_timer_ms: input.answerTimerMs ?? null,
+        auto_advance_ms: input.autoAdvanceMs ?? null,
+        double_points_finale: input.doublePointsFinale ?? false,
       })
       .select("id")
       .single();
