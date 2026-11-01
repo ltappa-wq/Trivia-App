@@ -2,12 +2,16 @@
 // Unified end screen for host and player: podium, full standings, home CTA,
 // and optional feedback form (emailed via submitFeedback).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ShareResult } from "@/components/ShareResult";
+import { SoundToggle } from "@/components/GameFeedback";
+import { gameSound } from "@/lib/sound";
+import { ordinal, rankMovement, rankedStandings } from "@/lib/roundRecap";
 import { Podium } from "@/components/Podium";
 import type { LeaderboardEntry } from "@/lib/db/types";
 import { formatNumber, formatScore } from "@/lib/formatScore";
-import { describeWinners, sortStandings } from "@/lib/results";
+import { describeWinners } from "@/lib/results";
 import { submitFeedback } from "@/app/actions/submitFeedback";
 
 export function GameOver({
@@ -19,9 +23,10 @@ export function GameOver({
   myPlayerId?: string | null;
   roomCode?: string;
 }) {
-  const sorted = sortStandings(standings);
+  const sorted = rankedStandings(standings);
   const { winnerIds, label } = describeWinners(sorted);
-  const myRank = myPlayerId ? sorted.findIndex((p) => p.id === myPlayerId) + 1 : 0;
+  const myRank = (myPlayerId && rankMovement(sorted, null, myPlayerId)?.rank) || 0;
+  useEffect(() => { gameSound.play("gameOver", `ended:${roomCode ?? "results"}`); }, [roomCode]);
   const iWon = myPlayerId ? winnerIds.has(myPlayerId) : false;
 
   const [feedback, setFeedback] = useState("");
@@ -48,6 +53,7 @@ export function GameOver({
   return (
     <section className="game-over" aria-live="polite">
       <h1>Final results</h1>
+      <SoundToggle />
       <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
 
       {myRank > 0 && (
@@ -65,21 +71,24 @@ export function GameOver({
       <Podium standings={sorted} />
 
       <ol className="results-list">
-        {sorted.map((p, i) => (
+        {sorted.map((p) => (
           <li
+            value={p.rank}
             key={p.id}
             className={`${p.id === myPlayerId ? "is-you " : ""}${
               winnerIds.has(p.id) ? "is-winner" : ""
             }`.trim()}
           >
             <span>
-              {formatNumber(i + 1)}. {p.username} — {formatScore(p.score)}
+              {formatNumber(p.rank)}. {p.username} — {formatScore(p.score)}
             </span>
             {winnerIds.has(p.id) && <span> ★ winner</span>}
             {p.id === myPlayerId && <span> (you)</span>}
           </li>
         ))}
       </ol>
+
+      <ShareResult standings={standings} playerId={myPlayerId} />
 
       <p className="game-over__cta">
         <Link className="cta-primary" href="/">
@@ -115,19 +124,4 @@ export function GameOver({
       </form>
     </section>
   );
-}
-
-function ordinal(n: number): string {
-  const rem100 = n % 100;
-  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
 }

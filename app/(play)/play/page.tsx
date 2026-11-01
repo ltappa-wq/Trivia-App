@@ -25,8 +25,11 @@ import { useAutoAdvance } from "@/lib/realtime/useAutoAdvance";
 import { useAutoClose } from "@/lib/realtime/useAutoClose";
 import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
+import { rankedStandings } from "@/lib/roundRecap";
 import { formatScore } from "@/lib/formatScore";
 import { GameOver } from "@/components/GameOver";
+import { GameFeedback, SoundToggle } from "@/components/GameFeedback";
+import { RoundRecap, useRoundSnapshot } from "@/components/RoundRecap";
 import { GameStage } from "@/components/GameStage";
 import type { ChallengeKind } from "@/lib/challenge";
 import type { RevealedAnswer } from "@/lib/db/types";
@@ -92,6 +95,9 @@ function PlayView() {
     }
   }
 
+  const experiencePhase = game ? derivePhase(game, state?.current_question ?? null, offset).phase : "lobby";
+  const roundBaseline = useRoundSnapshot(state, experiencePhase);
+
   if (!cred) {
     return (
       <main>
@@ -115,7 +121,11 @@ function PlayView() {
       <header>
         <h1>{cred.username}</h1>
         <p>Room {game.code}</p>
+        {phase.phase !== "ended" && <SoundToggle />}
       </header>
+      <GameFeedback phase={phase.phase} remaining={remaining}
+        roundKey={`${game.id}:${game.current_index}`} answer={state?.my_answer ?? null}
+        voided={state?.current_question?.voided ?? false} spectating={state?.role === "spectator" || !state?.player} />
 
       {phase.phase === "lobby" && (
         <div className="waiting" aria-live="polite">
@@ -157,12 +167,14 @@ function PlayView() {
         onResult={setResult}
       />
 
+      {phase.phase === "review" && state && <RoundRecap state={state} baseline={roundBaseline} />}
+
       {started && phase.phase !== "ended" && (
         <section>
           <h2>Leaderboard</h2>
           <ol>
-            {leaderboard.map((p) => (
-              <li key={p.id}>
+            {rankedStandings(leaderboard).map((p) => (
+              <li key={p.id} value={p.rank}>
                 {p.username} — {formatScore(p.score)}
               </li>
             ))}
