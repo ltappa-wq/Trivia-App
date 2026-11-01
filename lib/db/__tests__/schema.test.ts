@@ -340,3 +340,15 @@ describe("current player answer hydration (0014)", () => {
     expect(restoreAnswer).not.toContain("accepted_variants");
   });
 });
+
+
+it("guards legacy player-token backfill and drop with the column-existence check", () => {
+  const guard = phaseAuth.match(/if exists\s*\(\s*select 1 from information_schema\.columns\s*where table_schema = 'public' and table_name = 'players' and column_name = 'token'\s*\) then([\s\S]*?)alter table public\.players drop column token;\s*end if;/i);
+  expect(guard).not.toBeNull();
+  const update = "update public.players\n    set token_hash = encode(extensions.digest(token, 'sha256'), 'hex')\n    where token_hash is null\n      and token is not null;";
+  expect(guard?.[1]).toContain(update);
+  expect(guard?.[1]).toContain("raise exception 'players.token_hash backfill incomplete'");
+  // No unguarded copy may remain before or after the existence block.
+  expect(phaseAuth.match(/update public\.players\s+set token_hash/gi)).toHaveLength(1);
+  expect(phaseAuth.indexOf("update public.players")).toBeGreaterThan(phaseAuth.indexOf("column_name = 'token'"));
+});

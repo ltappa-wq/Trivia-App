@@ -51,3 +51,43 @@ it("coalesces broadcasts while keeping phase events, reconnect, and refresh imme
   expect(mocks.hydrate).toHaveBeenCalledTimes(2);
   expect(mocks.unsubscribe).toHaveBeenCalledTimes(1);
 });
+
+it("updates the join callback without resubscribing and handles an absent token", async () => {
+  const first = vi.fn();
+  const next = vi.fn();
+  const { result, rerender } = renderHook(({ callback, token }) => useRoomState("ABC123", token, callback), { initialProps: { callback: first, token: "player" as string | null } });
+  await act(async () => {});
+  const handlers = mocks.handlers;
+  rerender({ callback: next, token: "player" });
+  act(() => mocks.handlers[ROOM_EVENTS.playerJoined]?.({ username: "Ada" }));
+  expect(first).not.toHaveBeenCalled();
+  expect(next).toHaveBeenCalledWith({ username: "Ada" });
+  expect(mocks.handlers).toBe(handlers);
+  rerender({ callback: next, token: null });
+  expect(result.current.loading).toBe(false);
+});
+
+it("derives get-ready and countdown resets while freezing the paused display", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+  const { useCountdown, useIsGetReady } = await import("../hooks");
+  const reveal = new Date(Date.now() + 1000).toISOString();
+  const { result, rerender } = renderHook(({ at, paused }) => ({
+    ready: useIsGetReady(at, 0),
+    remaining: useCountdown(at, 10_000, 0, paused),
+  }), { initialProps: { at: reveal as string | null, paused: false } });
+  expect(result.current.ready).toBe(true);
+  expect(result.current.remaining).toBe(10_000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(result.current.ready).toBe(false);
+  expect(result.current.remaining).toBe(9000);
+  rerender({ at: reveal, paused: true });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(result.current.remaining).toBe(9000);
+  rerender({ at: null, paused: true });
+  expect(result.current.ready).toBe(false);
+  expect(result.current.remaining).toBeNull();
+  rerender({ at: new Date(Date.now() + 1000).toISOString(), paused: false });
+  expect(result.current.ready).toBe(true);
+  expect(result.current.remaining).toBe(10_000);
+});

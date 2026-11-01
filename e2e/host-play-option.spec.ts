@@ -1,20 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { answerFirstOption, hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 
 // Host-only gamemaster path (host-play toggle off). Verifies a non-playing host
 // can run the full game: the host is not seated as a player, the host view shows
 // the question read-only (no answer controls), and the game reaches results.
-// NOTE: hits live Supabase + xAI — needs env configured and costs a little.
+// Uses deterministic server fixtures and an isolated local Supabase.
 
 test("host-only gamemaster: not seated, read-only question, runs to results", async ({
-  browser,
+  browser, trackGame,
 }) => {
   const hostCtx = await browser.newContext();
   const adaCtx = await browser.newContext();
 
-  // Single question + underused category keeps generation cheap/reliable while
-  // still covering host-only seating, read-only host view, and results.
-  const { page: host, code } = await hostCreateGame(hostCtx, {
+  const { page: host, code } = await hostCreateGame(hostCtx, trackGame, {
     category: "Music",
     count: 1,
     hostPlays: false,
@@ -31,6 +29,7 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
 
   await expect(questionPrompt(ada)).toBeVisible();
   const prompt = await questionPrompt(ada).innerText();
+  expect(prompt).toBe("Fixture 1: spell the number 0.");
   await expect(questionPrompt(host)).toHaveText(prompt);
 
   // Host view shows the options read-only — no answer buttons for the host.
@@ -42,7 +41,7 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   // unmounts AnswerPanel. Accept either the result chrome or the review overlay.
   await answerFirstOption(ada);
   await expect(
-    ada.getByText(/✓ Correct|✗ Answer locked in|Answers locked/i).first(),
+    ada.getByText(/✓ Correct|Answers locked/i).first(),
   ).toBeVisible();
 
   // Only question → finish.
@@ -55,4 +54,24 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
 
   await hostCtx.close();
   await adaCtx.close();
+});
+
+test("typed fixture answer is judged correctly and restored on reload", async ({ browser, trackGame }) => {
+  const hostCtx = await browser.newContext();
+  const playerCtx = await browser.newContext();
+  try {
+    const { page: host, code } = await hostCreateGame(hostCtx, trackGame, { count: 1, mode: "type_answer" });
+    const player = await playerJoin(playerCtx, code, "Ada");
+    await host.getByRole("button", { name: "Start game" }).click();
+    await expect(questionPrompt(player)).toHaveText("Fixture 1: spell the number 0.");
+    await player.getByLabel("Your answer", { exact: true }).fill("zero");
+    await player.getByRole("button", { name: "Submit", exact: true }).click();
+    await expect(player.getByText(/✓ Correct/)).toBeVisible();
+    await player.reload();
+    await expect(player.getByText(/Your answer: zero/)).toBeVisible();
+    await expect(player.getByLabel("Your answer", { exact: true })).toHaveCount(0);
+  } finally {
+    await hostCtx.close();
+    await playerCtx.close();
+  }
 });

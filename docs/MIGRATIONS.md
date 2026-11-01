@@ -17,8 +17,7 @@ only files not already successfully applied; do not edit historical migrations.
 
 Install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)
 on the owner's machine. From the repository root, initialize local CLI config
-with `supabase init` if `supabase/config.toml` is absent (it is not currently
-tracked here); keep generated configuration and linking metadata local.
+with `supabase init` if `supabase/config.toml` is absent (a local/CI config is now tracked here); keep generated configuration and linking metadata local.
 Then authenticate and explicitly select the intended project:
 
 ```sh

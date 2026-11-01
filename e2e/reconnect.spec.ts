@@ -1,17 +1,15 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./test";
 import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 
 // Hydrate-on-reconnect (KTD8; Verification Contract: U6). A client that drops
 // and reconnects must recover the live question from Postgres via the hydrate
 // RPC on re-subscribe, not stay stranded on stale state.
 
-test("player re-hydrates to the live question after a reload", async ({ browser }) => {
+test("player re-hydrates to the live question after a reload", async ({ browser, trackGame }) => {
   const hostCtx = await browser.newContext();
   const playerCtx = await browser.newContext();
 
-  // Distinct category from other e2e specs so bank dedup does not exhaust
-  // Geography prompts mid-suite (tests share one live question_bank).
-  const { page: host, code } = await hostCreateGame(hostCtx, {
+  const { page: host, code } = await hostCreateGame(hostCtx, trackGame, {
     category: "History",
     count: 1,
   });
@@ -22,6 +20,7 @@ test("player re-hydrates to the live question after a reload", async ({ browser 
 
   await expect(questionPrompt(player)).toBeVisible();
   const prompt = await questionPrompt(player).innerText();
+  expect(prompt).toBe("Fixture 1: spell the number 0.");
 
   // Simulate a dropped/reconnected client: full reload (credential persists in
   // sessionStorage; the page must re-subscribe and hydrate current state).

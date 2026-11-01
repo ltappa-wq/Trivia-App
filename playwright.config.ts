@@ -7,7 +7,9 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
+  testMatch: process.env.E2E_LIVE_XAI === "1" ? "**/live-smoke.spec.ts" : "**/*.spec.ts",
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
@@ -28,7 +30,8 @@ export default defineConfig({
         // point at an already-running server (e.g. `npm run start`) instead.
         command: "npm run dev",
         url: "http://localhost:3000",
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
+        env: { GENERATION_MODE: process.env.E2E_LIVE_XAI === "1" ? "live" : "fixture", E2E_TEST_MODE: "1" },
         timeout: 180_000,
       },
 });

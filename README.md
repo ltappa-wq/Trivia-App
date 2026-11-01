@@ -34,9 +34,9 @@ Then run `npm run dev` and open http://localhost:3000.
 | `npm run build` / `npm run start` | Production build / serve |
 | `npm run db:verify` | Owner-operated read-only migration/RPC/column/grant check; requires explicit PostgreSQL target ([setup](docs/MIGRATIONS.md#verify)); disabled in CI |
 | `npm run typecheck` | TypeScript checks |
-| `npm run lint` | ESLint (`eslint .`, flat config) |
+| `npm run lint` | ESLint (`eslint . --max-warnings=0`, flat config) |
 | `npm test` | Vitest unit and integration tests |
-| `npm run test:e2e` | Playwright multi-client tests; requires live services and Chromium ([setup](e2e/README.md)) |
+| `npm run test:e2e` | Playwright multi-client tests; requires local Supabase and Chromium ([setup](e2e/README.md)) |
 
 ## Project layout
 

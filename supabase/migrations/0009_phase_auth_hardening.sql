@@ -9,13 +9,6 @@
 alter table public.players
   add column if not exists token_hash text;
 
--- Hash any rows that still hold plaintext (pre-migration installs).
--- digest() lives in extensions on Supabase (same as resolve_token).
-update public.players
-set token_hash = encode(extensions.digest(token, 'sha256'), 'hex')
-where token_hash is null
-  and token is not null;
-
 -- Fresh installs that already ran a later init path: if token still exists and
 -- token_hash is filled, drop the plaintext column.
 do $$
@@ -24,6 +17,13 @@ begin
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'players' and column_name = 'token'
   ) then
+    -- Hash any rows that still hold plaintext (pre-migration installs).
+    -- digest() lives in extensions on Supabase (same as resolve_token).
+    update public.players
+    set token_hash = encode(extensions.digest(token, 'sha256'), 'hex')
+    where token_hash is null
+      and token is not null;
+
     -- Ensure every row has a hash before drop (empty table is fine).
     if exists (select 1 from public.players where token_hash is null) then
       raise exception 'players.token_hash backfill incomplete';
