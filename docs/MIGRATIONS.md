@@ -10,7 +10,7 @@ Use the release checkout containing the PR's migrations. Read its migration SQL
 and deployment notes, confirm the target project in the Supabase dashboard, and
 confirm a usable backup/restore plan before production changes. Apply files in
 `supabase/migrations/` by ascending filename number, starting with `0001` for a
-new project. The current sequence ends at `0017_stale_data_cleanup.sql`. Apply
+new project. The current sequence ends at `0018_question_explanations.sql`. Apply
 only files not already successfully applied; do not edit historical migrations.
 
 ## Supabase CLI (preferred)
@@ -207,3 +207,11 @@ This test requires an empty games/rate-limit dataset and rolls back its fixtures
 It checks dry runs, active-game preservation, durable bank preservation, both batch
 caps, end-time retention, recent lobby joins, child cascades, RPC grants and the
 cron job. Never run this fixture script against a live project.
+
+## 0018: question explanations
+
+Apply `0018_question_explanations.sql` before merging/deploying R23. It adds
+nullable explanation columns to questions and question_bank and adds a JSON key
+to reveal_answer(text), preserving its signature, authorization and review/ended
+phase gate. Current deployed callers can ignore the extra key; existing rows
+remain null. No backfill or production credentials are required by the app change.

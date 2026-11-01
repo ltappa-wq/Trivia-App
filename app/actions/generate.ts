@@ -67,6 +67,7 @@ export async function generateAndPersistQuestions(
     correct_option: q.correct_option ?? null,
     accepted_variants: q.accepted_variants ?? null,
     difficulty: q.difficulty,
+    explanation: q.explanation ?? null,
   }));
 
   const { error } = await supabase.from("questions").insert(rows);
@@ -90,6 +91,7 @@ export async function generateAndPersistQuestions(
     correct_option: q.correct_option ?? null,
     accepted_variants: q.accepted_variants ?? null,
     difficulty: q.difficulty,
+    explanation: q.explanation ?? null,
     categories: params.categories,
   }));
   const { error: bankError } = await supabase

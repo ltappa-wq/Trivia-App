@@ -30,6 +30,7 @@ export interface GameRow {
 }
 
 export interface QuestionRow {
+  explanation?: string | null;
   id: string;
   game_id: string;
   index: number;
@@ -80,6 +81,7 @@ export interface ChallengeRow {
  * carries answer keys and is never read by a client.
  */
 export interface QuestionBankRow {
+  explanation?: string | null;
   id: string;
   prompt: string;
   /** Normalized prompt; unique, the exact-match dedup key. */
@@ -149,6 +151,7 @@ export interface HydratedState {
 // --- Review-phase answer reveal (reveal_answer; gated on reviewing/ended) ---
 
 export interface RevealedAnswer {
+  explanation?: string | null;
   index: number;
   mode: AnswerMode;
   options: string[] | null;

@@ -54,6 +54,13 @@ export function ReviewStage({
       )}
 
       <AnswerReveal reveal={reveal} />
+      {/* A correction or void can invalidate the fact even without naming the old answer. */}
+      {!voided && !reveal?.correction && reveal?.explanation && (
+        <aside className="answer-reveal question-explanation" aria-label="Did you know?">
+          <p><strong>Did you know?</strong></p>
+          <p>{reveal.explanation}</p>
+        </aside>
+      )}
       {isHost && <AnswerDistribution dist={distribution} />}
 
       {canChallenge && (

@@ -16,6 +16,8 @@ export interface GenerationParams {
 }
 
 export interface GeneratedQuestion {
+  /** Optional enrichment; invalid provider values normalize to null. */
+  explanation?: string | null;
   prompt: string;
   mode: AnswerMode;
   /** multiple_choice only: the ordered option list. */
@@ -34,6 +36,15 @@ export const MAX_WORD_LENGTH = 12;
 // A correct option plus at least two distractors.
 export const MIN_MC_OPTIONS = 3;
 export const MAX_MC_OPTIONS = 6;
+
+/** One short sentence; enrichment must never invalidate an otherwise valid question. */
+export function normalizeExplanation(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const text = raw.trim();
+  if (!text || text.length > 300 || text.split(/\s+/).length > 25 ||
+      /[\x00-\x1f\x7f]/.test(text) || /[.!?]\s+\S/.test(text)) return null;
+  return text;
+}
 
 /**
  * R3: a type-the-answer variant must be one or two common, easy-to-spell words.
@@ -97,6 +108,7 @@ export function validateGeneratedQuestion(
       options: (options as string[]).map((o) => o.trim()),
       correct_option: correct,
       difficulty: params.difficulty,
+      explanation: normalizeExplanation(q.explanation),
     });
     return { ok: true, question: shuffled };
   }
@@ -122,6 +134,7 @@ export function validateGeneratedQuestion(
       mode: "type_answer",
       accepted_variants: (variants as string[]).map((v) => v.trim()),
       difficulty: params.difficulty,
+      explanation: normalizeExplanation(q.explanation),
     },
   };
 }

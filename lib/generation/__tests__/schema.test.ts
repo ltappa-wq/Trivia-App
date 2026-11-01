@@ -131,3 +131,25 @@ describe("shuffleMcOptions", () => {
     expect(calls).toBeGreaterThan(0);
   });
 });
+
+describe("optional explanation enrichment", () => {
+  const params = { mode: "multiple_choice" as const, difficulty: "easy" as const };
+  const raw = { prompt: "Capital of France?", options: ["Paris", "Rome", "Oslo"], correct_option: 0 };
+  it.each([undefined, null, 42, {}, [], "", "  ", "word ".repeat(26), "a".repeat(301), "Two sentences. Not one.", "Line\nbreak"])("tolerates invalid explanation %j", (explanation) => {
+    const result = validateGeneratedQuestion({ ...raw, explanation }, params);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.question.explanation).toBeNull();
+  });
+  it.each(["multiple_choice", "type_answer"] as const)("preserves trimmed enrichment in %s", (mode) => {
+    const explanation = "Paris is home to the Eiffel Tower.";
+    const result = validateGeneratedQuestion({ ...raw, accepted_variants: ["Paris"], explanation: `  ${explanation}  ` }, { ...params, mode });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.question.explanation).toBe(explanation);
+  });
+  it("accepts exactly 25 words", () => {
+    const explanation = Array(25).fill("word").join(" ");
+    const result = validateGeneratedQuestion({ ...raw, explanation }, params);
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.question.explanation).toBe(explanation);
+  });
+});
