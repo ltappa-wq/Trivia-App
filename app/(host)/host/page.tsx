@@ -11,6 +11,8 @@ import Link from "next/link";
 import { SaveHostLink, SessionRecovery } from "@/components/SessionRecovery";
 import { useSearchParams } from "next/navigation";
 import { useScopedState } from "@/lib/useScopedState";
+import { ReviewAutoAdvance } from "@/components/ReviewAutoAdvance";
+import { setReviewAutoAdvance } from "@/app/actions/autoAdvance";
 import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
 import { startGame } from "@/app/actions/startGame";
@@ -33,6 +35,8 @@ import {
   useRoomState,
 } from "@/lib/realtime/hooks";
 import { isLastIndex } from "@/lib/gameFlow";
+import { answerTimerMs, questionMultiplier } from "@/lib/gameConfig";
+import { useAutoAdvance } from "@/lib/realtime/useAutoAdvance";
 import { useAutoClose } from "@/lib/realtime/useAutoClose";
 import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
@@ -194,6 +198,7 @@ function HostView() {
   // authority on what that means — this hook only supplies the clock.
   useIsGetReady(game && game.current_index >= 0 ? game.reveal_at : null, offset);
 
+  useAutoAdvance(code, token, game, offset);
   useAutoClose(code, token, game, offset, true);
 
   async function handleCloseNow() {
@@ -207,6 +212,15 @@ function HostView() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleAutoAdvance(enabled: boolean) {
+    if (!token || !game) return;
+    setBusy(true);
+    setActionError(null);
+    try { await setReviewAutoAdvance(code, token, game.current_index, enabled); }
+    catch (err) { setActionError(err instanceof Error ? err.message : "Could not update auto-advance"); }
+    finally { setBusy(false); }
   }
 
   async function handleAdvance(expectedIndex: number) {
@@ -419,6 +433,8 @@ function HostView() {
       )}
       <div className="host-live">
       <GameStage
+        timerMs={answerTimerMs(game)}
+        doublePoints={questionMultiplier(game) === 2}
         phase={phase}
         question={question}
         currentIndex={game.current_index}
@@ -437,7 +453,7 @@ function HostView() {
         challengeError={challengeError}
         showAnswerDispute={false}
         onChallenge={(t) => void raiseChallenge(t)}
-        controls={pacingControls}
+        controls={<>{pacingControls}<ReviewAutoAdvance game={game} offset={offset} busy={busy} onToggle={handleAutoAdvance} /></>}
       />
 
       {started && !ended && (

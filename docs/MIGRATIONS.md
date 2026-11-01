@@ -207,3 +207,19 @@ This test requires an empty games/rate-limit dataset and rolls back its fixtures
 It checks dry runs, active-game preservation, durable bank preservation, both batch
 caps, end-time retention, recent lobby joins, child cascades, RPC grants and the
 cron job. Never run this fixture script against a live project.
+
+## 0019: configurable pacing and double-points finale
+
+Apply `0019_game_options.sql` before merging/deploying the corresponding app PR.
+It adds nullable constrained timer and auto-advance settings, a nullable server
+review deadline, and a default-off finale flag. Existing games and deployed RPC
+callers retain legacy timers, no auto-advance, and the 1000-point cap. Existing
+RPC signatures and privileges are preserved; new mutation RPCs are service-only
+and validate participant/host tokens inside the database.
+
+On an isolated local database with migrations applied, run
+`psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0019_game_options.sql`.
+Fixtures roll back. This checks legacy fallback, constraints, custom close
+windows, review deadlines, pause/resume, challenge blocking and delay restart,
+participant advancement and idempotence, final-question guards, point caps,
+and upheld-answer scoring. Never run fixtures against a live project.

@@ -2,7 +2,7 @@
 // detection (U9) share this so "what comes after question i" is defined once.
 
 import type { AnswerMode } from "@/lib/db/types";
-import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
+import { answerTimerMs } from "@/lib/gameConfig";
 import { remainingMs } from "@/lib/realtime/clock";
 
 /**
@@ -44,14 +44,14 @@ export function hasQuestions(questionsAvailable: number): boolean {
  * `reveal_at` makes the decision immune to that lag.
  */
 export function shouldAutoClose(
-  game: { reveal_at: string | null; answer_mode: AnswerMode; current_index: number },
+  game: { reveal_at: string | null; answer_mode: AnswerMode; answer_timer_ms?: number | null; current_index: number },
   offset: number,
   now: number = Date.now(),
 ): boolean {
   if (game.current_index < 0 || !game.reveal_at) return false;
   const remaining = remainingMs(
     new Date(game.reveal_at).getTime(),
-    ANSWER_TIMER_MS[game.answer_mode],
+    answerTimerMs(game),
     offset,
     now,
   );

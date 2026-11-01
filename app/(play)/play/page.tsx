@@ -20,6 +20,8 @@ import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { answerTimerMs, questionMultiplier } from "@/lib/gameConfig";
+import { useAutoAdvance } from "@/lib/realtime/useAutoAdvance";
 import { useAutoClose } from "@/lib/realtime/useAutoClose";
 import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
@@ -43,6 +45,7 @@ function PlayView() {
   const [challenging, setChallenging] = useState(false);
   const [reveal, setReveal] = useScopedState<RevealedAnswer | null>(`${token}:${game?.current_index}:${game?.reviewing}`, null);
   const remaining = useQuestionCountdown(game, offset);
+  useAutoAdvance(code, token, game, offset);
   useAutoClose(code, token, game, offset, false);
 
   const reviewing = game?.reviewing ?? false;
@@ -133,6 +136,8 @@ function PlayView() {
       {phase.phase === "question" && <AnswerProgress state={state} token={token} />}
 
       <GameStage
+        timerMs={answerTimerMs(game)}
+        doublePoints={questionMultiplier(game) === 2}
         phase={phase}
         question={question}
         currentIndex={game.current_index}

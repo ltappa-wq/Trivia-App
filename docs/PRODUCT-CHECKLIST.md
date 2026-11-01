@@ -211,3 +211,18 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Invalid credentials are removed; ended rooms are hidden from recovery offers while their credentials remain until expiry for results, placement and feedback; storage restrictions do not prevent play.
 - Home verifies saved rooms before offering host resume or player rejoin; join offers the remembered player seat alongside the editable new-player form for the entered code, preserving entered usernames and selected categories.
 - Hosts can copy a private recovery link in the lobby. Tokens travel only in its fragment, which is removed on arrival; playing hosts recover their player identity too. Anyone holding this link can control the game.
+
+### Configurable pacing and finale (R19, R31)
+
+- Host setup offers a 10/20/30/40/50/60-second answer timer. Mode default remains
+  20 seconds for multiple choice and 35 seconds for type-answer. Countdown,
+  auto-close, speed scoring, and upheld-answer rescoring use the same window.
+- Optional auto-advance waits 5/8/10/15 seconds after entering review (off by
+  default). Any connected participant can request a due advance when the host
+  tab sleeps; the server verifies the deadline and current index. Challenges
+  block it and resolving the last challenge restarts the full review delay.
+- During review the host can advance manually or pause/resume auto-advance for
+  that question. The final question always waits for the host to finish.
+- Optional double-points finale announces “Final question — double points!”
+  during get-ready. Correct final answers earn 1000–2000 points, including
+  upheld disputes; wrong/late answers still earn zero.

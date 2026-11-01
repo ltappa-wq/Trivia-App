@@ -15,6 +15,7 @@ import type { SubmitResult } from "@/app/actions/submitAnswer";
 import type { ClientQuestion, MyAnswer } from "@/lib/db/types";
 
 export interface QuestionStageProps {
+  timerMs?: number;
   question: ClientQuestion;
   currentIndex: number;
   /** Null while the countdown has not been computed yet; 0 once time is up. */
@@ -35,6 +36,7 @@ export interface QuestionStageProps {
 
 export function QuestionStage({
   question,
+  timerMs,
   currentIndex,
   remaining,
   voided,
@@ -54,7 +56,7 @@ export function QuestionStage({
     <>
       <h2>{question.prompt}</h2>
       {remaining !== null && (
-        <Countdown remaining={remaining} total={ANSWER_TIMER_MS[question.mode]} />
+        <Countdown remaining={remaining} total={timerMs ?? ANSWER_TIMER_MS[question.mode]} />
       )}
 
       {voided ? (

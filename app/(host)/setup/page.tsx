@@ -25,6 +25,8 @@ import {
   QUESTION_COUNT_MIN,
 } from "@/lib/gameConfig";
 import type { AnswerMode, Difficulty } from "@/lib/db/types";
+import { GameOptionsFields } from "@/components/GameOptionsFields";
+import type { GameOptionsInput } from "@/lib/gameConfig";
 import { formatNumber } from "@/lib/formatScore";
 
 type Status = "editing" | "creating" | "error";
@@ -89,6 +91,7 @@ export default function SetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [taglineIdx, setTaglineIdx] = useState(0);
 
+  const [gameOptions, setGameOptions] = useState<GameOptionsInput>({});
   const [hostPlays, setHostPlays] = useState(true);
   const [hostName, setHostName] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -171,6 +174,7 @@ export default function SetupPage() {
     try {
       const result = await createGame(
         {
+          ...gameOptions,
           categories,
           questionCount,
           answerMode,
@@ -425,6 +429,8 @@ export default function SetupPage() {
             ))}
           </span>
         </div>
+
+        <GameOptionsFields value={gameOptions} onChange={setGameOptions} answerMode={answerMode} />
 
         <button type="submit" disabled={!canSubmit}>
           Create game

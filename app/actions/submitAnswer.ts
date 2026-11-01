@@ -11,6 +11,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
 import { assertCanSubmitAnswer } from "@/lib/phaseGuards";
 import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
+import { questionMultiplier } from "@/lib/gameConfig";
 import { computeScore } from "@/lib/scoring/speed";
 import { currentStreak } from "@/lib/scoring/streak";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
@@ -40,7 +41,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
 
   const { data: game } = await supabase
     .from("games")
-    .select("id, code, current_index, reveal_at, answer_mode, paused, status, reviewing")
+    .select("id, code, current_index, reveal_at, answer_mode, answer_timer_ms, question_count, double_points_finale, paused, status, reviewing")
     .eq("id", player.gameId)
     .single();
   if (!game) throw new Error("No active question");
@@ -70,6 +71,8 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
 
   const points = computeScore({
     correct,
+    timerMs: game.answer_timer_ms,
+    multiplier: questionMultiplier(game),
     mode: game.answer_mode,
     revealAtMs,
     submitAtMs,
