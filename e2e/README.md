@@ -8,7 +8,7 @@ typed answering and persisted answers, and reconnect hydration.
 
 ## Local run
 
-Install Docker and the Supabase CLI (CI pins CLI 2.75.0), then:
+Install Docker and the Supabase CLI (CI pins CLI 2.122.0), then:
 
 ```sh
 npm ci
