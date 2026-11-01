@@ -252,3 +252,19 @@ renumbering/counts, category freeze, the regeneration cap, and grants.
 ## 0021: rematches
 
 Apply `0021_rematch.sql` before merging/deploying R26. Adds a nullable game link, service-only token-authorized create/transfer RPCs, and an additive `rematch_code` hydration field. Existing RPC signatures and fields remain unchanged; current deployed code can ignore the new field. No backfill is needed. On an isolated local database with migrations applied, run `psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0021_rematch.sql`; fixtures roll back. Never run fixtures against a live project.
+
+## 0023: read-only TV display
+
+Apply `0023_tv_display.sql` before merging/deploying R21. The migration adds a
+nullable `games.display_token_hash` and partial unique index, and preserves the
+exact signatures of `resolve_token(text)`, `close_question(text,text,integer,boolean)`
+and `auto_advance_question(text,text,integer)`. Existing host/player/spectator
+behavior is unchanged. The two mutation RPCs remain service-role-only and now
+explicitly reject display/unknown roles. Display credentials resolve with a null
+player identity, so existing hydration returns no personal answers; answer
+reveal/distribution remain review/ended-only and private reads remain host-only.
+No production credentials or automated application of this migration are needed.
+
+On a disposable local database with all migrations applied, run
+`psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0023_tv_display.sql`.
+The fixture rolls back and checks authorization, phase gates, grants and revocation.

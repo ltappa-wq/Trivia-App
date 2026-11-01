@@ -1,3 +1,4 @@
+vi.mock("@/lib/participantAuth", () => ({ authorizePacingToken: vi.fn().mockResolvedValue(undefined) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const { rpc, authorize, broadcast } = vi.hoisted(() => ({ rpc: vi.fn(), authorize: vi.fn(), broadcast: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ getServiceClient: () => ({ rpc }) }));

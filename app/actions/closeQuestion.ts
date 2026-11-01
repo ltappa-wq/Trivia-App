@@ -1,5 +1,6 @@
 "use server";
 
+import { authorizePacingToken } from "@/lib/participantAuth";
 import { getServiceClient } from "@/lib/supabase/server";
 import { normalizeCode } from "@/lib/join";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
@@ -19,6 +20,7 @@ export async function closeQuestion(
 ): Promise<CloseQuestionResult> {
   if (!Number.isInteger(expectedIndex) || expectedIndex < 0) return { status: "noop" };
   const roomCode = normalizeCode(code);
+  await authorizePacingToken(getServiceClient(), token, force);
   const { data, error } = await getServiceClient().rpc("close_question", {
     p_token: token,
     p_code: roomCode,

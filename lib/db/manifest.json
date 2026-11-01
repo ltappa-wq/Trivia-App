@@ -102,10 +102,6 @@
   "0009_phase_auth_hardening.sql": {
     "functions": [
       {
-        "signature": "resolve_token(text)",
-        "access": "service"
-      },
-      {
         "signature": "adjust_player_score(uuid,integer)",
         "access": "service"
       },
@@ -223,14 +219,6 @@
         "access": "service"
       },
       {
-        "signature": "close_question(text,text,integer,boolean)",
-        "access": "service"
-      },
-      {
-        "signature": "auto_advance_question(text,text,integer)",
-        "access": "service"
-      },
-      {
         "signature": "set_review_auto_advance(text,text,integer,boolean)",
         "access": "service"
       }
@@ -276,6 +264,25 @@
     ],
     "columns": [
       "games.rematch_game_id"
+    ]
+  },
+  "0023_tv_display.sql": {
+    "functions": [
+      {
+        "signature": "resolve_token(text)",
+        "access": "service"
+      },
+      {
+        "signature": "close_question(text,text,integer,boolean)",
+        "access": "service"
+      },
+      {
+        "signature": "auto_advance_question(text,text,integer)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.display_token_hash"
     ]
   }
 }

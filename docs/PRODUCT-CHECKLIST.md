@@ -247,3 +247,10 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - [x] The host can choose **Play again (same players)** on the end screen. A new room copies categories, question count, answer mode, difficulty, timer, auto-advance and finale options; questions and scores start fresh.
 - [x] Players still viewing results automatically enter the new lobby with their username and a new credential. Reloading results also discovers the rematch. Taken names receive a deterministic numbered suffix. The host retains hosting and playing participation.
 - [x] Repeated host requests return the same rematch; only the old host can create it, using the shared create-game rate limit. Players can transfer only from their own old game; host credentials are never exposed through hydration or broadcasts. Players who left can join normally by the new code.
+
+### R21 — Presenter / TV display
+
+- The host can open, regenerate, or revoke a private TV display link from the host header (including the lobby). The private link/QR carries a separate display token only in its URL fragment; opening it scrubs the fragment and keeps the credential in tab storage.
+- `/display?code=12345` is a read-only screen for a TV/projector, with viewport-scaled, high-contrast type for 1080p/4K: lobby join QR/code/roster, 3–2–1, question/options/timer, anonymous answered count, review answer/distribution/explanation, round leaderboard/rank movement, generic challenge pause, and podium/final standings.
+- The display never answers, challenges, adjudicates, closes or advances a question. It uses coalesced room hydration and reconnect recovery; a read-only periodic refresh detects missed revocations. Before review no answer key or distribution is readable; private challenge details and player suggestions remain host-only.
+- Display credentials are hashed separately on games and have no player identity. Replacing/revoking a link invalidates the old credential. Owner applies `0023_tv_display.sql` before deploying this feature.

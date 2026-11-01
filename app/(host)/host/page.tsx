@@ -6,6 +6,7 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
+import { DisplayLink } from "@/components/DisplayLink";
 import { JoinQrCode } from "@/components/JoinQrCode";
 import { Suspense, useMemo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -357,6 +358,7 @@ function HostView() {
               : `Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`}
         </p>
         {phase.phase !== "ended" && <SoundToggle />}
+        <DisplayLink key={token} code={code} token={token!} />
       </header>
       <GameFeedback phase={phase.phase} remaining={remaining}
         roundKey={`${game.id}:${game.current_index}`} answer={state?.my_answer ?? null}
