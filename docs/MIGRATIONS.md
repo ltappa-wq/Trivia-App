@@ -252,3 +252,12 @@ renumbering/counts, category freeze, the regeneration cap, and grants.
 ## 0021: rematches
 
 Apply `0021_rematch.sql` before merging/deploying R26. Adds a nullable game link, service-only token-authorized create/transfer RPCs, and an additive `rematch_code` hydration field. Existing RPC signatures and fields remain unchanged; current deployed code can ignore the new field. No backfill is needed. On an isolated local database with migrations applied, run `psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0021_rematch.sql`; fixtures roll back. Never run fixtures against a live project.
+
+## 0022: personal end-of-game recap
+
+Apply `0022_game_recap.sql` before merging R25. This additive migration introduces
+`game_recap(text)`, an ended-only, token-scoped client RPC, plus a nullable
+`answers.elapsed_ms` populated at insert by a new trigger. Existing deployed
+writers remain compatible. Historical answers retain null timing; no backfill
+or score-based estimate is performed. No existing RPC is replaced. Run
+`supabase/tests/0022_game_recap.sql` only on a disposable local database.
