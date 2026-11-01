@@ -1,3 +1,4 @@
+import { forgetToken } from "@/lib/clientSession";
 // U6. Client-side realtime: hydrate-then-delta (KTD8).
 // A client hydrates authoritative state from Postgres through the token-validated
 // security-definer RPC (never a direct table read — anon is default-deny, U2),
@@ -20,7 +21,9 @@ export async function hydrate(token: string): Promise<HydratedState | null> {
     p_token: token,
   });
   if (error) throw new Error(error.message);
-  return (data as HydratedState | null) ?? null;
+  const state = (data as HydratedState | null) ?? null;
+  if (!state || state.game.status === "ended") forgetToken(token);
+  return state;
 }
 
 /** Host-only: authoritative open challenges for the adjudication panel (U8). */

@@ -6,7 +6,9 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useMemo, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { SaveHostLink, SessionRecovery } from "@/components/SessionRecovery";
 import { useSearchParams } from "next/navigation";
 import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
@@ -15,7 +17,7 @@ import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
 import { endGame } from "@/app/actions/endGame";
 import { challenge } from "@/app/actions/challenge";
-import { loadHostCredential } from "@/lib/clientSession";
+import { consumeHostRecovery, loadHostCredential } from "@/lib/clientSession";
 import {
   answerDistribution,
   listCategorySuggestions,
@@ -52,7 +54,13 @@ export const maxDuration = 300;
 function HostView() {
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
-  const cred = loadHostCredential(code);
+  const [recovered, setRecovered] = useState(false);
+  useEffect(() => {
+    consumeHostRecovery(code);
+    // Wait for fragment consumption before exposing credentials to the room hook.
+    queueMicrotask(() => setRecovered(true));
+  }, [code]);
+  const cred = useMemo(() => recovered ? loadHostCredential(code) : null, [code, recovered]);
   const token = cred?.token ?? null;
 
   // Lobby join announcements (U9): fed by the single room channel via onPlayerJoined.
@@ -268,17 +276,20 @@ function HostView() {
     }
   }
 
+  if (!recovered) return <main aria-busy="true"><p>Loading…</p></main>;
   if (!cred) {
     return (
       <main>
         <h1>Host session not found</h1>
-        <p>Re-create the game from the setup screen to get a host link.</p>
+        <p>Open your saved private host link to recover this room, or use the browser where you hosted it.</p>
+        <SessionRecovery />
+        <Link href="/">Home</Link> · <Link href={`/join?code=${code}`}>Join this room as a player</Link>
       </main>
     );
   }
   if (loading) return <main aria-busy="true"><p>Loading…</p></main>;
   if (error) return <main><p role="alert">{error}</p></main>;
-  if (!game) return <main><p>Game not found.</p></main>;
+  if (!game) return <main><p>This saved session is no longer valid. Open a private host recovery link or join the room again.</p><Link href={`/join?code=${code}`}>Join room {code}</Link> · <Link href="/">Home</Link></main>;
 
   const leaderboard = state?.leaderboard ?? [];
   const question = state?.current_question ?? null;
@@ -313,6 +324,7 @@ function HostView() {
         </p>
       </header>
 
+      {game.status === "lobby" && <SaveHostLink credential={cred} />}
       {actionError && <p role="alert">{actionError}</p>}
 
       {game.paused && (

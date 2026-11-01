@@ -195,3 +195,9 @@ This checklist **replaces** the interim plan set previously under `docs/plans/`:
 - `2026-07-03-001-fix-review-phase-fixes-plan.md`
 
 Those files were removed to avoid conflicting/outdated requirement lists. Architecture notes may still live under `docs/solutions/`. Agent setup notes remain in `AGENTS.md`.
+
+### Session recovery (R3 / R4)
+
+- Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Ended and invalid credentials are removed; storage restrictions do not prevent play.
+- Home verifies saved rooms before offering host resume or player rejoin; join offers the remembered player seat for the entered code.
+- Hosts can copy a private recovery link in the lobby. Tokens travel only in its fragment, which is removed on arrival; playing hosts recover their player identity too. Anyone holding this link can control the game.

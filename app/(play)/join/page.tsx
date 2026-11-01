@@ -11,6 +11,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { joinGame } from "@/app/actions/joinGame";
 import { savePlayerCredential } from "@/lib/clientSession";
+import { SessionRecovery } from "@/components/SessionRecovery";
 import { CategoryPicker } from "@/components/CategoryPicker";
 
 function JoinForm() {
@@ -48,6 +49,7 @@ function JoinForm() {
   return (
     <main>
       <h1>Join a game</h1>
+      <SessionRecovery code={code}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -86,6 +88,7 @@ function JoinForm() {
           {submitting ? "Joining…" : "Join"}
         </button>
       </form>
+      </SessionRecovery>
     </main>
   );
 }
