@@ -198,6 +198,6 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 
 ### Session recovery (R3 / R4)
 
-- Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Ended and invalid credentials are removed; storage restrictions do not prevent play.
+- Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Invalid credentials are removed; ended rooms are hidden from recovery offers while their credentials remain until expiry for results, placement and feedback; storage restrictions do not prevent play.
 - Home verifies saved rooms before offering host resume or player rejoin; join offers the remembered player seat for the entered code.
 - Hosts can copy a private recovery link in the lobby. Tokens travel only in its fragment, which is removed on arrival; playing hosts recover their player identity too. Anyone holding this link can control the game.

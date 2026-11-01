@@ -4,7 +4,7 @@ import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionRecovery, SaveHostLink } from "../SessionRecovery";
-import { clearCredential, loadPlayerCredential, saveHostCredential, savePlayerCredential } from "@/lib/clientSession";
+import { clearCredential, loadHostCredential, loadPlayerCredential, saveHostCredential, savePlayerCredential } from "@/lib/clientSession";
 const hydrate = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/realtime/channel", () => ({ hydrate }));
 const host = { code: "12345", gameId: "g", token: "h" };
@@ -32,9 +32,9 @@ it("offers the remembered seat only for the entered code", async () => {
   expect(await screen.findByText("Rejoin as Alex")).toBeTruthy();
   expect(screen.queryByText("Create a seat")).toBeNull();
 });
-it.each([null, { role: "player", game: { code: "12345", status: "ended" } }])("removes invalid or ended credentials", async state => {
+it("removes invalid credentials", async () => {
   savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
-  hydrate.mockResolvedValue(state); render(<SessionRecovery />);
+  hydrate.mockResolvedValue(null); render(<SessionRecovery />);
   await waitFor(() => expect(loadPlayerCredential("12345")).toBeNull());
   expect(screen.queryByText(/Rejoin room/)).toBeNull();
 });
@@ -47,4 +47,15 @@ it("preserves identity on network failure without offering an unverified room", 
 it("explains private host link authority", () => {
   render(<SaveHostLink credential={host} />);
   expect(screen.getByText(/anyone with the link can control/)).toBeTruthy();
+});
+
+it.each([undefined, "12345"])("hides ended offers while retaining results identity (code %s)", async code => {
+  saveHostCredential({ ...host, playerToken: "p", username: "Alex" });
+  savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
+  hydrate.mockResolvedValue({ role: "player", game: { code: "12345", status: "ended" } });
+  render(<SessionRecovery code={code}><p>Join form</p></SessionRecovery>);
+  await waitFor(() => expect(hydrate).toHaveBeenCalled());
+  expect(screen.queryByText(/Resume hosting|Rejoin/)).toBeNull();
+  expect(loadPlayerCredential("12345")?.token).toBe("p");
+  expect(loadHostCredential("12345")?.token).toBe("h");
 });

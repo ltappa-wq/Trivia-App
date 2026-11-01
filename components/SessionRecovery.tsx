@@ -15,7 +15,9 @@ export function SessionRecovery({ code, children }: { code?: string; children?: 
     void Promise.all(candidates.map(async offer => {
       try {
         const state = await hydrate(offer.cred.token);
-        if (!state || state.game.status === "ended" || state.game.code !== offer.cred.code ||
+        // Keep ended credentials for results/feedback, but never offer recovery.
+        if (state?.game.status === "ended") return null;
+        if (!state || state.game.code !== offer.cred.code ||
           (offer.kind === "host" && state.role !== "host")) {
           clearCredential(offer.kind, offer.cred.code); return null;
         }

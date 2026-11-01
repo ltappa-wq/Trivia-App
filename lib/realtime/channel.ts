@@ -22,7 +22,8 @@ export async function hydrate(token: string): Promise<HydratedState | null> {
   });
   if (error) throw new Error(error.message);
   const state = (data as HydratedState | null) ?? null;
-  if (!state || state.game.status === "ended") forgetToken(token);
+  // Ended games still need identity for standings, placement and feedback.
+  if (!state) forgetToken(token);
   return state;
 }
 
