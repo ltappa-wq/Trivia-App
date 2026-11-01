@@ -6,7 +6,7 @@ import { AnswerProgress } from "../AnswerProgress";
 import type { HydratedState } from "@/lib/db/types";
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/browser", () => ({ getBrowserClient: () => ({ rpc }) }));
-const state: HydratedState = { role: "host", game: { id: "g", code: "12345", status: "active", answer_mode: "multiple_choice", difficulty: "medium", question_count: 3, current_index: 0, reveal_at: new Date(0).toISOString(), paused: false, reviewing: false }, player: null, current_question: null, leaderboard: [{ id: "a", username: "Alice", score: 0 }, { id: "b", username: "Bob", score: 0 }] };
+const state: HydratedState = { role: "host", game: { id: "g", code: "12345", status: "active", answer_mode: "multiple_choice", difficulty: "medium", question_count: 3, current_index: 0, reveal_at: new Date(0).toISOString(), paused: false, reviewing: false }, player: null, my_answer: null, current_question: null, leaderboard: [{ id: "a", username: "Alice", score: 0 }, { id: "b", username: "Bob", score: 0 }] };
 const data = { answered_count: 1, active_count: 2, answered_player_ids: ["a"] };
 beforeEach(() => { rpc.mockReset().mockResolvedValue({ data, error: null }); });
 afterEach(cleanup);
