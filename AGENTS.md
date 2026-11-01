@@ -17,7 +17,7 @@ Realtime) · xAI/Grok for generation.
 - `npm run dev` — local dev server
 - `npm run build` / `npm run start` — production build / serve
 - `npm run typecheck` — `tsc --noEmit`
-- `npm run lint` — ESLint (`next lint`)
+- `npm run lint` — ESLint (`eslint .`, flat config)
 - `npm test` — Vitest unit/integration (excludes `e2e/`)
 - `npm run test:e2e` — Playwright multi-client realtime specs (needs live env; see `e2e/README.md`)
 
@@ -25,8 +25,8 @@ Realtime) · xAI/Grok for generation.
 
 - Secrets live in `.env` (gitignored); `.env.example` documents every key with
   placeholders — never put a real key in `.env.example`.
-- Schema is in `supabase/migrations/` (`0001`–`0003`); apply them to the Supabase
-  project before running (SQL Editor or `supabase db`).
+- Schema is in `supabase/migrations/`; apply migrations before running. See
+  [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for ordering and the owner-operated runbook.
 
 ## Conventions
 
