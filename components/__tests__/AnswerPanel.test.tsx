@@ -40,3 +40,13 @@ describe("restored answer", () => {
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 });
+
+it("resets draft and pending submit state when the question changes", async () => {
+  const { fireEvent } = await import("@testing-library/react");
+  const props = { token: "player", question: { ...question, mode: "type_answer" as const }, currentIndex: 0, timeUp: false };
+  const { rerender } = render(<AnswerPanel {...props} />);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Paris" } });
+  rerender(<AnswerPanel {...props} currentIndex={1} question={{ ...props.question, index: 1 }} />);
+  expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
+  expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(true);
+});

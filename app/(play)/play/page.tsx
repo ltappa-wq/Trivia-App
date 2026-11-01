@@ -14,6 +14,7 @@
 import { Suspense, useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useScopedState } from "@/lib/useScopedState";
 import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
@@ -36,12 +37,11 @@ function PlayView() {
 
   const { state, offset, error, loading } = useRoomState(code, token);
 
-  const [result, setResult] = useState<SubmitResult | null>(null);
+  const game = state?.game ?? null;
+  const [result, setResult] = useScopedState<SubmitResult | null>(`${token}:${game?.current_index}`, null);
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challenging, setChallenging] = useState(false);
-  const [reveal, setReveal] = useState<RevealedAnswer | null>(null);
-
-  const game = state?.game ?? null;
+  const [reveal, setReveal] = useScopedState<RevealedAnswer | null>(`${token}:${game?.current_index}:${game?.reviewing}`, null);
   const remaining = useQuestionCountdown(game, offset);
   useAutoClose(code, token, game, offset, false);
 
@@ -64,10 +64,7 @@ function PlayView() {
   // the next question. R5: reset the persisted submit result on a new question so
   // `markedWrong` reflects this question, not a stale prior answer.
   useEffect(() => {
-    if (!token || !reviewing) {
-      setReveal(null);
-      return;
-    }
+    if (!token || !reviewing) return;
     let active = true;
     revealAnswer(token)
       .then((r) => {
@@ -77,11 +74,7 @@ function PlayView() {
     return () => {
       active = false;
     };
-  }, [token, reviewing, currentIndex]);
-
-  useEffect(() => {
-    setResult(null);
-  }, [currentIndex]);
+  }, [token, reviewing, currentIndex, setReveal]);
 
   async function raiseChallenge(type: ChallengeKind) {
     if (!token) return;

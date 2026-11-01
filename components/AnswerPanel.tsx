@@ -5,7 +5,7 @@
 // a parent can drive dependent affordances (e.g. the player's "my answer was
 // wrongly marked" challenge). Scoring/judging happen server-side (KTD4).
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { Fireworks } from "@/components/Fireworks";
 import { TILE_SHAPES } from "@/lib/answerShapes";
@@ -15,21 +15,27 @@ import { formatNumber } from "@/lib/formatScore";
 // Show the "in a row" badge only once it is worth celebrating (2+).
 const STREAK_BADGE_MIN = 2;
 
-export function AnswerPanel({
-  token,
-  myAnswer,
-  question,
-  currentIndex,
-  timeUp,
-  onResult,
-}: {
+type AnswerPanelProps = {
   token: string;
   myAnswer?: MyAnswer | null;
   question: ClientQuestion;
   currentIndex: number;
   timeUp: boolean;
   onResult?: (result: SubmitResult | null) => void;
-}) {
+};
+
+export function AnswerPanel(props: AnswerPanelProps) {
+  return <QuestionAnswerPanel key={`${props.token}:${props.currentIndex}`} {...props} />;
+}
+
+function QuestionAnswerPanel({
+  token,
+  myAnswer,
+  question,
+  currentIndex,
+  timeUp,
+  onResult,
+}: AnswerPanelProps) {
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
   const [localResult, setResult] = useState<SubmitResult | null>(null);
   const [typed, setTyped] = useState("");
@@ -38,16 +44,6 @@ export function AnswerPanel({
   const restoredResult = myAnswer ? { correct: myAnswer.is_correct, points: myAnswer.points, streak: myAnswer.streak } : null;
   const result = restoredResult ?? localResult;
   const locked = !!myAnswer || answeredIndex === currentIndex;
-
-  // Reset per question. Ref keeps the effect from re-firing on onResult identity.
-  const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
-  useEffect(() => {
-    setResult(null);
-    setTyped("");
-    setError(null);
-    onResultRef.current?.(null);
-  }, [currentIndex]);
 
   async function submit(answer: string) {
     if (locked || submitting) return;
@@ -58,7 +54,7 @@ export function AnswerPanel({
       setResult(res);
       setAnsweredIndex(currentIndex);
       setTyped("");
-      onResultRef.current?.(res);
+      onResult?.(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit");
     } finally {

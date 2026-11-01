@@ -6,6 +6,7 @@ import "server-only";
 // question-count ceiling abuse guard (KTD10).
 
 import { getServiceClient } from "@/lib/supabase/server";
+import { fixtureGenerationEnabled, fixtureQuestions } from "@/lib/generation/fixture";
 import { generateQuestions } from "@/lib/generation/xai";
 import { normalizePrompt } from "@/lib/generation/dedup";
 import { normalizedAnswerKey } from "@/lib/generation/answerKey";
@@ -26,8 +27,10 @@ export async function generateAndPersistQuestions(
   params: GenerationParams,
   onProgress?: (completed: number) => Promise<void>,
 ): Promise<number> {
+  const fixture = fixtureGenerationEnabled();
+  if (fixture) console.warn("[E2E FIXTURE MODE ACTIVE] Serving canned questions; xAI and question bank are bypassed.");
   const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) throw new Error("Missing XAI_API_KEY");
+  if (!fixture && !apiKey) throw new Error("Missing XAI_API_KEY");
 
   const supabase = getServiceClient();
 
@@ -36,22 +39,24 @@ export async function generateAndPersistQuestions(
   // silently truncated slice of the whole table. Best-effort — a bank read
   // failure logs and generates without exclusions rather than blocking a game
   // the host is waiting on.
-  const { entries } = await fetchBankEntries(
+  const { entries } = fixture ? { entries: [] } : await fetchBankEntries(
     supabase as unknown as BankQueryClient,
     params.categories,
   );
   const exclusions = buildBankExclusions(entries);
 
-  const questions = await generateQuestions(
+  const questions = fixture ? fixtureQuestions(params) : await generateQuestions(
     params,
     {
-      apiKey,
+      apiKey: apiKey!,
       onProgress,
       baseUrl: process.env.XAI_BASE_URL,
       model: process.env.XAI_MODEL,
     },
     exclusions,
   );
+
+  if (fixture) await onProgress?.(questions.length);
 
   const rows = questions.map((q, index) => ({
     game_id: gameId,
@@ -68,6 +73,8 @@ export async function generateAndPersistQuestions(
   if (error) {
     throw new Error(`Failed to persist questions: ${error.message}`);
   }
+
+  if (fixture) return rows.length;
 
   // Append to the durable bank (R7.1). Conflicts on prompt_norm are ignored so a
   // rare race can't fail the game; the game's own questions are already saved.

@@ -196,6 +196,11 @@ This checklist **replaces** the interim plan set previously under `docs/plans/`:
 
 Those files were removed to avoid conflicting/outdated requirement lists. Architecture notes may still live under `docs/solutions/`. Agent setup notes remain in `AGENTS.md`.
 
+## Deterministic verification
+
+- Multiplayer E2E runs against local Supabase with server-only canned questions in both answer modes (up to 100); no paid AI calls or hosted credentials in CI.
+- A separate, initially non-blocking E2E workflow applies repository migrations to its disposable local stack and cleans created games. Real xAI compatibility is an explicit opt-in smoke test.
+
 ### Session recovery (R3 / R4)
 
 - Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Invalid credentials are removed; ended rooms are hidden from recovery offers while their credentials remain until expiry for results, placement and feedback; storage restrictions do not prevent play.
