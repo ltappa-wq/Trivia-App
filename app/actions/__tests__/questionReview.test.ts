@@ -4,7 +4,7 @@ vi.mock("@/lib/supabase/server", () => ({ getServiceClient: () => ({ from: m.fro
 vi.mock("@/lib/serverAuth", () => ({ authorizeHostByCode: m.authorize }));
 vi.mock("@/lib/rateLimit", () => ({ checkSharedRateLimit: m.rate }));
 vi.mock("../generate", () => ({ generateAndPersistQuestions: m.generate }));
-import { editQuestionReview, getQuestionReview } from "../questionReview";
+import { editQuestionReview, getQuestionReview, getPreparedQuestionStatus } from "../questionReview";
 const q = { id: "q", index: 0, prompt: "Capital?", mode: "type_answer", accepted_variants: ["Paris"], difficulty: "easy" };
 beforeEach(() => {
   vi.clearAllMocks();
@@ -52,4 +52,18 @@ it("removes through the atomic host-token RPC", async () => {
   await editQuestionReview("12345", "host", "q", "remove");
   expect(m.rpc).toHaveBeenCalledWith("edit_review_question", expect.objectContaining({ p_operation: "remove", p_question_id: "q", p_host_token: "host" }));
   expect(m.generate).not.toHaveBeenCalled();
+});
+
+it("prepared-status polling returns only presence and never selects answer keys", async () => {
+  const eq = vi.fn(async () => ({ count: 2, error: null }));
+  const select = vi.fn(() => ({ eq })); m.from.mockReturnValue({ select });
+  expect(await getPreparedQuestionStatus("12345", "host")).toBe(true);
+  expect(m.authorize).toHaveBeenCalled();
+  expect(select).toHaveBeenCalledWith("id", { count: "exact", head: true });
+  expect(eq).toHaveBeenCalledWith("game_id", "g");
+});
+it("rejects unauthorized prepared-status reads", async () => {
+  m.authorize.mockRejectedValue(new Error("Not authorized"));
+  await expect(getPreparedQuestionStatus("12345", "player")).rejects.toThrow("Not authorized");
+  expect(m.from).not.toHaveBeenCalled();
 });

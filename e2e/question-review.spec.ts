@@ -29,3 +29,27 @@ test("host reviews, regenerates, removes, reloads, and starts the saved set", as
     expect(started).toMatchObject({ question_count: 1, regeneration_count: 1, current_index: 0 });
   } finally { await hostCtx.close(); await playerCtx.close(); }
 });
+
+test("prepared default-Start room hides answer keys until this screen opts in", async ({ browser, trackGame }) => {
+  const db = localDatabase();
+  const context = await browser.newContext();
+  try {
+    const { page: host, code } = await hostCreateGame(context, trackGame, { count: 2, hostPlays: false });
+    const { data: game, error: lookupError } = await db.from("games").select("id").eq("code", code).eq("status", "lobby").single();
+    expect(lookupError).toBeNull();
+    // Model default Start's persisted set followed by a failed advance.
+    const { error } = await db.from("questions").insert([0, 1].map(index => ({
+      game_id: game!.id, index, prompt: `Unreviewed question ${index}`, mode: "type_answer", difficulty: "easy",
+      accepted_variants: [index ? "Rome" : "Paris"], explanation: "Hidden explanation.",
+    })));
+    expect(error).toBeNull();
+    await expect(host.getByText(/Questions are prepared\. Category suggestions/)).toBeVisible();
+    await expect(host.getByRole("region", { name: "Question review" })).toBeHidden();
+    await expect(host.getByText("Hidden explanation.", { exact: true })).toBeHidden();
+    await host.reload();
+    await expect(host.getByText(/Questions are prepared\. Category suggestions/)).toBeVisible();
+    await expect(host.getByRole("region", { name: "Question review" })).toBeHidden();
+    await host.getByRole("button", { name: "Review questions first" }).click();
+    await expect(host.getByRole("region", { name: "Question review" })).toContainText("Accepted answers: Paris");
+  } finally { await context.close(); }
+});

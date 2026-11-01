@@ -7,6 +7,16 @@ import { generateAndPersistQuestions } from "./generate";
 import { GenerationError, generationFailureMessage } from "@/lib/generation/xai";
 import { generationQuestions, removeReviewQuestion, type QuestionReview, type ReviewQuestion } from "@/lib/questionReview";
 
+/** Lobby polling must not fetch answer keys until this browser opts into review. */
+export async function getPreparedQuestionStatus(code: string, token: string): Promise<boolean> {
+  const db = getServiceClient();
+  const game = await authorizeHostByCode(db, code, token);
+  if (game.status !== "lobby" || game.current_index !== -1) return false;
+  const { count, error } = await db.from("questions").select("id", { count: "exact", head: true }).eq("game_id", game.id);
+  if (error) throw new Error("Could not check prepared questions. Please retry.");
+  return (count ?? 0) > 0;
+}
+
 /** Dedicated host-only answer-key read. Never use player-readable hydration. */
 export async function getQuestionReview(code: string, token: string): Promise<QuestionReview> {
   const db = getServiceClient();

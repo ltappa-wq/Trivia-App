@@ -18,7 +18,7 @@ import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
 import { getQuestionReview, editQuestionReview } from "@/app/actions/questionReview";
 import { QuestionReviewPanel } from "@/components/QuestionReviewPanel";
-import type { QuestionReview } from "@/lib/questionReview";
+import { useQuestionReview } from "@/lib/useQuestionReview";
 import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
@@ -86,7 +86,6 @@ function HostView() {
   const [busy, setBusy] = useState(false);
   // Separate from `busy`: starting runs generation, so it is a long, blocking
   // operation the lobby reports on its own rather than a quick pacing action.
-  const [questionReview, setQuestionReview] = useState<QuestionReview | null>(null);
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Player-suggested categories the host has accepted (U10, R8). Nothing a
@@ -100,6 +99,9 @@ function HostView() {
     );
   }
   const game = state?.game ?? null;
+  const { review: questionReview, prepared: questionsPrepared, requestReview, setReview: setQuestionReview } = useQuestionReview({
+    code, token, gameId: game?.id ?? null, lobby: game?.status === "lobby", starting, busy,
+  });
   const challengeScope = `${token}:${game?.current_index}:${game?.paused}`;
   const reviewScope = `${token}:${game?.current_index}:${game?.reviewing}`;
   const [challenges, setChallenges] = useScopedState<OpenChallenge[]>(challengeScope, []);
@@ -150,18 +152,6 @@ function HostView() {
       active = false;
     };
   }, [token, game?.status, state]);
-
-  // Recover prepared questions on reload and reconcile edits from another host tab.
-  useEffect(() => {
-    if (!token || game?.status !== "lobby") return;
-    let active = true;
-    const refresh = () => getQuestionReview(code, token).then((review) => {
-      if (active) setQuestionReview(review.questions.length ? review : null);
-    }).catch(() => {});
-    void refresh();
-    const timer = setInterval(() => void refresh(), 3000);
-    return () => { active = false; clearInterval(timer); };
-  }, [code, token, game?.status, starting, busy]);
 
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
@@ -261,6 +251,7 @@ function HostView() {
   // the host free to retry — nothing is torn down.
   async function handleStart(reviewFirst = false) {
     if (!token) return;
+    if (reviewFirst) requestReview();
     setStarting(true);
     setActionError(null);
     try {
@@ -448,11 +439,12 @@ function HostView() {
               ))}
             </ul>
           )}
-          {!questionReview && <SuggestionsPanel
+          {!questionsPrepared && !questionReview && <SuggestionsPanel
             suggestions={suggestions}
             accepted={accepted}
             onToggle={toggleAccepted}
           />}
+          {questionsPrepared && !questionReview && <p>Questions are prepared. Category suggestions can no longer change this set. Choose review to show answers on this screen.</p>}
           {questionReview && <QuestionReviewPanel review={questionReview} busy={busy || starting} onEdit={handleQuestionEdit} />}
           {/* U8: Start now generates the question set, so it is a long operation
               with a real failure mode — reported here, in the lobby, instead of
