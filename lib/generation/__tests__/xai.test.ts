@@ -432,3 +432,14 @@ it("R5: keeps the timeout active while reading the provider response body", asyn
     await result;
   } finally { vi.useRealTimers(); }
 });
+
+it("keeps valid questions with missing or malformed explanations without retries", async () => {
+  const fetchImpl = mockFetch([[
+    mc("missing"),
+    { ...mc("bad"), explanation: { fact: "wrong shape" } },
+    { ...mc("good"), explanation: "A short relevant fact." },
+  ]]);
+  const questions = await generateQuestions(mcParams, { apiKey: "k", fetchImpl, maxAttempts: 1 });
+  expect(questions.map(q => q.explanation)).toEqual([null, null, "A short relevant fact."]);
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+});

@@ -87,12 +87,7 @@
     ]
   },
   "0007_reveal_answer.sql": {
-    "functions": [
-      {
-        "signature": "reveal_answer(text)",
-        "access": "client"
-      }
-    ],
+    "functions": [],
     "columns": []
   },
   "0008_answer_distribution.sql": {
@@ -203,6 +198,18 @@
     "columns": [
       "games.last_activity_at",
       "games.ended_at"
+    ]
+  },
+  "0018_question_explanations.sql": {
+    "functions": [
+      {
+        "signature": "reveal_answer(text)",
+        "access": "client"
+      }
+    ],
+    "columns": [
+      "questions.explanation",
+      "question_bank.explanation"
     ]
   },
   "0019_game_options.sql": {

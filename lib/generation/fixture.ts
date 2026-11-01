@@ -24,6 +24,7 @@ export function fixtureQuestions(params: GenerationParams): GeneratedQuestion[] 
   }
   return Array.from({ length: params.count }, (_, index) => ({
     prompt: `Fixture ${index + 1}: spell the number ${index}.`,
+    explanation: `The number ${index} is written as ${numberWords(index)} in English.`,
     mode: params.mode,
     difficulty: params.difficulty,
     ...(params.mode === "multiple_choice"

@@ -97,9 +97,10 @@ function buildMessages(
         `Generate exactly ${count} ${params.difficulty} trivia questions.`,
         `Categories: ${params.categories.join(", ")}.`,
         modeInstruction,
+        `Include an "explanation" string for every question: one sentence, at most 25 words and 300 characters, explaining the correct answer or a relevant fun fact.`,
         ...avoidBlock,
         ...avoidAnswerBlock,
-        `Return a JSON object of the form {"questions": [ ... ]} where each element has "prompt", the mode-specific fields above, and no extra fields.`,
+        `Return a JSON object of the form {"questions": [ ... ]} where each element has "prompt", "explanation", the mode-specific fields above, and no extra fields.`,
       ].join("\n"),
     },
   ];

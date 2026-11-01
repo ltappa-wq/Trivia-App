@@ -26,7 +26,12 @@ it.each(["multiple_choice", "type_answer"] as const)("provides 100 repeatable, v
   expect(questions).toHaveLength(100);
   expect(new Set(questions.map(q => q.prompt)).size).toBe(100);
   expect(new Set(questions.flatMap(correctAnswerKeys)).size).toBe(100);
-  for (const question of questions) expect(validateGeneratedQuestion(question, params).ok).toBe(true);
+  for (const question of questions) {
+    const result = validateGeneratedQuestion(question, params);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.question.explanation).toBe(question.explanation);
+    expect(question.explanation).toBeTruthy();
+  }
   expect(questions[0]?.prompt).toBe("Fixture 1: spell the number 0.");
 });
 it.each([0, 101, 1.5])("rejects invalid count %s", count => {
