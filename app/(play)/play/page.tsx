@@ -18,6 +18,8 @@ import type { SubmitResult } from "@/app/actions/submitAnswer";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
+import { useAutoClose } from "@/lib/realtime/useAutoClose";
+import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
 import { formatScore } from "@/lib/formatScore";
 import { GameOver } from "@/components/GameOver";
@@ -40,6 +42,7 @@ function PlayView() {
 
   const game = state?.game ?? null;
   const remaining = useQuestionCountdown(game, offset);
+  useAutoClose(code, token, game, offset, false);
 
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
@@ -131,6 +134,8 @@ function PlayView() {
           </p>
         </div>
       )}
+
+      {phase.phase === "question" && <AnswerProgress state={state} token={token} />}
 
       <GameStage
         phase={phase}
