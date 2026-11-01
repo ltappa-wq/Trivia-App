@@ -1,0 +1,225 @@
+{
+  "0001_init.sql": {
+    "functions": [],
+    "columns": [
+      "games.id",
+      "games.code",
+      "games.host_token_hash",
+      "games.status",
+      "games.categories",
+      "games.question_count",
+      "games.answer_mode",
+      "games.difficulty",
+      "games.current_index",
+      "games.reveal_at",
+      "games.paused",
+      "games.created_at",
+      "questions.id",
+      "questions.game_id",
+      "questions.index",
+      "questions.prompt",
+      "questions.mode",
+      "questions.options",
+      "questions.correct_option",
+      "questions.accepted_variants",
+      "questions.difficulty",
+      "questions.voided",
+      "questions.correction",
+      "players.id",
+      "players.game_id",
+      "players.username",
+      "players.score",
+      "players.is_spectator",
+      "players.joined_at",
+      "answers.id",
+      "answers.question_id",
+      "answers.player_id",
+      "answers.submitted_at",
+      "answers.raw_answer",
+      "answers.is_correct",
+      "answers.awarded_points",
+      "challenges.id",
+      "challenges.question_id",
+      "challenges.player_id",
+      "challenges.type",
+      "challenges.status",
+      "challenges.submitted_text",
+      "challenges.resolution",
+      "challenges.created_at"
+    ]
+  },
+  "0002_rpcs.sql": {
+    "functions": [],
+    "columns": []
+  },
+  "0003_challenges.sql": {
+    "functions": [
+      {
+        "signature": "list_open_challenges(text)",
+        "access": "client"
+      }
+    ],
+    "columns": []
+  },
+  "0004_code_retire.sql": {
+    "functions": [],
+    "columns": []
+  },
+  "0005_question_bank.sql": {
+    "functions": [],
+    "columns": [
+      "question_bank.id",
+      "question_bank.prompt",
+      "question_bank.prompt_norm",
+      "question_bank.mode",
+      "question_bank.options",
+      "question_bank.correct_option",
+      "question_bank.accepted_variants",
+      "question_bank.difficulty",
+      "question_bank.categories",
+      "question_bank.created_at"
+    ]
+  },
+  "0006_review_phase.sql": {
+    "functions": [],
+    "columns": [
+      "games.reviewing"
+    ]
+  },
+  "0007_reveal_answer.sql": {
+    "functions": [
+      {
+        "signature": "reveal_answer(text)",
+        "access": "client"
+      }
+    ],
+    "columns": []
+  },
+  "0008_answer_distribution.sql": {
+    "functions": [
+      {
+        "signature": "answer_distribution(text)",
+        "access": "client"
+      }
+    ],
+    "columns": []
+  },
+  "0009_phase_auth_hardening.sql": {
+    "functions": [
+      {
+        "signature": "resolve_token(text)",
+        "access": "service"
+      },
+      {
+        "signature": "adjust_player_score(uuid,integer)",
+        "access": "service"
+      },
+      {
+        "signature": "check_rate_limit(text,integer,integer)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "players.token_hash",
+      "rate_limit_hits.id",
+      "rate_limit_hits.key",
+      "rate_limit_hits.hit_at"
+    ]
+  },
+  "0010_question_count_100.sql": {
+    "functions": [],
+    "columns": []
+  },
+  "0011_question_bank_answer_key.sql": {
+    "functions": [],
+    "columns": [
+      "question_bank.answer_norm"
+    ]
+  },
+  "0012_category_suggestions.sql": {
+    "functions": [
+      {
+        "signature": "list_category_suggestions(text)",
+        "access": "client"
+      }
+    ],
+    "columns": [
+      "category_suggestions.id",
+      "category_suggestions.game_id",
+      "category_suggestions.player_id",
+      "category_suggestions.category",
+      "category_suggestions.created_at"
+    ]
+  },
+  "0013_atomic_game_writes.sql": {
+    "functions": [
+      {
+        "signature": "commit_answer(uuid,uuid,uuid,integer,text,boolean,integer,timestamp with time zone)",
+        "access": "service"
+      },
+      {
+        "signature": "create_challenge_and_pause(uuid,uuid,uuid,text,text)",
+        "access": "service"
+      },
+      {
+        "signature": "resolve_challenge(uuid,uuid,boolean,text)",
+        "access": "service"
+      }
+    ],
+    "columns": []
+  },
+  "0014_hydrate_my_answer.sql": {
+    "functions": [
+      {
+        "signature": "hydrate_game_state(text)",
+        "access": "client"
+      }
+    ],
+    "columns": []
+  },
+  "0015_room_reliability.sql": {
+    "functions": [
+      {
+        "signature": "close_question(text,text,integer,boolean)",
+        "access": "service"
+      },
+      {
+        "signature": "answer_progress(text)",
+        "access": "client"
+      },
+      {
+        "signature": "end_game(uuid)",
+        "access": "service"
+      }
+    ],
+    "columns": []
+  },
+  "0016_generation_progress.sql": {
+    "functions": [],
+    "columns": [
+      "games.generation_progress",
+      "games.generation_started_at",
+      "games.generation_error"
+    ]
+  },
+  "0017_stale_data_cleanup.sql": {
+    "functions": [
+      {
+        "signature": "track_game_activity()",
+        "access": "internal"
+      },
+      {
+        "signature": "touch_lobby_activity()",
+        "access": "internal"
+      },
+      {
+        "signature": "cleanup_stale_data(boolean)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.last_activity_at",
+      "games.ended_at"
+    ]
+  }
+}

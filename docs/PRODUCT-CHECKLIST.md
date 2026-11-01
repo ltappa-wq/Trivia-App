@@ -25,6 +25,11 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 
 ---
 
+## Data retention
+
+- [x] Inactive lobbies expire after 24 hours of no persisted activity; ended games and results expire after 7 days. Scheduled cleanup drains bounded batches, including players, questions, answers, challenges and suggestions. Active games and the durable question bank are retained.
+- [x] Rate-limit hits expire after 24 hours through scheduled cleanup.
+
 ## Actors
 
 | Role | What they do |
