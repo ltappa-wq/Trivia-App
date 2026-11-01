@@ -1,4 +1,4 @@
-name: E2E (optional)
+name: E2E
 
 on:
   pull_request:
@@ -15,7 +15,6 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    continue-on-error: true
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +45,7 @@ jobs:
       - name: Verify local generation schema and lease write
         run: node scripts/e2e-preflight.mjs
       - run: npx playwright install --with-deps chromium
-      - name: Deterministic multiplayer E2E
+      - name: Deterministic multiplayer and accessibility E2E
         run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

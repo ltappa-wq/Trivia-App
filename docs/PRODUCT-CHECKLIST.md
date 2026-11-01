@@ -232,3 +232,26 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Optional double-points finale announces “Final question — double points!”
   during get-ready. Correct final answers earn 1000–2000 points, including
   upheld disputes; wrong/late answers still earn zero.
+
+
+### R29 — accessibility
+
+- Shared gameplay moves focus to the phase heading on get-ready, question,
+  review and next-question transitions; results focus their heading. Timer ticks
+  preserve the player's current focus.
+- Dedicated polite announcements describe phases and challenge pauses. Timer
+  warnings change only at 10 seconds, 5 seconds and expiry. Countdown rings have
+  textual accessible names; results and correct/locked answers use text.
+- MC buttons expose letter, shape and answer names. Arrow/Home/End keys move
+  among tiles; 1–4 select from the question heading or tiles. Typed answers submit
+  with Enter. Inline host adjudication controls follow the document tab order.
+- Visible focus outlines, dark answer text, darker pink primary buttons and
+  success/error text, and contrasting input borders support the BUZZR palette.
+  Shapes, text and correctness symbols supplement colour.
+- Reduced motion disables CSS animation/transitions throughout the app and
+  reveals the podium immediately. Leaderboard movement and haptics already
+  respect the preference and are covered by unit tests.
+- Fixture E2E axe scans fail on serious/critical WCAG A/AA findings across home,
+  setup, join and both roles' game phases, with no rule exceptions. MC and typed
+  rounds exercise keyboard controls. New wave 4 screens require a final pass
+  after merging main; no migration is needed.

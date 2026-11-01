@@ -11,7 +11,8 @@
 // Pacing authority deliberately stays on the host page and arrives here as the
 // `controls` slot: deciding when to advance is not presentation.
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { focusPhase, phaseAnnouncement } from "@/lib/accessibility";
 import { GetReady } from "@/components/GetReady";
 import { ChallengeActions } from "@/components/ChallengeActions";
 import { QuestionStage } from "@/components/QuestionStage";
@@ -51,7 +52,20 @@ export interface GameStageProps {
   controls?: ReactNode;
 }
 
-export function GameStage({
+export function GameStage(props: GameStageProps) {
+  const container = useRef<HTMLDivElement>(null);
+  const phase = props.phase.phase;
+  const hasQuestion = props.question !== null;
+  useEffect(() => { focusPhase(container.current); }, [phase, props.currentIndex, hasQuestion]);
+  if (phase === "lobby" || phase === "ended" ||
+      (phase === "get_ready" ? !props.revealAt : !props.question)) return null;
+  return <div ref={container} className="stage-accessibility">
+    <p className="sr-only" role="status" aria-atomic="true">{phaseAnnouncement(phase, props.currentIndex)}</p>
+    <GameStageContent {...props} />
+  </div>;
+}
+
+function GameStageContent({
   phase,
   timerMs,
   doublePoints,
@@ -80,7 +94,7 @@ export function GameStage({
   if (phase.phase === "get_ready") {
     if (!revealAt) return null;
     return (
-      <section className="stage" aria-live="polite">
+      <section className="stage">
         <GetReady revealAt={revealAt} offset={offset} doublePoints={doublePoints} />
       </section>
     );
@@ -92,7 +106,8 @@ export function GameStage({
 
   if (phase.phase === "review") {
     return (
-      <section className="stage stage--review" aria-live="polite">
+      <section className="stage stage--review">
+        <h2 tabIndex={-1}>Question review</h2>
         <ReviewStage
           voided={phase.voided}
           reveal={reveal}
@@ -116,7 +131,7 @@ export function GameStage({
   const voided = paused ? question.voided : phase.voided;
 
   return (
-    <section className="stage" aria-live="polite">
+    <section className="stage">
       <QuestionStage
         question={question}
         timerMs={timerMs}

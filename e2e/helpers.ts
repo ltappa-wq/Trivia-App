@@ -7,7 +7,7 @@ import { type BrowserContext, type Page, expect } from "@playwright/test";
 
 /** Locator for the active question prompt on either the host or a play view. */
 export function questionPrompt(page: Page) {
-  return page.locator('section[aria-live="polite"] h2');
+  return page.locator('.stage [data-question-heading]');
 }
 
 /**
@@ -24,6 +24,7 @@ export async function hostCreateGame(
     mode?: "multiple_choice" | "type_answer";
     hostPlays?: boolean;
     hostName?: string;
+    answerTimerMs?: number;
   } = {},
 ): Promise<{ page: Page; code: string }> {
   // Isolate the real per-IP create limit across local retries without changing app guards.
@@ -39,6 +40,7 @@ export async function hostCreateGame(
   await page.getByLabel(opts.category ?? "Geography").check();
   if (opts.mode === "type_answer") await page.getByLabel("Type the answer", { exact: true }).check();
   await page.getByLabel("Number of questions").fill(String(opts.count ?? 2));
+  if (opts.answerTimerMs) await page.getByLabel("Answer timer", { exact: true }).selectOption(String(opts.answerTimerMs));
   await page.getByRole("button", { name: "Create game" }).click();
 
   // Setup creates the lobby; generation happens on Start game.

@@ -96,17 +96,17 @@ describe("get_ready phase (U6, R5)", () => {
 describe("question phase — who may answer (U6, R5)", () => {
   it("renders the answer input for a player", () => {
     render(<GameStage {...props()} />);
-    expect(screen.getByRole("button", { name: "Paris" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "A, triangle: Paris" })).toBeTruthy();
   });
 
   it("renders the answer input for a host who plays", () => {
     render(<GameStage {...props(asHostWhoPlays)} />);
-    expect(screen.getByRole("button", { name: "Paris" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "A, triangle: Paris" })).toBeTruthy();
   });
 
   it("shows a host-only gamemaster the options read-only, not as buttons", () => {
     render(<GameStage {...props(asHostOnly)} />);
-    expect(screen.queryByRole("button", { name: "Paris" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "A, triangle: Paris" })).toBeNull();
     const list = screen.getByRole("list");
     expect(within(list).getByText("Paris")).toBeTruthy();
     expect(within(list).getByText("Rome")).toBeTruthy();
@@ -136,7 +136,7 @@ describe("question phase — voided, spectating, paused (U6, R5)", () => {
       );
       // The host view had no voided handling at all before this unit.
       expect(screen.getByText(/voided/i)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Paris" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "A, triangle: Paris" })).toBeNull();
       cleanup();
     }
   });
@@ -144,14 +144,14 @@ describe("question phase — voided, spectating, paused (U6, R5)", () => {
   it("renders the sitting-out overlay for a spectator and no answer input", () => {
     render(<GameStage {...props({ spectating: true })} />);
     expect(screen.getByText(/sitting out this question/i)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Paris" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "A, triangle: Paris" })).toBeNull();
   });
 
   it("renders the paused overlay for BOTH roles and suppresses the answer input", () => {
     for (const role of [asHostWhoPlays, {}]) {
       render(<GameStage {...props({ ...role, phase: { phase: "paused" } })} />);
-      expect(screen.getByText(/paused/i)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Paris" })).toBeNull();
+      expect(screen.getByText(/Paused for review/i)).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "A, triangle: Paris" })).toBeNull();
       cleanup();
     }
   });
@@ -283,3 +283,16 @@ describe("page-owned phases and the controls slot (U6)", () => {
    expect(screen.getByText(/Correct/).textContent).toContain("+700");
    expect(screen.getByText(/Your answer: Paris/)).toBeTruthy();
  });
+
+it("focuses phase headings once per transition, preserving answer focus during ticks", () => {
+  const { rerender } = render(<GameStage {...props()} />);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
+  const answer = screen.getByRole("button", { name: "A, triangle: Paris" });
+  answer.focus();
+  rerender(<GameStage {...props({ remaining: 7000 })} />);
+  expect(document.activeElement).toBe(answer);
+  rerender(<GameStage {...props({ phase: { phase: "review", voided: false } })} />);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Question review" }));
+  rerender(<GameStage {...props({ currentIndex: 3 })} />);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
+});

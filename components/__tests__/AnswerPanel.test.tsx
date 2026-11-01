@@ -50,3 +50,26 @@ it("resets draft and pending submit state when the question changes", async () =
   expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
   expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(true);
 });
+
+it("names shapes and letters, moves focus with arrows and submits with a number", async () => {
+  const { fireEvent, waitFor } = await import("@testing-library/react");
+  const { submitAnswer } = await import("@/app/actions/submitAnswer");
+  vi.mocked(submitAnswer).mockResolvedValue({ correct: true, points: 900, streak: 1 });
+  render(<AnswerPanel token="player" question={question} currentIndex={0} timeUp={false} />);
+  const first = screen.getByRole("button", { name: "A, triangle: Paris" });
+  const second = screen.getByRole("button", { name: "B, diamond: Rome" });
+  first.focus();
+  fireEvent.keyDown(first, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(second);
+  fireEvent.keyDown(second, { key: "1" });
+  await waitFor(() => expect(submitAnswer).toHaveBeenCalledWith("player", "0"));
+});
+
+it("does not intercept typing or shortcuts outside the answer controls", async () => {
+  const { fireEvent } = await import("@testing-library/react");
+  const { submitAnswer } = await import("@/app/actions/submitAnswer");
+  vi.mocked(submitAnswer).mockClear();
+  render(<><input aria-label="Other field" /><AnswerPanel token="player" question={question} currentIndex={0} timeUp={false} /></>);
+  fireEvent.keyDown(screen.getByLabelText("Other field"), { key: "1" });
+  expect(submitAnswer).not.toHaveBeenCalled();
+});

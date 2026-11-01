@@ -18,16 +18,16 @@
   --muted: #716c88;
   --border: #e7e2f5;
   /* Accents */
-  --accent: oklch(0.64 0.19 340);
-  --accent-strong: oklch(0.52 0.19 340);
+  --accent: #ac2478;
+  --accent-strong: #8d1c63;
   --accent-soft: #f5f2fb;
   --accent-b: oklch(0.8 0.15 95); /* gold — 1st place / celebration */
   --blue: oklch(0.62 0.16 250); /* 2nd answer-tile color */
   /* Semantic */
   --success: oklch(0.7 0.17 150);
-  --success-strong: oklch(0.55 0.15 150);
+  --success-strong: #226b3b;
   --success-soft: oklch(0.95 0.04 150);
-  --danger: oklch(0.6 0.2 25);
+  --danger: #b32632;
   --danger-soft: oklch(0.95 0.03 25);
   /* Shape */
   --radius: 20px;
@@ -1243,7 +1243,7 @@ fieldset label.is-disabled {
 }
 
 /* The live question prompt (an h2 inside the live grid) reads largest. */
-.host-view .host-live > section[aria-live="polite"] h2 {
+.host-view .host-live .stage h2 {
   font-size: clamp(1.9rem, 4vw, 2.8rem);
 }
 
@@ -1264,19 +1264,17 @@ fieldset label.is-disabled {
 }
 
 @media (min-width: 880px) {
-  .host-live:has(> section[aria-live="polite"]) {
+  .host-live:has(.stage) {
     grid-template-columns: 1.5fr 1fr;
     align-items: start;
   }
 
-  .host-live > section {
+  .host-live .stage {
     margin-top: 0;
   }
 }
 
-/* U6. Shared in-game stage — one implementation for host and player. Layout
-   selectors above key on `section[aria-live="polite"]`, which .stage still is,
-   so the host's two-column live grid keeps working unchanged. */
+/* Shared in-game stage for both roles, independent of live-region markup. */
 .stage {
   display: grid;
   gap: 1rem;
@@ -1381,4 +1379,22 @@ fieldset label.is-disabled {
 .share-result { margin-block: 1rem; }
 @media (prefers-reduced-motion: reduce) {
   .round-leaderboard li { animation: none; transition: none; }
+}
+
+/* R29: shared safeguards also cover UI added after this accessibility pass. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.stage-accessibility { display: contents; }
+:focus-visible { outline: 3px solid #201c33; outline-offset: 4px; }
+input, textarea, select { border-color: #827a96; }
+.answer-tiles li button { color: var(--text); border-color: #827a96; }
+.answer-tile__shape { color: var(--text); }
+.adjudication .uphold, .copy-link button.is-copied { background: #226b3b; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+  .podium-step { opacity: 1; transform: none; }
 }

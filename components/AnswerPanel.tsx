@@ -5,11 +5,12 @@
 // a parent can drive dependent affordances (e.g. the player's "my answer was
 // wrongly marked" challenge). Scoring/judging happen server-side (KTD4).
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
 import { gameSound } from "@/lib/sound";
 import { Fireworks } from "@/components/Fireworks";
-import { TILE_SHAPES } from "@/lib/answerShapes";
+import { answerKeyIndex } from "@/lib/accessibility";
+import { TILE_SHAPES, TILE_SHAPE_NAMES } from "@/lib/answerShapes";
 import type { ClientQuestion, MyAnswer } from "@/lib/db/types";
 import { formatNumber } from "@/lib/formatScore";
 
@@ -37,6 +38,7 @@ function QuestionAnswerPanel({
   timeUp,
   onResult,
 }: AnswerPanelProps) {
+  const tiles = useRef<HTMLUListElement>(null);
   const [answeredIndex, setAnsweredIndex] = useState<number | null>(null);
   const [localResult, setResult] = useState<SubmitResult | null>(null);
   const [typed, setTyped] = useState("");
@@ -65,6 +67,24 @@ function QuestionAnswerPanel({
     }
   }
 
+  useEffect(() => {
+    if (question.mode !== "multiple_choice" || locked || timeUp || submitting) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement;
+      if (!tiles.current?.contains(target) && !target.matches("[data-question-heading]")) return;
+      const buttons = Array.from(tiles.current?.querySelectorAll("button") ?? []);
+      const current = Math.max(0, buttons.indexOf(target as HTMLButtonElement));
+      const next = answerKeyIndex(event.key, current, buttons.length);
+      if (next === null) return;
+      event.preventDefault();
+      buttons[next]?.focus();
+      if (/^[1-9]$/.test(event.key)) buttons[next]?.click();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [question.mode, locked, timeUp, submitting]);
+
   if (locked) {
     return (
       <p className={`result ${result?.correct ? "correct" : "wrong"}`} aria-live="assertive">
@@ -87,10 +107,10 @@ function QuestionAnswerPanel({
     <>
       {error && <p role="alert">{error}</p>}
       {question.mode === "multiple_choice" ? (
-        <ul className="answer-tiles">
+        <ul ref={tiles} className="answer-tiles" aria-label="Answer choices. Use arrow keys to move, Enter to choose, or number keys 1 to 4.">
           {(question.options ?? []).map((opt, i) => (
             <li key={i}>
-              <button type="button" disabled={submitting} onClick={() => submit(String(i))}>
+              <button type="button" aria-label={`${String.fromCharCode(65 + i)}, ${TILE_SHAPE_NAMES[i % TILE_SHAPE_NAMES.length]}: ${opt}`} disabled={submitting} onClick={() => submit(String(i))}>
                 <span className="answer-tile__shape" aria-hidden="true">
                   {TILE_SHAPES[i % TILE_SHAPES.length]}
                 </span>
