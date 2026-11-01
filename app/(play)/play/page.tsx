@@ -11,7 +11,8 @@
 // and it re-mounted and re-hydrated the whole app to show standings this page
 // already holds. /results remains for direct links and refreshes.
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useMemo, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useScopedState } from "@/lib/useScopedState";
 import { challenge } from "@/app/actions/challenge";
@@ -31,7 +32,7 @@ import type { RevealedAnswer } from "@/lib/db/types";
 function PlayView() {
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
-  const cred = loadPlayerCredential(code);
+  const cred = useMemo(() => loadPlayerCredential(code), [code]);
   const token = cred?.token ?? null;
 
   const { state, offset, error, loading } = useRoomState(code, token);
@@ -92,13 +93,14 @@ function PlayView() {
     return (
       <main>
         <h1>Not in this game</h1>
-        <p>Join from the code screen to play.</p>
+        <p>Use the browser where you joined to recover your seat, or join this room below.</p>
+        <Link href={`/join?code=${code}`}>Join room {code}</Link> · <Link href="/">Home</Link>
       </main>
     );
   }
   if (loading) return <main aria-busy="true"><p>Loading…</p></main>;
   if (error) return <main><p role="alert">{error}</p></main>;
-  if (!game) return <main><p>Game not found.</p></main>;
+  if (!game) return <main><p>This saved seat is no longer valid.</p><Link href={`/join?code=${code}`}>Join room {code}</Link> · <Link href="/">Home</Link></main>;
 
   const question = state?.current_question ?? null;
   const phase = derivePhase(game, question, offset);

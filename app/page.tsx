@@ -1,3 +1,4 @@
+import { SessionRecovery } from "@/components/SessionRecovery";
 import Link from "next/link";
 
 export default function Home() {
@@ -14,6 +15,7 @@ export default function Home() {
           <span className="home__brand">BUZZR</span>
         </h1>
         <p className="home__tag">Live, AI-generated multiplayer trivia.</p>
+        <SessionRecovery />
         <ul className="home__cta">
           <li>
             <Link className="cta-primary" href="/setup">

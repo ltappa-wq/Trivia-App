@@ -200,3 +200,9 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 
 - Multiplayer E2E runs against local Supabase with server-only canned questions in both answer modes (up to 100); no paid AI calls or hosted credentials in CI.
 - A separate, initially non-blocking E2E workflow applies repository migrations to its disposable local stack and cleans created games. Real xAI compatibility is an explicit opt-in smoke test.
+
+### Session recovery (R3 / R4)
+
+- Browser credentials persist for 12 hours since last use, with legacy tab-session recovery. Invalid credentials are removed; ended rooms are hidden from recovery offers while their credentials remain until expiry for results, placement and feedback; storage restrictions do not prevent play.
+- Home verifies saved rooms before offering host resume or player rejoin; join offers the remembered player seat alongside the editable new-player form for the entered code, preserving entered usernames and selected categories.
+- Hosts can copy a private recovery link in the lobby. Tokens travel only in its fragment, which is removed on arrival; playing hosts recover their player identity too. Anyone holding this link can control the game.
