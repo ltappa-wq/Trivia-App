@@ -9,8 +9,9 @@ async function scan(page: Page, phase: string) {
   await test.step(`axe: ${phase}`, async () => {
     if (await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)) {
       const moving = await page.locator("main, main *").evaluateAll(elements => elements.flatMap(el => {
+        if (!el.isConnected) return [];
         const style = getComputedStyle(el);
-        return style.animationName !== "none" || style.transitionDuration.split(",").some(value => parseFloat(value) > 0)
+        return (style.animationName !== "" && style.animationName !== "none") || style.transitionDuration.split(",").some(value => parseFloat(value) > 0)
           ? [el.outerHTML.slice(0, 160)] : [];
       }));
       expect(moving, "Reduced motion must disable animation and transitions throughout the screen").toEqual([]);
@@ -57,6 +58,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
     try {
       const { page: host, code } = await hostCreateGame(hostContext, trackGame, { mode, count: 1, hostPlays: false, answerTimerMs: 60000 });
       const player = await playerJoin(playerContext, code, "Keyboard player");
+      await expect(host.getByRole("listitem").filter({ hasText: "Keyboard player" })).toBeVisible();
       await Promise.all([scan(host, "host lobby"), scan(player, "player lobby")]);
       await keyboardActivate(host, host.getByRole("button", { name: "Start game" }));
       await expect(host.getByRole("timer", { name: /Next question in/ })).toBeVisible();
@@ -80,6 +82,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       await expect(host.getByRole("button", { name: "Reject" })).toBeVisible();
       await Promise.all([scan(host, "host paused"), scan(player, "player paused")]);
       await keyboardActivate(host, host.getByRole("button", { name: "Reject" }));
+      await expect(player.getByText(/Paused for review/i)).toBeHidden();
       await expect(questionPrompt(player)).toBeFocused();
       if (mode === "multiple_choice") {
         await player.keyboard.press("ArrowRight");
