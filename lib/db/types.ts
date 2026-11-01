@@ -23,6 +23,9 @@ export interface GameRow {
   paused: boolean;
   // True while the room is showing the post-question review leaderboard (R5).
   reviewing: boolean;
+  generation_progress?: number;
+  generation_started_at?: string | null;
+  generation_error?: string | null;
   created_at: string;
 }
 

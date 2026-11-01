@@ -78,6 +78,9 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] **No two questions in a set share the same correct answer** (normalized). Across *different* games the same answer is permitted, provided the prompts are dissimilar — two unrelated questions may both answer "Paris".
 - [x] Prompts are de-duplicated against a durable **question bank**: exact normalized-prompt match, plus **answer-anchored** near-duplicate detection — a candidate sharing a banked question's correct answer is rejected when its prompt is also similar, so rewordings no longer slip through.
 - [x] The bank read at generation is scoped to the categories in play and explicitly bounded, never a silently truncated slice of the table.
+- [x] Large sets use at most three concurrent AI batches, merged serially to reject sibling duplicates; generation has a bounded time budget.
+- [x] Host lobby shows accepted-question progress (e.g. **Writing questions… 36/100**) and recovers progress after reload. Progress polls use independent HTTP reads so updates continue while Start is pending. A failed progress read does not block Start/Retry; the server still enforces the generation lease. Interrupted generation can be retried without removing players.
+- [x] Provider timeouts/rate limits and insufficient valid output show distinct host messages with **Retry**.
 - [x] Short/invalid batches are **tail-regenerated** until count is met or attempts exhaust (loud failure).
 - [x] Difficulty on each stored question matches the host’s selected difficulty.
 

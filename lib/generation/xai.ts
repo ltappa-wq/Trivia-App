@@ -30,6 +30,9 @@ const DEFAULT_MAX_ATTEMPTS = 6;
 // Cap each completion request so large games (up to QUESTION_COUNT_MAX) fill via
 // several medium batches rather than one truncation-prone 100-question call.
 const GENERATION_BATCH_SIZE = 12;
+const GENERATION_CONCURRENCY = 3;
+// Leave 60 seconds of the route budget for bank reads, persistence and reveal.
+const GENERATION_BUDGET_MS = 240_000;
 // Per-attempt timeout so a hung xAI connection can't block createGame (and the
 // gamemaster) indefinitely — it aborts and surfaces a handled GenerationError.
 const DEFAULT_TIMEOUT_MS = 45_000;
@@ -42,12 +45,14 @@ export interface XaiConfig {
   fetchImpl?: typeof fetch;
   maxAttempts?: number;
   timeoutMs?: number;
+  budgetMs?: number;
+  onProgress?: (completed: number) => void | Promise<void>;
 }
 
 /** Thrown on any generation failure so callers surface a handled error state
  * (U4 Retry / Back-to-edit) rather than persisting a partial silent set. */
 export class GenerationError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly kind: "provider" | "invalid_output" | "configuration" = "invalid_output") {
     super(message);
     this.name = "GenerationError";
   }
@@ -131,39 +136,45 @@ async function requestBatch(
       signal: controller.signal,
     });
   } catch (err) {
+    clearTimeout(timer);
     const aborted = err instanceof Error && err.name === "AbortError";
     throw new GenerationError(
       aborted
         ? `xAI request timed out after ${config.timeoutMs}ms`
         : `xAI request failed: ${err instanceof Error ? err.message : String(err)}`,
+      "provider",
     );
+  }
+
+  try {
+    if (!res.ok) {
+      throw new GenerationError(`xAI returned ${res.status}`,
+        res.status === 429 || res.status >= 500 ? "provider" : "configuration");
+    }
+
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch {
+      if (controller.signal.aborted) throw new GenerationError("xAI request timed out reading response", "provider");
+      throw new GenerationError("xAI response was not valid JSON");
+    }
+
+    const content = (payload as { choices?: { message?: { content?: unknown } }[] })
+      ?.choices?.[0]?.message?.content;
+    if (typeof content !== "string") {
+      throw new GenerationError("xAI response missing message content");
+    }
+
+    // A truncated completion yields unparseable JSON; treat as an empty batch so
+    // the tail-regeneration loop retries rather than throwing (KTD10).
+    try {
+      return extractQuestionArray(JSON.parse(content));
+    } catch {
+      return [];
+    }
   } finally {
     clearTimeout(timer);
-  }
-
-  if (!res.ok) {
-    throw new GenerationError(`xAI returned ${res.status}`);
-  }
-
-  let payload: unknown;
-  try {
-    payload = await res.json();
-  } catch {
-    throw new GenerationError("xAI response was not valid JSON");
-  }
-
-  const content = (payload as { choices?: { message?: { content?: unknown } }[] })
-    ?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new GenerationError("xAI response missing message content");
-  }
-
-  // A truncated completion yields unparseable JSON; treat as an empty batch so
-  // the tail-regeneration loop retries rather than throwing (KTD10).
-  try {
-    return extractQuestionArray(JSON.parse(content));
-  } catch {
-    return [];
   }
 }
 
@@ -192,7 +203,7 @@ export async function generateQuestions(
   config: XaiConfig,
   exclusions: BankExclusions = NO_EXCLUSIONS,
 ): Promise<GeneratedQuestion[]> {
-  if (!config.apiKey) throw new GenerationError("Missing xAI API key");
+  if (!config.apiKey) throw new GenerationError("Missing xAI API key", "configuration");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
 
   const resolved = {
@@ -225,80 +236,105 @@ export async function generateQuestions(
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  const deadline = Date.now() + (config.budgetMs ?? GENERATION_BUDGET_MS);
+  let lastProviderError: GenerationError | undefined;
+  let attempts = 0;
+  while (attempts < maxAttempts && collected.length < params.count) {
+    const timeLeft = deadline - Date.now();
+    if (timeLeft <= 0) {
+      throw new GenerationError("xAI generation timed out; please retry.", "provider");
+    }
     const remaining = params.count - collected.length;
-    if (remaining <= 0) break;
+    const width = Math.min(GENERATION_CONCURRENCY, Math.ceil(remaining / GENERATION_BATCH_SIZE), maxAttempts - attempts);
+    // Each sibling sees a snapshot. Only the serial merge below mutates the
+    // acceptance indexes, so even simultaneously returned duplicates are rejected.
+    const requests = Array.from({ length: width }, (_, index) => {
+      const tail = remaining - index * GENERATION_BATCH_SIZE;
+      const requestCount = Math.min(GENERATION_BATCH_SIZE, tail + Math.min(2, tail));
+      const temperature = Math.min(1.1, 0.7 + attempts++ * 0.05);
+      return requestBatch(params, requestCount,
+        { ...resolved, timeoutMs: Math.min(resolved.timeoutMs, timeLeft) },
+        [...avoid], [...avoidAnswerLabels], temperature);
+    });
+    const results = await Promise.allSettled(requests);
+    for (const response of results) {
+      if (response.status === "rejected") {
+        const error = response.reason;
+        if (!(error instanceof GenerationError) || error.kind === "configuration") throw error;
+        if (error.kind === "provider") lastProviderError = error;
+        else { lastProviderError = undefined; rejections.add(error.message); }
+        continue;
+      }
+      lastProviderError = undefined;
+      const batch = response.value;
+      for (const raw of batch) {
+        if (collected.length >= params.count) break;
+        const result = validateGeneratedQuestion(raw, params);
+        if (!result.ok) {
+          rejections.add(result.reason);
+          continue;
+        }
+        const norm = normalizePrompt(result.question.prompt);
+        if (usedNorms.has(norm)) {
+          rejections.add("duplicate");
+          continue;
+        }
+        const answerKeys = correctAnswerKeys(result.question);
+        // R4, unchanged: within a single set, two questions may never share a
+        // correct answer even if the questions differ. The cross-game rule below
+        // is looser (R2) — a set with two "Paris" answers still reads as a bug.
+        if (answerKeys.some((k) => usedAnswers.has(k))) {
+          rejections.add("duplicate_answer");
+          continue;
+        }
 
-    // Request a medium batch (slight oversample for dup/invalid dropouts).
-    const requestCount = Math.min(GENERATION_BATCH_SIZE, remaining + Math.min(2, remaining));
-    // Diversify after the first pass so retries are less likely to echo banked prompts.
-    const temperature = Math.min(1.1, 0.7 + attempt * 0.05);
-    const batch = await requestBatch(
-      params,
-      requestCount,
-      resolved,
-      avoid,
-      avoidAnswerLabels,
-      temperature,
-    );
-    for (const raw of batch) {
-      if (collected.length >= params.count) break;
-      const result = validateGeneratedQuestion(raw, params);
-      if (!result.ok) {
-        rejections.add(result.reason);
-        continue;
-      }
-      const norm = normalizePrompt(result.question.prompt);
-      if (usedNorms.has(norm)) {
-        rejections.add("duplicate");
-        continue;
-      }
-      const answerKeys = correctAnswerKeys(result.question);
-      // R4, unchanged: within a single set, two questions may never share a
-      // correct answer even if the questions differ. The cross-game rule below
-      // is looser (R2) — a set with two "Paris" answers still reads as a bug.
-      if (answerKeys.some((k) => usedAnswers.has(k))) {
-        rejections.add("duplicate_answer");
-        continue;
-      }
+        // R1: answer-anchored near-duplicate check. The anchor narrows to the
+        // banked questions sharing this candidate's answer — nearly always none,
+        // in which case isNearDuplicate does no comparison at all — and only then
+        // is prompt similarity paid for. R2 lives here too: a shared answer with a
+        // dissimilar prompt falls through and is kept.
+        const anchor = normalizedAnswerKey(result.question);
+        const anchored = anchor ? promptsByAnswer.get(anchor) : undefined;
+        if (anchored && isNearDuplicate(norm, anchored)) {
+          rejections.add("near-duplicate");
+          continue;
+        }
 
-      // R1: answer-anchored near-duplicate check. The anchor narrows to the
-      // banked questions sharing this candidate's answer — nearly always none,
-      // in which case isNearDuplicate does no comparison at all — and only then
-      // is prompt similarity paid for. R2 lives here too: a shared answer with a
-      // dissimilar prompt falls through and is kept.
-      const anchor = normalizedAnswerKey(result.question);
-      const anchored = anchor ? promptsByAnswer.get(anchor) : undefined;
-      if (anchored && isNearDuplicate(norm, anchored)) {
-        rejections.add("near-duplicate");
-        continue;
+        usedNorms.add(norm);
+        for (const k of answerKeys) usedAnswers.add(k);
+        if (anchor) {
+          const bucket = promptsByAnswer.get(anchor);
+          if (bucket) bucket.push(norm);
+          else promptsByAnswer.set(anchor, [norm]);
+        }
+        avoid.push(result.question.prompt);
+        // Human-readable labels for the model avoid-list (primary answer text).
+        if (result.question.mode === "multiple_choice" && result.question.options) {
+          const idx = result.question.correct_option ?? -1;
+          const label = result.question.options[idx];
+          if (label) avoidAnswerLabels.push(label);
+        } else if (result.question.accepted_variants?.[0]) {
+          avoidAnswerLabels.push(result.question.accepted_variants[0]);
+        }
+        collected.push(result.question);
       }
-
-      usedNorms.add(norm);
-      for (const k of answerKeys) usedAnswers.add(k);
-      if (anchor) {
-        const bucket = promptsByAnswer.get(anchor);
-        if (bucket) bucket.push(norm);
-        else promptsByAnswer.set(anchor, [norm]);
-      }
-      avoid.push(result.question.prompt);
-      // Human-readable labels for the model avoid-list (primary answer text).
-      if (result.question.mode === "multiple_choice" && result.question.options) {
-        const idx = result.question.correct_option ?? -1;
-        const label = result.question.options[idx];
-        if (label) avoidAnswerLabels.push(label);
-      } else if (result.question.accepted_variants?.[0]) {
-        avoidAnswerLabels.push(result.question.accepted_variants[0]);
-      }
-      collected.push(result.question);
+      await config.onProgress?.(collected.length);
     }
   }
 
   if (collected.length < params.count) {
+    if (lastProviderError) throw lastProviderError;
     const detail = rejections.size > 0 ? ` (rejections: ${[...rejections].join("; ")})` : "";
     throw new GenerationError(
       `Generated only ${collected.length} of ${params.count} valid questions${detail}`,
     );
   }
   return collected;
+}
+
+/** Safe, actionable messages; do not expose provider payloads to the host. */
+export function generationFailureMessage(error: GenerationError): string {
+  if (error.kind === "provider") return "The question provider is busy or timed out. Please retry — your players are still seated.";
+  if (error.kind === "configuration") return "The question provider could not accept the request. Check the server’s xAI configuration, then retry.";
+  return "The AI could not produce enough valid, distinct questions. Please retry, or try broader categories — your players are still seated.";
 }

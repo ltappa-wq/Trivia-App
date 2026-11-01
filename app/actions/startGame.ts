@@ -22,6 +22,8 @@ import { authorizeHostByCode } from "@/lib/serverAuth";
 import { advance, type AdvanceResult } from "@/app/actions/advance";
 import { generateAndPersistQuestions } from "@/app/actions/generate";
 import { validateSetupInput } from "@/lib/gameConfig";
+import { GenerationError, generationFailureMessage } from "@/lib/generation/xai";
+import { GENERATION_LEASE_MS } from "@/lib/generation/progress";
 import { hasQuestions } from "@/lib/gameFlow";
 
 // Module-scoped concurrent-generation bound (best-effort per instance, KTD10).
@@ -30,6 +32,7 @@ const MAX_CONCURRENT_GENERATIONS = 3;
 let activeGenerations = 0;
 
 export type StartGameResult =
+  | { status: "generation_failed"; message: string }
   | { status: "started"; index: number; revealAt: string; timerMs: number }
   /** Already started — a double-tap must not generate a second set. */
   | { status: "already_started"; index: number };
@@ -86,33 +89,53 @@ export async function startGame(
     });
     if (!validated.ok) throw new Error(validated.error);
     categories = validated.value.categories;
-
-    const { error: catError } = await supabase
-      .from("games")
-      .update({ categories })
-      .eq("id", game.id);
-    if (catError) {
-      throw new Error(`Could not save categories: ${catError.message}`);
-    }
   }
 
   if (activeGenerations >= MAX_CONCURRENT_GENERATIONS) {
-    throw new Error("The server is busy generating games — please retry shortly.");
+    return { status: "generation_failed", message: "The server is busy generating games — please retry shortly." };
   }
 
+  // Database compare-and-set protects reloads and separate Vercel instances.
+  const startedAt = new Date().toISOString();
+  const staleBefore = new Date(Date.now() - GENERATION_LEASE_MS).toISOString();
   activeGenerations++;
   try {
+    const { data: claimed, error: claimError } = await supabase.from("games")
+      .update({ generation_started_at: startedAt, generation_progress: 0, generation_error: null,
+        ...(categories !== game.categories ? { categories } : {}) })
+      .eq("id", game.id)
+      .or(`generation_started_at.is.null,generation_started_at.lt.${staleBefore}`)
+      .select("id");
+    if (claimError) throw new Error("Could not start question generation. Please retry.");
+    if (!claimed?.length) throw new Error("Questions are already being prepared. Please wait.");
+
     await generateAndPersistQuestions(game.id, {
       categories,
       count: game.question_count,
       mode: game.answer_mode,
       difficulty: game.difficulty,
+    }, async (completed) => {
+      const { error } = await supabase.from("games")
+        .update({ generation_progress: completed }).eq("id", game.id)
+        .eq("generation_started_at", startedAt);
+      if (error) throw new Error("Could not save generation progress. Please retry.");
     });
+    const { error } = await supabase.from("games")
+      .update({ generation_started_at: null, generation_error: null })
+      .eq("id", game.id).eq("generation_started_at", startedAt);
+    if (error) throw new Error("Could not finish generation. Please retry.");
   } catch (err) {
     // No rollback (AE8): the room stays in the lobby with its players seated and
     // the host free to retry. The room simply has no questions yet, which every
     // reveal path already guards against (R10).
-    throw err instanceof Error ? err : new Error("Generation failed");
+    const message = err instanceof GenerationError ? generationFailureMessage(err)
+      : err instanceof Error ? err.message : "Generation failed — please retry.";
+    await supabase.from("games")
+      .update({ generation_started_at: null, generation_error: message })
+      .eq("id", game.id).eq("generation_started_at", startedAt);
+    // Return expected failures explicitly: Next production redacts thrown server
+    // errors, which would hide both the taxonomy and the Retry explanation.
+    return { status: "generation_failed", message };
   } finally {
     activeGenerations--;
   }

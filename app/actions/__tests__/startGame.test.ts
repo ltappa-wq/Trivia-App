@@ -44,8 +44,15 @@ function game(over: Partial<GameRow> = {}): GameRow {
 }
 
 /** Wire the two table calls startGame makes: a questions count and a games update. */
-function wireTables({ questionCount = 0, updateError = null as { message: string } | null } = {}) {
-  const updateEq = vi.fn(async () => ({ error: updateError }));
+function wireTables({ questionCount = 0, updateError = null as { message: string } | null, claimed = true } = {}) {
+  const chain = {
+    eq: vi.fn(() => chain),
+    or: vi.fn(() => chain),
+    select: vi.fn(async () => ({ data: claimed ? [{ id: "game-1" }] : [], error: updateError })),
+    then: (resolve: (value: unknown) => void) => Promise.resolve({ error: updateError }).then(resolve),
+  };
+  const updateEq = chain.eq;
+  const update = vi.fn((_patch: Record<string, unknown>) => chain);
   const deleteFn = vi.fn(() => ({ eq: async () => ({ error: null }) }));
   from.mockImplementation((table: string) => {
     if (table === "questions") {
@@ -54,11 +61,11 @@ function wireTables({ questionCount = 0, updateError = null as { message: string
       };
     }
     if (table === "games") {
-      return { update: () => ({ eq: updateEq }), delete: deleteFn };
+      return { update, delete: deleteFn };
     }
     throw new Error(`unexpected table ${table}`);
   });
-  return { updateEq, deleteFn };
+  return { updateEq, deleteFn, update };
 }
 
 beforeEach(() => {
@@ -106,7 +113,7 @@ describe("startGame — generation and start (U8, R9)", () => {
       count: 10,
       mode: "multiple_choice",
       difficulty: "medium",
-    });
+    }, expect.any(Function));
     expect(advance).toHaveBeenCalledWith("12345", "host-token", -1);
     expect(result).toMatchObject({ status: "started", index: 0 });
   });
@@ -125,13 +132,13 @@ describe("startGame — generation and start (U8, R9)", () => {
   });
 
   it("leaves the stored categories untouched when nothing was accepted", async () => {
-    const { updateEq } = wireTables({ questionCount: 0 });
+    const { update } = wireTables({ questionCount: 0 });
     authorizeHostByCode.mockResolvedValue(game());
     const { startGame } = await import("../startGame");
 
     await startGame("12345", "host-token", []);
 
-    expect(updateEq).not.toHaveBeenCalled();
+    expect(update.mock.calls.every(([patch]) => !("categories" in patch))).toBe(true);
     const [, params] = generateAndPersistQuestions.mock.calls[0];
     expect(params.categories).toEqual(["History", "Science"]);
   });
@@ -188,7 +195,7 @@ describe("AE8: a generation failure leaves the room intact (U8)", () => {
     generateAndPersistQuestions.mockRejectedValue(new Error("xAI returned 500"));
     const { startGame } = await import("../startGame");
 
-    await expect(startGame("12345", "host-token")).rejects.toThrow("xAI returned 500");
+    await expect(startGame("12345", "host-token")).resolves.toMatchObject({ status: "generation_failed", message: "xAI returned 500" });
 
     // The old createGame path deleted the room here. Players are seated by the
     // time this runs now, so the room must survive for the host to retry into.
@@ -202,7 +209,7 @@ describe("AE8: a generation failure leaves the room intact (U8)", () => {
     generateAndPersistQuestions.mockRejectedValueOnce(new Error("xAI returned 500"));
     const { startGame } = await import("../startGame");
 
-    await expect(startGame("12345", "host-token")).rejects.toThrow();
+    await expect(startGame("12345", "host-token")).resolves.toMatchObject({ status: "generation_failed" });
     const result = await startGame("12345", "host-token");
 
     expect(result).toMatchObject({ status: "started" });
@@ -219,7 +226,45 @@ describe("AE8: a generation failure leaves the room intact (U8)", () => {
     // slot leaked on the error path, the later ones would report "server busy"
     // instead of the real failure and the room would be permanently unstartable.
     for (let i = 0; i < 4; i++) {
-      await expect(startGame("12345", "host-token")).rejects.toThrow("boom");
+      await expect(startGame("12345", "host-token")).resolves.toMatchObject({ status: "generation_failed", message: "boom" });
     }
   });
+});
+
+describe("R5: progress and host-visible failures", () => {
+  it.each(["provider", "invalid_output"] as const)("returns an unredacted %s message and supports retry", async (kind) => {
+    wireTables();
+    authorizeHostByCode.mockResolvedValue(game());
+    const { GenerationError } = await import("@/lib/generation/xai");
+    generateAndPersistQuestions.mockRejectedValueOnce(new GenerationError("internal details", kind));
+    const { startGame } = await import("../startGame");
+    const failure = await startGame("12345", "host-token");
+    expect(failure).toMatchObject({ status: "generation_failed",
+      message: expect.stringMatching(kind === "provider" ? /provider.*retry/i : /valid, distinct.*retry/i) });
+    expect(advance).not.toHaveBeenCalled();
+    await expect(startGame("12345", "host-token")).resolves.toMatchObject({ status: "started" });
+  });
+});
+
+it("R5: rejects a second generation when another instance owns the room lease", async () => {
+  wireTables({ claimed: false });
+  authorizeHostByCode.mockResolvedValue(game());
+  const { startGame } = await import("../startGame");
+  await expect(startGame("12345", "host-token")).resolves.toMatchObject({
+    status: "generation_failed", message: expect.stringMatching(/already being prepared/),
+  });
+  expect(generateAndPersistQuestions).not.toHaveBeenCalled();
+});
+
+it("R5: persists accepted-question progress from the generation callback", async () => {
+  const { update } = wireTables();
+  authorizeHostByCode.mockResolvedValue(game({ question_count: 100 }));
+  generateAndPersistQuestions.mockImplementationOnce(async (_id, _params, onProgress) => {
+    await onProgress(36);
+    await onProgress(100);
+  });
+  const { startGame } = await import("../startGame");
+  await startGame("12345", "host-token");
+  expect(update).toHaveBeenCalledWith({ generation_progress: 36 });
+  expect(update).toHaveBeenCalledWith({ generation_progress: 100 });
 });
