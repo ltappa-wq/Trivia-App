@@ -1,63 +1,55 @@
-# Handoff: Buzzr Trivia UX Refresh
+# BUZZR
 
-## Overview
-A visual/UX refresh of the trivia app (rebranded "BUZZR" in the mockup — rename optional) adding motion, celebration moments, and mobile-first polish across the full host + player flow.
+BUZZR is a live, Kahoot-style AI trivia game. A host configures a game, xAI/Grok
+generates questions, and players join by room code for real-time, speed-scored
+play with challenges the host can adjudicate. Play is anonymous and ephemeral;
+no accounts are required.
 
-## About the Design Files
-`buzzr-trivia-redesign.dc.html` is a **design reference built in HTML** — a clickable prototype showing intended look, motion, and copy. It is NOT production code to paste in. The task is to **recreate this design inside the existing Next.js/React codebase** (`ltappa-wq/Trivia-App`), using its current architecture: server actions, Supabase realtime, and the existing component set (`AnswerPanel`, `AnswerReveal`, `Fireworks`, `JoinToast`, `Podium`), replacing `app/globals.css` styling and extending those components — not rewriting the data/realtime logic.
+## Stack
 
-## Fidelity
-**High-fidelity.** Colors, type, spacing, and motion in the mock are intended as final — implement pixel-close using the tokens below, adapted to CSS custom properties in `globals.css` (the current file already uses CSS vars in `:root`, so token swap-in is direct).
+Next.js 16 App Router, React 19 and TypeScript · Supabase Postgres + Realtime ·
+xAI/Grok · Vercel deployment.
 
-## Design tokens
+## Get started
 
-Colors (replace the `:root` block in `app/globals.css`):
-```
---ink: #201c33
---muted: #716c88
---surface: #ffffff
---surface-2: #f5f2fb
---border: #e7e2f5
---accent: oklch(0.64 0.19 340)      /* was --accent: #6d5efc */
---accent-strong: oklch(0.52 0.19 340)
---accent-soft: #f5f2fb
---accent-b: oklch(0.80 0.15 95)     /* new: gold, used for 1st place / celebration */
---blue: oklch(0.62 0.16 250)        /* new: 2nd answer-tile color */
---success: oklch(0.70 0.17 150)
---success-strong: oklch(0.55 0.15 150)
---danger: oklch(0.60 0.20 25)
---bg-grad-1: oklch(0.26 0.08 300)   /* was #1b1440 */
---bg-grad-2: oklch(0.15 0.045 280)  /* was #0f0b1e */
+Prerequisites: Node.js 20.9+ and npm, a Supabase project, and an xAI API key.
+Use a separate development Supabase project for local work.
+
+```sh
+npm ci
+cp .env.example .env
 ```
 
-Typography:
-- Headings/buttons/scores: **Fredoka** (600/700) — rounded, playful, replaces the current system-font headings.
-- Body/inputs: keep existing **Inter/system-ui** stack.
+Fill in the required Supabase URL, anon key, server-only service-role key and
+xAI key in `.env`; optional settings are documented in `.env.example`. Never
+commit secrets. Apply the files in `supabase/migrations/` in numbered order to
+your development project using the [migration runbook](docs/MIGRATIONS.md).
+Then run `npm run dev` and open http://localhost:3000.
 
-Radii: cards 20px, inputs/buttons 12–14px, pills 999px (unchanged scale from current CSS, just apply consistently).
+## Commands
 
-## Screens covered in the prototype (11 steps, use the step nav/dots to browse)
-1. **Home** — hero rename + two big CTA buttons ("🎤 Host a game" / "🏃 Join a game"), floating decorative shapes (`app/page.tsx`)
-2. **Host Setup** — rotating one-line joke tagline under the title (rotate every ~2.2s, 4 lines provided), colorful category pills, +/- question-count stepper, 3-button difficulty selector, animated CTA (`app/(host)/setup/page.tsx`)
-3. **Host Lobby** — big tiled room code, bouncing "X joined" toasts (staggered `joinPop` keyframe, 150ms stagger), player chip grid, **new: copy-shareable-join-link row** with a Copy button (`navigator.clipboard.writeText`, shows "✓ Copied" for ~1.6s) (`app/(host)/host/page.tsx`, `components/JoinToast.tsx`)
-4. **Player Join** — big digit-box code display, username field, bolt-icon submit (`app/(play)/join/page.tsx`)
-5. **Player Waiting** — bouncing controller emoji, animated waiting dots, "also here" chip list (`app/(play)/play/page.tsx`, lobby state)
-6. **Host Live Question** — two-column layout (question+timer left, live leaderboard right; **collapses to one column under 720px** — implement via a real CSS media query, the prototype fakes it with a JS width listener since inline-style-only tooling forced that workaround), color/shape-coded answer tiles (▲ ◆ ● ★), circular countdown ring that shifts to red + shakes at ≤3s
-7. **Player Answering** — same countdown/tile treatment, phone-first; tapping a tile locks in immediately and reveals correct/wrong inline (matches current `AnswerPanel` behavior)
-8. **Player Correct** — confetti burst (24 particles, radial `confettiBurst` keyframe) + trophy + streak badge "🔥 3 in a row!" (`components/Fireworks.tsx` — extend this, don't replace)
-9. **Host Review** — correct tile highlighted with ✅, per-option answer-distribution bar (new — needs a distribution query/RPC if not already available server-side)
-10. **Host Podium** — sequential reveal 3rd→2nd→1st (900ms steps) with confetti on 1st reveal (`components/Podium.tsx` already has this sequencing logic — just apply new visual styling, no logic change needed)
-11. **Player Results** — personal placement card ("You placed 2nd!") above full standings, winner row styled (`app/(play)/results/page.tsx`)
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Local development server |
+| `npm run build` / `npm run start` | Production build / serve |
+| `npm run typecheck` | TypeScript checks |
+| `npm run lint` | ESLint (`eslint .`, flat config) |
+| `npm test` | Vitest unit and integration tests |
+| `npm run test:e2e` | Playwright multi-client tests; requires live services and Chromium ([setup](e2e/README.md)) |
 
-## Interactions & motion specifics
-- Countdown ring: `conic-gradient(color pct%, var(--border) 0)`, color `--accent` → `--danger` at ≤3s, adds a horizontal shake keyframe at urgency.
-- Join toast: `joinPop` cubic-bezier(.22,1,.36,1), 700ms, staggered per-item delay.
-- Confetti: radial burst, particle count/duration/travel-distance are the three "motion intensity" tunables (subtle/playful/big) — see Tweaks in the prototype for exact numbers if you want a settings toggle server-side too.
-- Copy-link button: optimistic UI, resets after 1.6s regardless of clipboard permission result (fails silently in sandboxed contexts).
+## Project layout
 
-## Assets
-No external images — all iconography is emoji (kept deliberately, matches the app's existing lightweight style) plus CSS shapes (triangle/diamond/circle/star via unicode glyphs, not custom SVG).
+- `app/` — routes and pages; `app/actions/` contains token-authorized server actions.
+- `lib/` — game logic, generation, scoring and Supabase helpers.
+- `components/` — shared UI.
+- `supabase/migrations/` — ordered database schema and RPC migrations.
+- `e2e/` — Playwright realtime scenarios.
+- `docs/` — product checklist, operational guidance and design references.
 
-## Files
-- `buzzr-trivia-redesign.dc.html` — the interactive prototype (open directly in a browser; use the step arrows/dots at the top to move through all 11 screens).
-- `screenshots/01-home.png` … `11-player-results.png` — static capture of each screen in order, matching the numbered list above.
+## Documentation
+
+- [Product checklist](docs/PRODUCT-CHECKLIST.md) — expected functionality.
+- [Migration runbook](docs/MIGRATIONS.md) — owner-operated database releases.
+- [Documented solutions](docs/solutions/) — architecture and past fixes.
+- [Agent guidance](AGENTS.md) — repository conventions.
+- [Design handoff](docs/design/README.md) — UX reference and screenshots.
