@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
 import { testStorage } from "@/test/stubs/storage";
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SessionRecovery, SaveHostLink } from "../SessionRecovery";
 import { clearCredential, loadHostCredential, loadPlayerCredential, saveHostCredential, savePlayerCredential } from "@/lib/clientSession";
-const hydrate = vi.hoisted(() => vi.fn());
+import JoinPage from "@/app/(play)/join/page";
+import { CATEGORIES } from "@/lib/gameConfig";
+const { hydrate, joinGame, push } = vi.hoisted(() => ({ hydrate: vi.fn(), joinGame: vi.fn(), push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), useSearchParams: () => new URLSearchParams() }));
+vi.mock("@/app/actions/joinGame", () => ({ joinGame }));
 vi.mock("@/lib/realtime/channel", () => ({ hydrate }));
 const host = { code: "12345", gameId: "g", token: "h" };
 beforeEach(() => {
+  joinGame.mockReset().mockResolvedValue({ code: "12345", token: "new", username: "Sam" });
+  push.mockReset();
   const persistent = testStorage(), tab = testStorage();
   Object.defineProperty(window, "localStorage", { configurable: true, get: () => persistent });
   Object.defineProperty(window, "sessionStorage", { configurable: true, get: () => tab });
@@ -25,12 +31,12 @@ it("offers verified host and player recovery", async () => {
 });
 it("offers the remembered seat only for the entered code", async () => {
   savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
-  const { rerender } = render(<SessionRecovery code="99999"><p>Create a seat</p></SessionRecovery>);
+  const { rerender } = render(<><SessionRecovery code="99999" /><p>Create a seat</p></>);
   expect(screen.queryByText("Rejoin as Alex")).toBeNull();
   expect(screen.getByText("Create a seat")).toBeTruthy();
-  rerender(<SessionRecovery code="12345"><p>Create a seat</p></SessionRecovery>);
+  rerender(<><SessionRecovery code="12345" /><p>Create a seat</p></>);
   expect(await screen.findByText("Rejoin as Alex")).toBeTruthy();
-  expect(screen.queryByText("Create a seat")).toBeNull();
+  expect(screen.getByText("Create a seat")).toBeTruthy();
 });
 it("removes invalid credentials", async () => {
   savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
@@ -53,9 +59,33 @@ it.each([undefined, "12345"])("hides ended offers while retaining results identi
   saveHostCredential({ ...host, playerToken: "p", username: "Alex" });
   savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
   hydrate.mockResolvedValue({ role: "player", game: { code: "12345", status: "ended" } });
-  render(<SessionRecovery code={code}><p>Join form</p></SessionRecovery>);
+  render(<SessionRecovery code={code} />);
   await waitFor(() => expect(hydrate).toHaveBeenCalled());
   expect(screen.queryByText(/Resume hosting|Rejoin/)).toBeNull();
   expect(loadPlayerCredential("12345")?.token).toBe("p");
   expect(loadHostCredential("12345")?.token).toBe("h");
+});
+
+it("keeps the join form mounted and editable when a remembered room is entered", async () => {
+  savePlayerCredential({ code: "12345", token: "p", username: "Alex" });
+  render(<JoinPage />);
+  const code = screen.getByLabelText("Room code") as HTMLInputElement;
+  const username = screen.getByLabelText("Username") as HTMLInputElement;
+  fireEvent.change(code, { target: { value: "1234" } });
+  fireEvent.change(username, { target: { value: "Sam" } });
+  fireEvent.click(screen.getByRole("button", { name: CATEGORIES[0] }));
+  fireEvent.change(code, { target: { value: "12345" } });
+  expect(await screen.findByText("Rejoin as Alex")).toBeTruthy();
+  expect(screen.getByLabelText("Room code")).toBe(code);
+  expect(screen.getByLabelText("Username")).toBe(username);
+  expect(username.value).toBe("Sam");
+  expect(screen.getByRole("button", { name: CATEGORIES[0] }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.change(code, { target: { value: "99999" } });
+  expect(code.value).toBe("99999");
+  expect(screen.queryByText("Rejoin as Alex")).toBeNull();
+  fireEvent.change(code, { target: { value: "12345" } });
+  await screen.findByText("Rejoin as Alex");
+  fireEvent.click(screen.getByRole("button", { name: "Join" }));
+  await waitFor(() => expect(joinGame).toHaveBeenCalledWith("12345", "Sam", [CATEGORIES[0]]));
+  expect(push).toHaveBeenCalledWith("/play?code=12345");
 });

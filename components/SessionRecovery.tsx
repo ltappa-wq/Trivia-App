@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listCredentials, loadPlayerCredential, clearCredential, hostRecoveryUrl, type HostCredential, type PlayerCredential } from "@/lib/clientSession";
 import { hydrate } from "@/lib/realtime/channel";
 
-export function SessionRecovery({ code, children }: { code?: string; children?: ReactNode }) {
+export function SessionRecovery({ code }: { code?: string }) {
   const [offers, setOffers] = useState<{ kind: "host" | "player"; cred: HostCredential | PlayerCredential }[]>([]);
   useEffect(() => {
     let active = true;
@@ -27,7 +27,7 @@ export function SessionRecovery({ code, children }: { code?: string; children?: 
     return () => { active = false; };
   }, [code]);
   const visible = offers.filter(o => code === undefined || o.cred.code === code);
-  return <div aria-label="Saved games">{visible.length === 0 && children}{visible.map(({ kind, cred }) =>
+  return <div aria-label="Saved games">{visible.map(({ kind, cred }) =>
     <p key={`${kind}:${cred.code}`}><Link href={`/${kind === "host" ? "host" : "play"}?code=${encodeURIComponent(cred.code)}`}>
       {kind === "host" ? `Resume hosting room ${cred.code}` : code === undefined ? `Rejoin room ${cred.code} as ${cred.username}` : `Rejoin as ${cred.username}`}
     </Link></p>)}</div>;

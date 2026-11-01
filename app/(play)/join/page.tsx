@@ -49,7 +49,7 @@ function JoinForm() {
   return (
     <main>
       <h1>Join a game</h1>
-      <SessionRecovery code={code}>
+      <SessionRecovery code={code} />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -88,7 +88,6 @@ function JoinForm() {
           {submitting ? "Joining…" : "Join"}
         </button>
       </form>
-      </SessionRecovery>
     </main>
   );
 }
