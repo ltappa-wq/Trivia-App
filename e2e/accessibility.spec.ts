@@ -5,6 +5,14 @@ import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 
 async function scan(page: Page, phase: string) {
   await test.step(`axe: ${phase}`, async () => {
+    if (await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      const moving = await page.locator("main, main *").evaluateAll(elements => elements.flatMap(el => {
+        const style = getComputedStyle(el);
+        return style.animationName !== "none" || style.transitionDuration.split(",").some(value => parseFloat(value) > 0)
+          ? [el.outerHTML.slice(0, 160)] : [];
+      }));
+      expect(moving, "Reduced motion must disable animation and transitions throughout the screen").toEqual([]);
+    }
     const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     expect(result.violations.filter(v => v.impact === "serious" || v.impact === "critical"),
       JSON.stringify(result.violations, null, 2)).toEqual([]);
@@ -23,12 +31,15 @@ async function keyboardActivate(page: Page, target: Locator) {
   throw new Error("Control could not be reached by keyboard");
 }
 
-test("home, setup and join have no serious or critical WCAG violations", async ({ page }) => {
-  for (const route of ["/", "/setup", "/join"]) {
-    await page.goto(route);
-    await scan(page, route);
-  }
-});
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`home, setup and join: ${reducedMotion}, no serious or critical WCAG violations`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    for (const route of ["/", "/setup", "/join"]) {
+      await page.goto(route);
+      await scan(page, route);
+    }
+  });
+}
 
 for (const mode of ["multiple_choice", "type_answer"] as const) {
   test(`${mode}: host and player phases, axe and keyboard round`, async ({ browser, trackGame }) => {

@@ -17,6 +17,7 @@
   --text: #201c33;
   --muted: #716c88;
   --border: #e7e2f5;
+  --control-border: #827a96;
   /* Accents */
   --accent: #ac2478;
   --accent-strong: #8d1c63;
@@ -302,7 +303,7 @@ select {
   font: inherit;
   padding: 0.65rem 0.8rem;
   min-height: 46px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text);
@@ -784,8 +785,8 @@ section p.result.wrong {
 }
 .answer-dist__row:nth-child(1) { --bar-color: var(--accent); --tile-color: var(--accent); }
 .answer-dist__row:nth-child(2) { --bar-color: var(--blue); --tile-color: var(--blue); }
-.answer-dist__row:nth-child(3) { --bar-color: var(--accent-b); --tile-color: var(--accent-b); }
-.answer-dist__row:nth-child(4) { --bar-color: var(--success); --tile-color: var(--success); }
+.answer-dist__row:nth-child(3) { --bar-color: #916600; --tile-color: var(--accent-b); }
+.answer-dist__row:nth-child(4) { --bar-color: var(--success-strong); --tile-color: var(--success); }
 .answer-dist__label {
   grid-column: 1 / -1;
   display: flex;
@@ -818,7 +819,7 @@ section p.result.wrong {
   white-space: nowrap;
 }
 .answer-dist__row.is-correct {
-  --bar-color: var(--success);
+  --bar-color: var(--success-strong);
 }
 .answer-dist__row.is-correct .answer-dist__label {
   color: var(--success-strong);
@@ -1205,7 +1206,7 @@ section p.overlay {
   width: 100%;
   min-height: 100px;
   padding: 0.75rem 0.9rem;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--control-border);
   border-radius: var(--radius-sm);
   resize: vertical;
 }
@@ -1388,8 +1389,7 @@ fieldset label.is-disabled {
 }
 .stage-accessibility { display: contents; }
 :focus-visible { outline: 3px solid #201c33; outline-offset: 4px; }
-input, textarea, select { border-color: #827a96; }
-.answer-tiles li button { color: var(--text); border-color: #827a96; }
+.answer-tiles li button { color: var(--text); border-color: var(--control-border); }
 .answer-tile__shape { color: var(--text); }
 .adjudication .uphold, .copy-link button.is-copied { background: #226b3b; }
 @media (prefers-reduced-motion: reduce) {

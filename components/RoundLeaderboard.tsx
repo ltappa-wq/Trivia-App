@@ -31,7 +31,7 @@ export function RoundLeaderboard({ standings, baseline, reviewing }: {
       const delta = reviewing ? deltas.get(p.id) : null;
       return <li key={p.id} data-player={p.id} value={p.rank}>
         {p.username} — {formatScore(p.score)}
-        {delta != null && delta !== 0 && <span className="rank-movement" aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} ranks`}> {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}</span>}
+        {delta != null && delta !== 0 && <span className="rank-movement" role="img" aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} ranks`}> {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}</span>}
       </li>;
     })}
   </ol>;

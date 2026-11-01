@@ -90,3 +90,12 @@ Reduced-motion contexts verify the podium is visible without animation/delay.
 Inline challenge panels remain in the normal tab order and do not trap focus;
 there are currently no modal dialogs. Any future modal must contain focus while
 open, handle Escape where dismissible, and restore focus to its trigger.
+
+Measured sRGB shared palette pairs (WCAG relative luminance): primary text on
+`#f5f2fb` is 14.88:1, muted text on that surface is 4.52:1, white text on pink
+`#ac2478` is 6.41:1 (and 8.47:1 on the darker gradient endpoint), and the
+`#827a96` input/tile border on the secondary surface is 3.67:1. Green and red
+text on white are 6.49:1 and 6.48:1 respectively. Decorative celebration gold
+is retained; chart bars use darker gold/green, and correct answers have text.
+Disabled controls are exempt from WCAG contrast requirements; no axe exclusions
+are used for them.
