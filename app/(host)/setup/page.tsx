@@ -106,6 +106,11 @@ export default function SetupPage() {
 
   const [restoringSettings, setRestoringSettings] = useState(false);
   function restoreSettings(settings: SavedSetup) {
+    setGameOptions({
+      answerTimerMs: settings.answerTimerMs ?? null,
+      autoAdvanceMs: settings.autoAdvanceMs ?? null,
+      doublePointsFinale: settings.doublePointsFinale ?? false,
+    });
     setCategories(settings.categories);
     setQuestionCount(settings.questionCount);
     setAnswerMode(settings.answerMode);
@@ -194,7 +199,7 @@ export default function SetupPage() {
         },
         { plays: hostPlays, name: hostName },
       );
-      saveSetup({ categories, questionCount, answerMode, difficulty, hostPlays, hostName });
+      saveSetup({ ...gameOptions, categories, questionCount, answerMode, difficulty, hostPlays, hostName });
       saveHostCredential({
         gameId: result.gameId,
         code: result.code,

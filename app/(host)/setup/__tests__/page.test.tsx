@@ -4,7 +4,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import SetupPage from "../page";
-import { saveSetup } from "@/lib/savedSetup";
+import { readSavedSetup, saveSetup } from "@/lib/savedSetup";
 const mocks = vi.hoisted(() => ({ validate: vi.fn(), create: vi.fn(), push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock("@/app/actions/validateCategory", () => ({ validateCustomCategory: mocks.validate }));
@@ -49,5 +49,34 @@ it("saves only after successful creation, including host-only settings", async (
   mocks.create.mockResolvedValueOnce({ gameId: "g", code: "12345", hostToken: "t" });
   fireEvent.click(screen.getByText("Retry"));
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/host?code=12345"));
-  expect(JSON.parse(store.getItem("buzzr:last-setup")!).settings).toEqual({ ...settings, categories: ["Science"], hostPlays: false, questionCount: 15 });
+  expect(JSON.parse(store.getItem("buzzr:last-setup")!).settings).toEqual({ ...settings, categories: ["Science"], hostPlays: false, questionCount: 15, answerTimerMs: null, autoAdvanceMs: null, doublePointsFinale: false });
+});
+
+it("restores pacing options and saves changed options only after creation succeeds", async () => {
+  saveSetup({ ...settings, categories: ["Science"], answerTimerMs: 60000, autoAdvanceMs: 8000, doublePointsFinale: true });
+  mocks.create.mockResolvedValueOnce({ gameId: "g", code: "12345", hostToken: "t" });
+  render(<SetupPage />);
+  fireEvent.click(await screen.findByText("Use last settings"));
+  await waitFor(() => expect((screen.getByLabelText("Answer timer") as HTMLSelectElement).value).toBe("60000"));
+  expect((screen.getByLabelText("Auto-advance after review") as HTMLSelectElement).value).toBe("8000");
+  expect((screen.getByLabelText("Double-points finale") as HTMLInputElement).checked).toBe(true);
+  fireEvent.change(screen.getByLabelText("Answer timer"), { target: { value: "10000" } });
+  fireEvent.change(screen.getByLabelText("Auto-advance after review"), { target: { value: "15000" } });
+  fireEvent.click(screen.getByLabelText("Double-points finale"));
+  fireEvent.click(screen.getByRole("button", { name: "Create game" }));
+  await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/host?code=12345"));
+  expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ answerTimerMs: 10000, autoAdvanceMs: 15000, doublePointsFinale: false }), expect.anything());
+  expect(readSavedSetup()).toMatchObject({ answerTimerMs: 10000, autoAdvanceMs: 15000, doublePointsFinale: false });
+});
+it("restoring an older version-1 save resets selected pacing options to legacy defaults", async () => {
+  store.setItem("buzzr:last-setup", JSON.stringify({ version: 1, settings: { ...settings, categories: ["Science"] } }));
+  render(<SetupPage />);
+  fireEvent.change(screen.getByLabelText("Answer timer"), { target: { value: "10000" } });
+  fireEvent.change(screen.getByLabelText("Auto-advance after review"), { target: { value: "8000" } });
+  fireEvent.click(screen.getByLabelText("Double-points finale"));
+  fireEvent.click(await screen.findByText("Use last settings"));
+  await waitFor(() => expect((screen.getByLabelText("Answer timer") as HTMLSelectElement).value).toBe(""));
+  expect(screen.getByText("Mode default (35 seconds)")).toBeTruthy();
+  expect((screen.getByLabelText("Auto-advance after review") as HTMLSelectElement).value).toBe("");
+  expect((screen.getByLabelText("Double-points finale") as HTMLInputElement).checked).toBe(false);
 });
