@@ -312,3 +312,31 @@ describe("atomic gameplay writes migration (0013)", () => {
     expect(atomicWrites).toMatch(/revoke execute on function public\.resolve_challenge[\s\S]*from public, anon, authenticated/i);
   });
 });
+
+const restoreAnswer = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0014_hydrate_my_answer.sql", import.meta.url)),
+  "utf8",
+);
+describe("current player answer hydration (0014)", () => {
+  it("preserves every existing hydrated field", () => {
+    const fields = [...reviewPhase.matchAll(/'([a-z_]+)',/g)].map((m) => m[1]);
+    for (const field of fields) expect(restoreAnswer).toContain(`'${field}',`);
+  });
+  it("remains token validated, security definer and executable by clients", () => {
+    expect(restoreAnswer).toContain("from public.resolve_token(p_token)");
+    expect(restoreAnswer).toContain("if v_game_id is null then");
+    expect(restoreAnswer).toContain("security definer");
+    expect(restoreAnswer).toContain("set search_path = public, extensions");
+    expect(restoreAnswer).toContain("grant execute on function public.hydrate_game_state(text) to anon, authenticated");
+  });
+  it("returns only the resolved player's answer on the room's current question", () => {
+    expect(restoreAnswer).toContain("'my_answer', (");
+    expect(restoreAnswer).toContain("a.question_id = q.id and a.player_id = v_pid");
+    expect(restoreAnswer).toContain("q.game_id = g.id and q.index = g.current_index");
+    expect(restoreAnswer).toContain("'raw_answer', a.raw_answer");
+    expect(restoreAnswer).toContain("'is_correct', a.is_correct");
+    expect(restoreAnswer).toContain("'points', a.awarded_points");
+    expect(restoreAnswer).not.toContain("correct_option");
+    expect(restoreAnswer).not.toContain("accepted_variants");
+  });
+});

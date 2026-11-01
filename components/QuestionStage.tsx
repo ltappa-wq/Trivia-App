@@ -12,7 +12,7 @@ import { ANSWER_TIMER_MS } from "@/lib/gameConfig";
 import { AnswerPanel } from "@/components/AnswerPanel";
 import { Countdown } from "@/components/Countdown";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
-import type { ClientQuestion } from "@/lib/db/types";
+import type { ClientQuestion, MyAnswer } from "@/lib/db/types";
 
 export interface QuestionStageProps {
   question: ClientQuestion;
@@ -29,6 +29,7 @@ export interface QuestionStageProps {
    * play; absent for a host-only gamemaster, who sees the question read-only.
    */
   playerToken: string | null;
+  myAnswer?: MyAnswer | null;
   onResult?: (result: SubmitResult | null) => void;
 }
 
@@ -40,6 +41,7 @@ export function QuestionStage({
   paused,
   spectating,
   playerToken,
+  myAnswer,
   onResult,
 }: QuestionStageProps) {
   const timeUp = remaining !== null && remaining <= 0;
@@ -69,6 +71,8 @@ export function QuestionStage({
         </p>
       ) : canAnswer ? (
         <AnswerPanel
+          key={currentIndex}
+          myAnswer={myAnswer}
           token={playerToken}
           question={question}
           currentIndex={currentIndex}

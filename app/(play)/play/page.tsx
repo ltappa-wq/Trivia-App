@@ -54,7 +54,9 @@ function PlayView() {
 
   // The player was marked wrong on their answer -> offer the "wrongly marked"
   // challenge variant. A spectator's non-scoring result doesn't count.
-  const markedWrong = result !== null && !result.correct && !result.spectating;
+  const markedWrong = !spectating && (result !== null
+    ? !result.correct && !result.spectating
+    : state?.my_answer?.is_correct === false);
 
   // R1. Once the room enters review, fetch the correct answer (gated RPC) to show
   // it; clear it when the question changes or review ends so it never bleeds into
@@ -144,6 +146,7 @@ function PlayView() {
         remaining={remaining}
         isHost={false}
         spectating={spectating}
+        myAnswer={state?.my_answer}
         playerToken={cred.token}
         reveal={reveal}
         distribution={null}

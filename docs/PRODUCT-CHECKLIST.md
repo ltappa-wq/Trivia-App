@@ -149,7 +149,8 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Server actions authorize by token; clients never supply trusted player ids for writes.
 - [x] Clients read via token-validated RPCs; tables are default-deny RLS.
 - [x] Answer keys are not exposed while a question is still answerable.
-- [x] Broadcast is best-effort; clients **hydrate** authoritative state on subscribe/reconnect.
+- [x] Broadcast is best-effort; clients **hydrate** authoritative state immediately on subscribe/reconnect and phase changes. Leaderboard/join bursts coalesce for 250ms (maximum scheduling delay 1s), with one hydrate in flight per client.
+- [x] Reloading a live question restores the player’s locked answer, points, streak badge, and marked-wrong dispute option, including the playing host’s answer.
 - [x] Phase locks: no submit during review/pause/ended; advance cannot skip open challenges or revive ended games.
 - [x] Optional Sentry error monitoring when DSN is configured.
 
