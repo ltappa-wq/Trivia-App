@@ -57,7 +57,7 @@ For each completed checklist item, record the implementation PR/commit or releva
 
 ### Phase 1 implementation notes
 
-- Atomic gameplay RPCs are in `supabase/migrations/0011_atomic_game_writes.sql`; service-role only. Answer writes include score and all-answered review transition. Challenge creation includes pausing, and resolution includes challenge state, void/rescore, and resume state.
+- Atomic gameplay RPCs are in `supabase/migrations/0013_atomic_game_writes.sql`; service-role only. Answer writes include score and all-answered review transition. Challenge creation includes pausing, and resolution includes challenge state, void/rescore, and resume state.
 - Server action wiring is in `app/actions/submitAnswer.ts`, `app/actions/challenge.ts`, and `app/actions/adjudicate.ts`. Game cleanup error handling is in `app/actions/createGame.ts`.
 - Static migration contract tests were added to `lib/db/__tests__/schema.test.ts`. `npm test` and `npm run typecheck` pass. Database-backed race/failure-injection tests remain outstanding because they require applying the migration to a Supabase test database; the migration has not been applied or exercised against a live database in this pass.
-- Direct ESLint invocation is currently unavailable: ESLint 9 is installed while the repository only has legacy `.eslintrc.json` configuration.
+- ESLint 9 uses the flat configuration in `eslint.config.mjs`; `npm run lint` runs `eslint .`.
