@@ -80,6 +80,7 @@ export function useRoomState(
         [ROOM_EVENTS.resume]: reconcile,
         [ROOM_EVENTS.void]: reconcile,
         [ROOM_EVENTS.results]: reconcile,
+        [ROOM_EVENTS.rematch]: reconcile,
       },
       // Re-hydrate on every (re)subscribe so a reconnect recovers missed deltas.
       reconcile,

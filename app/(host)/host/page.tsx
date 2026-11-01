@@ -43,6 +43,7 @@ import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
 import { formatNumber } from "@/lib/formatScore";
 import { JoinToast } from "@/components/JoinToast";
+import { Rematch } from "@/components/Rematch";
 import { GameOver } from "@/components/GameOver";
 import { GameFeedback, SoundToggle } from "@/components/GameFeedback";
 import { RoundRecap, useRoundSnapshot } from "@/components/RoundRecap";
@@ -485,11 +486,14 @@ function HostView() {
       </div>
 
       {ended && (
-        <GameOver
-          standings={leaderboard}
-          myPlayerId={state?.player?.id}
-          roomCode={game.code}
-        />
+        <>
+          <GameOver
+            standings={leaderboard}
+            myPlayerId={state?.player?.id}
+            roomCode={game.code}
+          />
+          <Rematch code={game.code} rematchCode={state?.game.rematch_code} host />
+        </>
       )}
     </main>
   );

@@ -123,6 +123,7 @@ export interface ClientQuestion {
 }
 
 export interface ClientGame {
+  rematch_code?: string | null;
   id: string;
   code: string;
   status: GameStatus;

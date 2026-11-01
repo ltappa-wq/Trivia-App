@@ -24,6 +24,7 @@ export const ROOM_EVENTS = {
   void: "void",
   /** Final standings — the game ended (U9). */
   results: "results",
+  rematch: "rematch",
 } as const;
 
 export type RoomEvent = (typeof ROOM_EVENTS)[keyof typeof ROOM_EVENTS];

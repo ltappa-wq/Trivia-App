@@ -232,3 +232,9 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Optional double-points finale announces “Final question — double points!”
   during get-ready. Correct final answers earn 1000–2000 points, including
   upheld disputes; wrong/late answers still earn zero.
+
+### Rematches (R26)
+
+- [x] The host can choose **Play again (same players)** on the end screen. A new room copies categories, question count, answer mode, difficulty, timer, auto-advance and finale options; questions and scores start fresh.
+- [x] Players still viewing results automatically enter the new lobby with their username and a new credential. Reloading results also discovers the rematch. Taken names receive a deterministic numbered suffix. The host retains hosting and playing participation.
+- [x] Repeated host requests return the same rematch; only the old host can create it, using the shared create-game rate limit. Players can transfer only from their own old game; host credentials are never exposed through hydration or broadcasts. Players who left can join normally by the new code.

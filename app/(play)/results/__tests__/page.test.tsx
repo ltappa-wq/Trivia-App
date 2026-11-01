@@ -8,7 +8,7 @@ import { clearCredential, loadHostCredential, loadPlayerCredential, saveHostCred
 import { testStorage } from "@/test/stubs/storage";
 
 const rpc = vi.hoisted(() => vi.fn());
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("code=12345") }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("code=12345"), useRouter: () => ({ replace: vi.fn() }) }));
 vi.mock("@/app/actions/serverTime", () => ({ serverNow: async () => Date.now() }));
 vi.mock("@/lib/supabase/browser", () => ({ getBrowserClient: () => ({
   rpc,

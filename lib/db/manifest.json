@@ -223,10 +223,6 @@
         "access": "service"
       },
       {
-        "signature": "hydrate_game_state(text)",
-        "access": "client"
-      },
-      {
         "signature": "close_question(text,text,integer,boolean)",
         "access": "service"
       },
@@ -244,6 +240,25 @@
       "games.auto_advance_ms",
       "games.auto_advance_at",
       "games.double_points_finale"
+    ]
+  },
+  "0021_rematch.sql": {
+    "functions": [
+      {
+        "signature": "hydrate_game_state(text)",
+        "access": "client"
+      },
+      {
+        "signature": "create_rematch(text,text,text)",
+        "access": "service"
+      },
+      {
+        "signature": "join_rematch(text,text)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.rematch_game_id"
     ]
   }
 }
