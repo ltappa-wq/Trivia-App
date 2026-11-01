@@ -58,6 +58,8 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 
 ## 2. Host setup
 
+- [x] **Use last settings** restores the last successfully created game’s categories, question count, answer mode, difficulty, host participation and name from this browser. Custom topics are AI-validated again before restoration. **Clear saved settings** removes the saved copy; versioned storage safely ignores invalid/old data and unavailable storage never blocks creation.
+
 - [x] Host can **play too** (default on) with a required display name, or host-only.
 - [x] Host selects **one or more categories** from a built-in list (~30+).
 - [x] Host may add **custom categories** (free text).
@@ -100,7 +102,7 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Players may **suggest categories** on the join screen (optional, from the built-in catalog, capped per player); suggestions travel with the join.
 - [x] Host lobby shows suggested categories live, aggregated with a count of how many players asked, and the host **accepts or ignores** each one — nothing a player submits changes the game until the host accepts it.
 - [x] Accepted suggestions merge into the host's categories at start and shape the generated set; the category cap still applies.
-- [x] Host lobby shows room code, shareable **copy join link**, and live roster.
+- [x] Host lobby shows room code, shareable **copy join link**, a high-contrast 320px QR of the absolute join URL (with quiet zone and accessible label), and live roster.
 - [x] New joins produce a short **join toast** animation on the host lobby.
 - [x] Host can start once at least one player is present (host-only); host-as-player is already seated at create when that option is on.
 

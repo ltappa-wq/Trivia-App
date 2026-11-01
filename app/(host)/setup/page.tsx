@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createGame } from "@/app/actions/createGame";
 import { validateCustomCategory } from "@/app/actions/validateCategory";
+import { SavedSetupControls } from "@/components/SavedSetupControls";
+import { saveSetup, type SavedSetup } from "@/lib/savedSetup";
 import { saveHostCredential } from "@/lib/clientSession";
 import {
   ANSWER_MODES,
@@ -102,6 +104,16 @@ export default function SetupPage() {
   const [answerMode, setAnswerMode] = useState<AnswerMode>("multiple_choice");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
 
+  const [restoringSettings, setRestoringSettings] = useState(false);
+  function restoreSettings(settings: SavedSetup) {
+    setCategories(settings.categories);
+    setQuestionCount(settings.questionCount);
+    setAnswerMode(settings.answerMode);
+    setDifficulty(settings.difficulty);
+    setHostPlays(settings.hostPlays);
+    setHostName(settings.hostName);
+  }
+
   // Rotate the one-liner under the title while editing.
   useEffect(() => {
     if (status !== "editing") return;
@@ -182,6 +194,7 @@ export default function SetupPage() {
         },
         { plays: hostPlays, name: hostName },
       );
+      saveSetup({ categories, questionCount, answerMode, difficulty, hostPlays, hostName });
       saveHostCredential({
         gameId: result.gameId,
         code: result.code,
@@ -224,7 +237,7 @@ export default function SetupPage() {
   }
 
   const canSubmit =
-    categories.length > 0 && (!hostPlays || hostName.trim().length > 0);
+    !restoringSettings && categories.length > 0 && (!hostPlays || hostName.trim().length > 0);
   const customSelected = categories.filter(
     (c) => !(CATEGORIES as readonly string[]).includes(c),
   );
@@ -235,7 +248,8 @@ export default function SetupPage() {
       <p className="tagline" aria-live="polite">
         {TAGLINES[taglineIdx]}
       </p>
-      <form
+      <SavedSetupControls onRestore={restoreSettings} onBusy={setRestoringSettings} />
+      <form inert={restoringSettings}
         onSubmit={(e) => {
           e.preventDefault();
           if (canSubmit) void submit();
