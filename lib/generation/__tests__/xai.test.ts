@@ -443,3 +443,12 @@ it("keeps valid questions with missing or malformed explanations without retries
   expect(questions.map(q => q.explanation)).toEqual([null, null, "A short relevant fact."]);
   expect(fetchImpl).toHaveBeenCalledTimes(1);
 });
+
+it("replacement rejects bank duplicates and every accepted answer already in the reviewed set", async () => {
+  const existing = [{ prompt: "Original capital", mode: "type_answer" as const, accepted_variants: ["Paris", "City Paris"], difficulty: "easy" as const }];
+  const params = { ...mcParams, mode: "type_answer" as const, count: 1 };
+  const fetchImpl = mockFetch([[{ prompt: "A different fact", accepted_variants: ["city paris"] }, { prompt: "Banked", accepted_variants: ["Rome"] }], [{ prompt: "Fresh", accepted_variants: ["Tokyo"] }]]);
+  const out = await generateQuestions(params, { apiKey: "k", fetchImpl }, bank({ seen: new Set(["banked"]) }), existing);
+  expect(out.map((q) => q.prompt)).toEqual(["Fresh"]);
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+});

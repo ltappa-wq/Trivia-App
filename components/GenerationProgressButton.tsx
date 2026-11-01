@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import type { GenerationProgress } from "@/lib/generation/progress";
 
 /** Kept inside the lobby: polling also recovers after reload or lost events. */
-export function GenerationProgressButton({ code, token, total, starting, disabled, onStart }: {
+export function GenerationProgressButton({ code, token, total, starting, disabled, onStart, onReview, prepared = false, reviewDisabled = disabled }: {
   code: string;
   token: string | null;
   total: number;
   starting: boolean;
   disabled: boolean;
   onStart: () => Promise<void>;
+  onReview?: () => Promise<void>;
+  prepared?: boolean;
+  reviewDisabled?: boolean;
 }) {
+  const [reviewRequested, setReviewRequested] = useState(false);
   const [progress, setProgress] = useState<GenerationProgress | null>(null);
   const [loadError, setLoadError] = useState(false);
   useEffect(() => {
@@ -41,10 +45,12 @@ export function GenerationProgressButton({ code, token, total, starting, disable
   const running = starting || progress?.running;
   return <>
     <button type="button" disabled={disabled || Boolean(running) || (!progress && !loadError)}
-      onClick={() => { setProgress(null); void onStart(); }}>
+      onClick={() => { setProgress(null); void (reviewRequested && !prepared && onReview ? onReview() : onStart()); }}>
       {running ? `Writing questions… ${progress?.completed ?? 0}/${total}`
         : progress?.error ? "Retry" : "Start game"}
     </button>
+    {onReview && !prepared && <button type="button" disabled={reviewDisabled || Boolean(running) || (!progress && !loadError)}
+      onClick={() => { setReviewRequested(true); setProgress(null); void onReview(); }}>Review questions first</button>}
     {running && <p role="status">The AI is writing your game. Players stay seated.</p>}
     {progress?.error && !running && <p role="alert">{progress.error}</p>}
     {loadError && <p role="status">Could not refresh generation progress. Reconnecting…</p>}

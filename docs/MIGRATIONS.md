@@ -231,3 +231,20 @@ Fixtures roll back. This checks legacy fallback, constraints, custom close
 windows, review deadlines, pause/resume, challenge blocking and delay restart,
 participant advancement and idempotence, final-question guards, point caps,
 and upheld-answer scoring. Never run fixtures against a live project.
+
+## 0020: optional pre-game question review
+
+Apply `0020_question_review.sql` before merging/deploying R22. It adds nullable
+review lease columns and a default-zero regeneration counter, a service-only,
+host-token-validated edit RPC, and a game-update guard trigger. Existing function
+signatures and player-readable RPCs are unchanged. The trigger blocks Start
+while a generation/review lease is live and prevents categories changing once
+questions exist. No production backfill or credentials are needed.
+
+Regeneration attempts (including failures) are capped at 20 per room; leases
+expire after 310 seconds. Removal and renumbering/count updates are one transaction.
+
+On a disposable local database, verify with
+`psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0020_question_review.sql`.
+The fixture rolls back and checks authorization, leases, Start/edits exclusion,
+renumbering/counts, category freeze, the regeneration cap, and grants.

@@ -16,6 +16,9 @@ import { ReviewAutoAdvance } from "@/components/ReviewAutoAdvance";
 import { setReviewAutoAdvance } from "@/app/actions/autoAdvance";
 import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
+import { getQuestionReview, editQuestionReview } from "@/app/actions/questionReview";
+import { QuestionReviewPanel } from "@/components/QuestionReviewPanel";
+import type { QuestionReview } from "@/lib/questionReview";
 import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
@@ -83,6 +86,7 @@ function HostView() {
   const [busy, setBusy] = useState(false);
   // Separate from `busy`: starting runs generation, so it is a long, blocking
   // operation the lobby reports on its own rather than a quick pacing action.
+  const [questionReview, setQuestionReview] = useState<QuestionReview | null>(null);
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Player-suggested categories the host has accepted (U10, R8). Nothing a
@@ -146,6 +150,18 @@ function HostView() {
       active = false;
     };
   }, [token, game?.status, state]);
+
+  // Recover prepared questions on reload and reconcile edits from another host tab.
+  useEffect(() => {
+    if (!token || game?.status !== "lobby") return;
+    let active = true;
+    const refresh = () => getQuestionReview(code, token).then((review) => {
+      if (active) setQuestionReview(review.questions.length ? review : null);
+    }).catch(() => {});
+    void refresh();
+    const timer = setInterval(() => void refresh(), 3000);
+    return () => { active = false; clearInterval(timer); };
+  }, [code, token, game?.status, starting, busy]);
 
   // While paused, load authoritative open challenges (KTD8) and refresh whenever
   // room state reconciles (after a ruling broadcasts leaderboard/resume).
@@ -243,14 +259,15 @@ function HostView() {
   // U8 / AE8. Start now carries generation, so it is the long operation and it
   // can fail. On failure the room stays in the lobby with its players seated and
   // the host free to retry — nothing is torn down.
-  async function handleStart() {
+  async function handleStart(reviewFirst = false) {
     if (!token) return;
     setStarting(true);
     setActionError(null);
     try {
       // Only the accepted suggestions travel; startGame merges them with the
       // host's stored categories server-side.
-      const result = await startGame(code, token, accepted);
+      const result = await startGame(code, token, accepted, reviewFirst);
+      if (result.status === "ready") setQuestionReview(await getQuestionReview(code, token));
       if (result.status === "generation_failed") setActionError(result.message);
     } catch (err) {
       setActionError(
@@ -259,6 +276,17 @@ function HostView() {
     } finally {
       setStarting(false);
     }
+  }
+
+  async function handleQuestionEdit(id: string, operation: "remove" | "regenerate") {
+    if (!token) return;
+    setBusy(true); setActionError(null);
+    try {
+      const result = await editQuestionReview(code, token, id, operation);
+      if (result.error) setActionError(result.error);
+      if (result.review) setQuestionReview(result.review);
+    } catch { setActionError("Could not edit questions. Please retry."); }
+    finally { setBusy(false); }
   }
 
   async function handleFinish() {
@@ -420,11 +448,12 @@ function HostView() {
               ))}
             </ul>
           )}
-          <SuggestionsPanel
+          {!questionReview && <SuggestionsPanel
             suggestions={suggestions}
             accepted={accepted}
             onToggle={toggleAccepted}
-          />
+          />}
+          {questionReview && <QuestionReviewPanel review={questionReview} busy={busy || starting} onEdit={handleQuestionEdit} />}
           {/* U8: Start now generates the question set, so it is a long operation
               with a real failure mode — reported here, in the lobby, instead of
               on the setup form it used to block. */}
@@ -434,7 +463,10 @@ function HostView() {
             total={game.question_count}
             starting={starting}
             disabled={busy || leaderboard.length === 0}
-            onStart={handleStart}
+            onStart={() => handleStart()}
+            onReview={() => handleStart(true)}
+            prepared={Boolean(questionReview)}
+            reviewDisabled={busy}
           />
         </section>
       )}

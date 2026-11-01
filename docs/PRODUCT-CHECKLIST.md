@@ -232,3 +232,11 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Optional double-points finale announces “Final question — double points!”
   during get-ready. Correct final answers earn 1000–2000 points, including
   upheld disputes; wrong/late answers still earn zero.
+
+### R22 — Optional pre-game question review
+
+- Default **Start game** still generates and reveals Q1 in one step.
+- **Review questions first** uses the same generation/progress/retry flow, leaves players in the lobby, and shows the host the full prompts, options/correct answers or accepted answers, explanations, and game categories. Answer keys use a dedicated host-token-authorized server action, never player hydration.
+- The host can regenerate individual questions with the same settings, in-set answer uniqueness and bank dedup, or remove questions (contiguous numbering, count updated, at least one remains). Start reuses the prepared set, including after reload.
+- Regeneration is limited to 20 attempts per room, including failed attempts, plus five requests per minute. Concurrent host tabs and Start are serialized using a database lease/row lock; expired work cannot overwrite the set.
+- Once generated, category suggestions cannot change the prepared set; the lobby explains this and hides acceptance controls. Hosts who review while also playing will know the answers.
