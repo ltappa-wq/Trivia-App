@@ -207,10 +207,3 @@ This test requires an empty games/rate-limit dataset and rolls back its fixtures
 It checks dry runs, active-game preservation, durable bank preservation, both batch
 caps, end-time retention, recent lobby joins, child cascades, RPC grants and the
 cron job. Never run this fixture script against a live project.
-
-Known historical fresh-install caveat: current 0001 creates hashed player tokens,
-while 0009 still references the retired `players.token` column during conversion.
-Existing migrated projects are unaffected; a fresh replay needs an owner-reviewed
-historical-schema bootstrap/recovery. Do not edit or repair shipped history blindly.
-0017 validation used a legacy column only in a disposable test fixture to replay
-0009; the repository's historical migrations remain unchanged.
