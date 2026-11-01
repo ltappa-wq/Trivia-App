@@ -106,7 +106,10 @@ export async function startGame(
       .eq("id", game.id)
       .or(`generation_started_at.is.null,generation_started_at.lt.${staleBefore}`)
       .select("id");
-    if (claimError) throw new Error("Could not start question generation. Please retry.");
+    if (claimError) {
+      console.error(`[startGame] generation lease failed: ${claimError.code}: ${claimError.message}`);
+      throw new Error("Could not start question generation. Please retry.");
+    }
     if (!claimed?.length) throw new Error("Questions are already being prepared. Please wait.");
 
     await generateAndPersistQuestions(game.id, {

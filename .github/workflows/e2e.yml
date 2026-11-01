@@ -43,6 +43,8 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
+      - name: Verify local generation schema and lease write
+        run: node scripts/e2e-preflight.mjs
       - run: npx playwright install --with-deps chromium
       - name: Deterministic multiplayer E2E
         run: npm run test:e2e
