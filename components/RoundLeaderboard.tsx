@@ -5,8 +5,9 @@ import type { LeaderboardEntry } from "@/lib/db/types";
 import { rankedStandings, rankDeltas } from "@/lib/roundRecap";
 import { formatScore } from "@/lib/formatScore";
 
-export function RoundLeaderboard({ standings, baseline, reviewing }: {
+export function RoundLeaderboard({ standings, baseline, reviewing, pageStart = 0, pageSize = standings.length }: {
   standings: LeaderboardEntry[]; baseline: LeaderboardEntry[] | null; reviewing: boolean;
+  pageStart?: number; pageSize?: number;
 }) {
   const ranked = useMemo(() => rankedStandings(standings), [standings]);
   const deltas = useMemo(() => rankDeltas(ranked, baseline), [ranked, baseline]);
@@ -27,7 +28,7 @@ export function RoundLeaderboard({ standings, baseline, reviewing }: {
     positions.current = next;
   }, [standings]);
   return <ol ref={list} className="round-leaderboard">
-    {ranked.map((p) => {
+    {ranked.slice(pageStart, pageStart + pageSize).map((p) => {
       const delta = reviewing ? deltas.get(p.id) : null;
       return <li key={p.id} data-player={p.id} value={p.rank}>
         {p.username} — {formatScore(p.score)}

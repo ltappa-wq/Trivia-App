@@ -46,3 +46,5 @@ main.tv-display {
 .tv-display .answer-dist__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
 .tv-display .answer-dist__track { height: 1.2vh; }
 .tv-display .answer-dist__row.is-correct .answer-dist__label { color: #90ffcd; }
+
+.tv-display .tv-page { color: #c4cee9; font-size: .75em; }

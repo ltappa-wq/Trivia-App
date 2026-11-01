@@ -68,3 +68,17 @@ describe("read-only TV phases", () => {
     expect(screen.getByLabelText("Top finishers")).toBeTruthy(); noControls();
   });
 });
+
+it("retains absolute ranks when rotating long standings", async () => {
+  vi.useFakeTimers();
+  try {
+    const leaderboard = Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, username: `Player ${i + 1}`, score: 100 - i }));
+    const { container } = show({ reviewing: true }, { leaderboard });
+    expect(screen.queryByText(/Player 9 —/)).toBeNull();
+    const { act } = await import("@testing-library/react");
+    act(() => vi.advanceTimersByTime(8000));
+    expect(screen.getByText(/Player 9 —/)).toBeTruthy();
+    expect(container.querySelector('li[data-player="p8"]')?.getAttribute("value")).toBe("9");
+    noControls();
+  } finally { vi.useRealTimers(); }
+});
