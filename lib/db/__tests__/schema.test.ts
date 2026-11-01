@@ -352,3 +352,32 @@ it("guards legacy player-token backfill and drop with the column-existence check
   expect(phaseAuth.match(/update public\.players\s+set token_hash/gi)).toHaveLength(1);
   expect(phaseAuth.indexOf("update public.players")).toBeGreaterThan(phaseAuth.indexOf("column_name = 'token'"));
 });
+
+const explanations = readFileSync(
+  fileURLToPath(new URL("../../../supabase/migrations/0018_question_explanations.sql", import.meta.url)), "utf8",
+);
+describe("R23 explanation storage and reveal contract", () => {
+  it("adds nullable columns so old app inserts remain valid", () => {
+    for (const table of ["questions", "question_bank"]) {
+      expect(explanations).toContain(`alter table public.${table} add column if not exists explanation text;`);
+    }
+    expect(explanations).not.toMatch(/explanation text not null/);
+  });
+  it("preserves the exact previous RPC body apart from the added JSON key and explicit revoke", () => {
+    const body = (sql: string) => sql.slice(sql.indexOf("create or replace function"), sql.indexOf("grant execute"));
+    expect(body(explanations)
+      .replace(",\n      'explanation', q.explanation", "")
+      .replace("revoke execute on function public.reveal_answer(text) from public, anon, authenticated;\n", ""))
+      .toBe(body(revealAnswer));
+  });
+  it("gates explanation behind token validation and reviewing/ended with explicit privileges", () => {
+    expect(explanations).toContain("from public.resolve_token(p_token)");
+    expect(explanations).toContain("if v_game_id is null then\n    return null;");
+    expect(explanations).toContain("'explanation', q.explanation");
+    expect(explanations).toContain("g.reviewing = true or g.status = 'ended'");
+    expect(explanations).toContain("security definer");
+    expect(explanations).toContain("set search_path = public, extensions");
+    expect(explanations).toContain("revoke execute on function public.reveal_answer(text) from public, anon, authenticated");
+    expect(explanations).toContain("grant execute on function public.reveal_answer(text) to anon, authenticated");
+  });
+});

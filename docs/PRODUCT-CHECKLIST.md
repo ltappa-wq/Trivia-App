@@ -125,6 +125,7 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] During a question, everyone sees the answered count; the host also sees player chips light up as answers lock in and can **End question now** early. Player progress exposes counts only, never answer text or correctness.
 - [x] Ending a game atomically rejects open challenges and clears pause/review state; repeated end requests are safe.
 - [x] During review, host and players see the **correct answer** (and host sees distribution where applicable).
+- [x] R23: After the answer reveal, everyone sees a one-sentence “Did you know?” explanation (at most 25 words). Missing/invalid explanations are omitted without blocking generation. Explanations are hidden for corrected or voided questions because the original fact may be misleading, even without mentioning the old answer.
 - [x] Host advances with **Next question** or **Finish game** on the last question.
 - [x] Open challenges **block** advancing until adjudicated.
 
