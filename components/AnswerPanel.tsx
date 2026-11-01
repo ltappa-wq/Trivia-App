@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { submitAnswer, type SubmitResult } from "@/app/actions/submitAnswer";
+import { gameSound } from "@/lib/sound";
 import { Fireworks } from "@/components/Fireworks";
 import { TILE_SHAPES } from "@/lib/answerShapes";
 import type { ClientQuestion, MyAnswer } from "@/lib/db/types";
@@ -47,10 +48,12 @@ function QuestionAnswerPanel({
 
   async function submit(answer: string) {
     if (locked || submitting) return;
+    gameSound.unlock();
     setSubmitting(true);
     setError(null);
     try {
       const res = await submitAnswer(token, answer);
+      gameSound.haptic("lock");
       setResult(res);
       setAnsweredIndex(currentIndex);
       setTyped("");

@@ -37,9 +37,12 @@ import { isLastIndex } from "@/lib/gameFlow";
 import { useAutoClose } from "@/lib/realtime/useAutoClose";
 import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
-import { formatNumber, formatScore } from "@/lib/formatScore";
+import { formatNumber } from "@/lib/formatScore";
 import { JoinToast } from "@/components/JoinToast";
 import { GameOver } from "@/components/GameOver";
+import { GameFeedback, SoundToggle } from "@/components/GameFeedback";
+import { RoundRecap, useRoundSnapshot } from "@/components/RoundRecap";
+import { RoundLeaderboard } from "@/components/RoundLeaderboard";
 import { GameStage } from "@/components/GameStage";
 import { SuggestionsPanel } from "@/components/SuggestionsPanel";
 import type { ChallengeKind } from "@/lib/challenge";
@@ -270,6 +273,9 @@ function HostView() {
     }
   }
 
+  const experiencePhase = game ? derivePhase(game, state?.current_question ?? null, offset).phase : "lobby";
+  const roundBaseline = useRoundSnapshot(state, experiencePhase);
+
   if (!recovered) return <main aria-busy="true"><p>Loading…</p></main>;
   if (!cred) {
     return (
@@ -316,7 +322,11 @@ function HostView() {
               ? `Get ready — Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`
               : `Question ${formatNumber(game.current_index + 1)} of ${formatNumber(game.question_count)}`}
         </p>
+        {phase.phase !== "ended" && <SoundToggle />}
       </header>
+      <GameFeedback phase={phase.phase} remaining={remaining}
+        roundKey={`${game.id}:${game.current_index}`} answer={state?.my_answer ?? null}
+        voided={state?.current_question?.voided ?? false} spectating={state?.role === "spectator" || !state?.player} />
 
       {game.status === "lobby" && <SaveHostLink credential={cred} />}
       {actionError && <p role="alert">{actionError}</p>}
@@ -444,19 +454,15 @@ function HostView() {
         controls={pacingControls}
       />
 
+      {phase.phase === "review" && state && <RoundRecap state={state} baseline={roundBaseline} />}
+
       {started && !ended && (
         <section>
           <h2>Leaderboard</h2>
           {leaderboard.length === 0 ? (
             <p>No scores yet.</p>
           ) : (
-            <ol>
-              {leaderboard.map((p) => (
-                <li key={p.id}>
-                  {p.username} — {formatScore(p.score)}
-                </li>
-              ))}
-            </ol>
+            <RoundLeaderboard standings={leaderboard} baseline={roundBaseline} reviewing={phase.phase === "review"} />
           )}
         </section>
       )}

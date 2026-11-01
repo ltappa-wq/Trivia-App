@@ -118,7 +118,9 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Speed scoring: correct answers score **500–1,000** points (full **1,000** in the first second, decaying to **500** at the mode’s deadline); wrong/late = 0.
 - [x] Scores are displayed with **US number formatting** (comma every three digits, e.g. **1,000**).
 - [x] Correct answers on the player’s device may show **celebration** (confetti / streak badge).
-- [x] Live **leaderboard** updates as answers land.
+- [x] Live **leaderboard** updates as answers land. Host rows smoothly reorder with rank arrows during review; reduced-motion preference disables reorder animation.
+- [x] Review shows each seated player their round points and tied placement with movement from the pre-question snapshot. Missing history after reload omits movement; voids and upheld challenges update the recap from authoritative scores.
+- [x] Sound and haptics default on with a visible, persisted mute toggle. Synthesized final-three-second ticks, correct/wrong review cues and a game-over fanfare start only after a gesture; lock-in/result vibration respects reduced motion. Unsupported or blocked audio never affects play.
 - [x] When all active players have answered **or** the timer ends, the room enters **review** (answers locked). The host requests timer close after the server deadline plus 750 ms. Players act as a fallback at 2000–3000 ms after the deadline, giving the host’s review broadcast time to arrive while still recovering from a backgrounded host tab.
 - [x] During a question, everyone sees the answered count; the host also sees player chips light up as answers lock in and can **End question now** early. Player progress exposes counts only, never answer text or correctness.
 - [x] Ending a game atomically rejects open challenges and clears pause/review state; repeated end requests are safe.
@@ -148,6 +150,7 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 - [x] Host and players both see a **unified end experience**: sequenced **podium** (3rd → 2nd → 1st where applicable) plus **full standings** with scores.
 - [x] Players may see personal placement (“you placed Nth”) when their identity is known.
 - [x] Ties for a podium rank **share the step**.
+- [x] End screen offers **Share result** with tied placement and the site root URL only (no room code or tokens); unsupported native sharing falls back to clipboard with success confirmation.
 - [x] **Start a new game** returns everyone to the **home** page.
 - [x] End screen includes **feedback**: free-text submit emailed to the product owner (`FEEDBACK_TO_EMAIL` / default product inbox) via Resend (`RESEND_API_KEY`, `RESEND_FROM`).
 - [x] Ending the game retires the room for joins; no long-term player accounts or history.
