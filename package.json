@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:verify": "node scripts/db-verify.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.66.0",
