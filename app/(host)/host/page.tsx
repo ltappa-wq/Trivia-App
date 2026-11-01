@@ -29,7 +29,9 @@ import {
   useQuestionCountdown,
   useRoomState,
 } from "@/lib/realtime/hooks";
-import { isLastIndex, shouldAutoClose } from "@/lib/gameFlow";
+import { isLastIndex } from "@/lib/gameFlow";
+import { useAutoClose } from "@/lib/realtime/useAutoClose";
+import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
 import { formatNumber, formatScore } from "@/lib/formatScore";
 import { JoinToast } from "@/components/JoinToast";
@@ -191,27 +193,20 @@ function HostView() {
   // authority on what that means — this hook only supplies the clock.
   useIsGetReady(game && game.current_index >= 0 ? game.reveal_at : null, offset);
 
-  // R5.1 timer path: when the answer window elapses without everyone answering,
-  // the host (the pacing authority) closes the question into review. Fired once
-  // per question via a ref keyed on current_index; the server CAS makes a race
-  // with the all-answered path in submitAnswer a safe no-op.
-  const closedForIndex = useRef<number | null>(null);
-  useEffect(() => {
-    if (!token || !game || game.status === "ended" || game.paused || game.reviewing) return;
-    // Decide from reveal_at directly (shouldAutoClose), not the async `remaining`
-    // value: on the commit right after advance, `remaining` can still hold the
-    // previous question's stale 0 and would otherwise close the fresh question
-    // the instant it appears (R4). `remaining` stays in the deps purely as a
-    // ~250ms heartbeat so genuine timer expiry re-evaluates.
-    if (!shouldAutoClose(game, offset)) return;
-    if (closedForIndex.current === game.current_index) return;
-    closedForIndex.current = game.current_index;
-    // Reset on failure so the next countdown tick retries rather than leaving the
-    // question stuck out of review.
-    void closeQuestion(code, token, game.current_index).catch(() => {
-      closedForIndex.current = null;
-    });
-  }, [remaining, offset, token, code, game]);
+  useAutoClose(code, token, game, offset, true);
+
+  async function handleCloseNow() {
+    if (!token || !game) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await closeQuestion(code, token, game.current_index, true);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not close question");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleAdvance(expectedIndex: number) {
     if (!token) return;
@@ -411,6 +406,12 @@ function HostView() {
         </section>
       )}
 
+      {phase.phase === "question" && (
+        <section>
+          <AnswerProgress state={state} token={token} isHost />
+          <button type="button" disabled={busy} onClick={handleCloseNow}>End question now</button>
+        </section>
+      )}
       <div className="host-live">
       <GameStage
         phase={phase}

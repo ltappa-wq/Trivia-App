@@ -1362,3 +1362,7 @@ fieldset label.is-disabled {
   font-size: 0.85rem;
   opacity: 0.7;
 }
+
+.answer-progress__players { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; }
+.answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 0.6; }
+.answer-progress__player--answered { background: var(--success-soft); color: var(--success-strong); opacity: 1; }
