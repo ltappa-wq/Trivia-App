@@ -3,8 +3,18 @@ import type { LeaderboardEntry } from "@/lib/db/types";
 /** Dense ranks match the podium: equal scores share a rank and a step. */
 export function rankedStandings(entries: LeaderboardEntry[]) {
   const scores = [...new Set(entries.map((p) => p.score))].sort((a, b) => b - a);
+  const ranks = new Map(scores.map((score, i) => [score, i + 1]));
   return [...entries].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
-    .map((p) => ({ ...p, rank: scores.indexOf(p.score) + 1 }));
+    .map((p) => ({ ...p, rank: ranks.get(p.score)! }));
+}
+
+/** Build movement for the entire board with one baseline ranking pass. */
+export function rankDeltas(current: ReturnType<typeof rankedStandings>, previous: LeaderboardEntry[] | null) {
+  const before = new Map(previous ? rankedStandings(previous).map((p) => [p.id, p.rank]) : []);
+  return new Map(current.map((p) => {
+    const previousRank = before.get(p.id);
+    return [p.id, previousRank === undefined ? null : previousRank - p.rank] as const;
+  }));
 }
 
 export function ordinal(n: number): string {

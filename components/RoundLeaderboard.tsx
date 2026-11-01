@@ -1,13 +1,15 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { LeaderboardEntry } from "@/lib/db/types";
-import { rankedStandings, rankMovement } from "@/lib/roundRecap";
+import { rankedStandings, rankDeltas } from "@/lib/roundRecap";
 import { formatScore } from "@/lib/formatScore";
 
 export function RoundLeaderboard({ standings, baseline, reviewing }: {
   standings: LeaderboardEntry[]; baseline: LeaderboardEntry[] | null; reviewing: boolean;
 }) {
+  const ranked = useMemo(() => rankedStandings(standings), [standings]);
+  const deltas = useMemo(() => rankDeltas(ranked, baseline), [ranked, baseline]);
   const list = useRef<HTMLOListElement>(null);
   const positions = useRef(new Map<string, number>());
   useLayoutEffect(() => {
@@ -25,8 +27,8 @@ export function RoundLeaderboard({ standings, baseline, reviewing }: {
     positions.current = next;
   }, [standings]);
   return <ol ref={list} className="round-leaderboard">
-    {rankedStandings(standings).map((p) => {
-      const delta = reviewing ? rankMovement(standings, baseline, p.id)?.delta : null;
+    {ranked.map((p) => {
+      const delta = reviewing ? deltas.get(p.id) : null;
       return <li key={p.id} data-player={p.id} value={p.rank}>
         {p.username} — {formatScore(p.score)}
         {delta != null && delta !== 0 && <span className="rank-movement" aria-label={`${delta > 0 ? "Up" : "Down"} ${Math.abs(delta)} ranks`}> {delta > 0 ? "↑" : "↓"}{Math.abs(delta)}</span>}

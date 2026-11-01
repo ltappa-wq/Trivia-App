@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { observeRound, rankedStandings, rankMovement, recapText, ordinal } from "../roundRecap";
+import { observeRound, rankedStandings, rankDeltas, rankMovement, recapText, ordinal } from "../roundRecap";
 const entries = (scores: number[]) => scores.map((score, i) => ({ id: String(i), username: `P${i}`, score }));
 
 describe("round ranks and recap", () => {
@@ -16,6 +16,15 @@ describe("round ranks and recap", () => {
     expect(rankMovement(before, before, "0")).toEqual({ rank: 1, delta: 0 });
     expect(rankMovement(after, null, "2")).toEqual({ rank: 1, delta: null });
     expect(rankMovement(after, before, "spectator")).toBeNull();
+  });
+  it("builds all deltas with shared ranks for ties and unknown history", () => {
+    const before = entries([500, 400, 400, 300]);
+    const current = rankedStandings([...entries([500, 500, 400, 700]),
+      { id: "new", username: "New", score: 400 }]);
+    expect([...rankDeltas(current, before)]).toEqual([
+      ["3", 2], ["0", -1], ["1", 0], ["2", -1], ["new", null],
+    ]);
+    expect([...rankDeltas(current, null).values()]).toEqual([null, null, null, null, null]);
   });
   it("formats gains, unchanged placement, voids and absent history", () => {
     expect(recapText(850, { rank: 3, delta: 2 }, false)).toBe("+850 pts · now 3rd (↑2)");
