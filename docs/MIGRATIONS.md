@@ -261,3 +261,19 @@ Apply `0022_game_recap.sql` before merging R25. This additive migration introduc
 writers remain compatible. Historical answers retain null timing; no backfill
 or score-based estimate is performed. No existing RPC is replaced. Run
 `supabase/tests/0022_game_recap.sql` only on a disposable local database.
+
+## 0023: read-only TV display
+
+Apply `0023_tv_display.sql` before merging/deploying R21. The migration adds a
+nullable `games.display_token_hash` and partial unique index, and preserves the
+exact signatures of `resolve_token(text)`, `close_question(text,text,integer,boolean)`
+and `auto_advance_question(text,text,integer)`. Existing host/player/spectator
+behavior is unchanged. The two mutation RPCs remain service-role-only and now
+explicitly reject display/unknown roles. Display credentials resolve with a null
+player identity, so existing hydration returns no personal answers; answer
+reveal/distribution remain review/ended-only and private reads remain host-only.
+No production credentials or automated application of this migration are needed.
+
+On a disposable local database with all migrations applied, run
+`psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0023_tv_display.sql`.
+The fixture rolls back and checks authorization, phase gates, grants and revocation.

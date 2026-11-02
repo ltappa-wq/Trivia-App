@@ -1,5 +1,6 @@
 "use server";
 
+import { authorizePacingToken } from "@/lib/participantAuth";
 import { getServiceClient } from "@/lib/supabase/server";
 import { normalizeCode } from "@/lib/join";
 import { broadcastToRoom } from "@/lib/realtime/broadcast";
@@ -9,6 +10,7 @@ import { ROOM_EVENTS } from "@/lib/realtime/events";
 export async function autoAdvance(code: string, token: string, expectedIndex: number): Promise<boolean> {
   if (!Number.isInteger(expectedIndex) || expectedIndex < 0) return false;
   const room = normalizeCode(code);
+  await authorizePacingToken(getServiceClient(), token);
   const { data, error } = await getServiceClient().rpc("auto_advance_question", {
     p_token: token, p_code: room, p_expected_index: expectedIndex,
   });
@@ -20,6 +22,7 @@ export async function autoAdvance(code: string, token: string, expectedIndex: nu
 export async function setReviewAutoAdvance(code: string, token: string, expectedIndex: number, enabled: boolean): Promise<boolean> {
   if (!Number.isInteger(expectedIndex) || expectedIndex < 0) return false;
   const room = normalizeCode(code);
+  await authorizePacingToken(getServiceClient(), token, true);
   const { data, error } = await getServiceClient().rpc("set_review_auto_advance", {
     p_token: token, p_code: room, p_expected_index: expectedIndex, p_enabled: enabled,
   });

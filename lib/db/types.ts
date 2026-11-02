@@ -6,7 +6,7 @@ export type Difficulty = "easy" | "medium" | "hard";
 export type GameStatus = "lobby" | "active" | "ended";
 export type ChallengeType = "question" | "answer";
 export type ChallengeStatus = "open" | "upheld" | "rejected";
-export type PlayerRole = "host" | "player" | "spectator";
+export type PlayerRole = "host" | "player" | "spectator" | "display";
 
 export interface GameRow {
   regeneration_count?: number;
