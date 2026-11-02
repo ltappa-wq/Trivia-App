@@ -21,3 +21,9 @@ it("disables regeneration at the room limit and all edits while busy", () => {
   rerender(<QuestionReviewPanel review={review} busy onEdit={vi.fn()} />);
   expect((screen.getByRole("button", { name: "Regenerate" }) as HTMLButtonElement).disabled).toBe(true);
 });
+
+it("renders binary answer keys and explanations during pregame review", () => {
+  render(<QuestionReviewPanel review={{ ...review, questions: [{ ...review.questions[0], mode: "true_false", options: ["True", "False"], correct_option: 1, prompt: "A statement.", explanation: "A binary explanation." }] }} busy={false} onEdit={vi.fn()} />);
+  expect(screen.getByText("False — Correct answer")).toBeTruthy();
+  expect(screen.getByText("A binary explanation.")).toBeTruthy();
+});

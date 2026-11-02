@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useRef } from "react";
 import { closeQuestion } from "@/app/actions/closeQuestion";
-import type { ClientGame } from "@/lib/db/types";
+import type { ClientGame, ClientQuestion } from "@/lib/db/types";
 import {
   AUTO_CLOSE_MAX_ATTEMPTS,
   AUTO_CLOSE_RETRY_MS,
@@ -19,7 +19,9 @@ export function useAutoClose(
   game: ClientGame | null,
   offset: number,
   isHost: boolean,
+  question?: ClientQuestion | null,
 ): void {
+  const questionMode = question?.mode;
   const budget = useRef({ key: "", attempts: 0, nextAt: 0, done: false });
   const { id, current_index, reveal_at, answer_mode, answer_timer_ms, status, paused, reviewing } = game ?? {};
   useEffect(() => {
@@ -27,7 +29,7 @@ export function useAutoClose(
     const snapshot: AutoCloseGame = {
       current_index,
       reveal_at: reveal_at ?? null,
-      answer_mode,
+      answer_mode: questionMode ?? answer_mode,
       answer_timer_ms,
       status,
       paused: !!paused,
@@ -62,5 +64,5 @@ export function useAutoClose(
     tick();
     const timer = setInterval(tick, 100);
     return () => { active = false; clearInterval(timer); };
-  }, [code, token, id, current_index, reveal_at, answer_mode, answer_timer_ms, status, paused, reviewing, offset, isHost]);
+  }, [code, token, id, current_index, reveal_at, answer_mode, answer_timer_ms, status, paused, reviewing, offset, isHost, questionMode]);
 }

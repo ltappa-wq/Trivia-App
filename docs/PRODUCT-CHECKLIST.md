@@ -258,3 +258,20 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - The display never answers, challenges, adjudicates, closes or advances a question. It uses coalesced room hydration and reconnect recovery; a read-only periodic refresh detects missed revocations. Before review no answer key or distribution is readable; private challenge details and player suggestions remain host-only.
 - Long rosters/standings rotate through presentation pages every eight seconds, preserving full-board ranks without requiring TV controls.
 - Display credentials are hashed separately on games and have no player identity. Replacing/revoking a link invalidates the old credential. Owner applies `0023_tv_display.sql` before deploying this feature.
+
+### R30 — Mixed answer modes
+
+- Setup offers Multiple choice, Type the answer, Mixed, and True/false only.
+- Mixed uses a repeating MC → typed → true/false → MC sequence (50% / 25% / 25%
+  over each four questions). Short sets take the sequence prefix: three questions
+  include all three types; one or two questions cannot include every type.
+- Each question owns its mode. True/false uses two large accessible True/False
+  tiles and exact option-index judging, with the same review, distribution,
+  explanation, pregame review, recap and TV support as multiple choice.
+- Default windows follow the current question: MC 20s, typed 35s, true/false 15s.
+  The binary window is shorter because there are only two choices and no typing.
+  A host-selected timer overrides all three; scoring and challenge rescoring use
+  that same window, including the double-points finale.
+- Remembered setup and rematch preserve Mixed. Regeneration preserves the
+  individual question's type. Repeated true/false answer values are allowed;
+  bank dedup compares their prompts without a boolean-answer anchor.

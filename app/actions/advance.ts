@@ -119,8 +119,6 @@ export async function advance(
     .eq("game_id", game.id)
     .eq("is_spectator", true);
 
-  const timerMs = answerTimerMs(game);
-
   // Client-safe question shape — answer keys stay server-side (KTD4).
   const { data: question } = await supabase
     .from("questions")
@@ -128,6 +126,8 @@ export async function advance(
     .eq("game_id", game.id)
     .eq("index", next)
     .maybeSingle();
+
+  const timerMs = answerTimerMs(game, question);
 
   await broadcastToRoom(code, ROOM_EVENTS.question, {
     index: next,

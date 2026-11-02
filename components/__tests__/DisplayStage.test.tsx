@@ -82,3 +82,11 @@ it("retains absolute ranks when rotating long standings", async () => {
     noControls();
   } finally { vi.useRealTimers(); }
 });
+
+it("renders true/false options on the TV without answer controls", () => {
+  show({ answer_mode: "mixed" }, { current_question: { ...state.current_question!, mode: "true_false", options: ["True", "False"] } });
+  expect(screen.getByText(/True/)).toBeTruthy();
+  expect(screen.getByText(/False/)).toBeTruthy();
+  expect(screen.queryByText("Type your answer on your phone.")).toBeNull();
+  noControls();
+});

@@ -71,7 +71,7 @@ function QuestionAnswerPanel({
         {/* Celebrate a correct answer on this device only (R1). */}
         {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
-        {myAnswer && <span> — Your answer: {question.mode === "multiple_choice" ? question.options?.[Number(myAnswer.raw_answer)] ?? myAnswer.raw_answer : myAnswer.raw_answer}</span>}
+        {myAnswer && <span> — Your answer: {question.mode !== "type_answer" ? question.options?.[Number(myAnswer.raw_answer)] ?? myAnswer.raw_answer : myAnswer.raw_answer}</span>}
         {result && result.points > 0 ? ` — +${formatNumber(result.points)}` : ""}
         {result?.correct && (result.streak ?? 0) >= STREAK_BADGE_MIN && (
           <span className="streak-badge">
@@ -86,8 +86,8 @@ function QuestionAnswerPanel({
   return (
     <>
       {error && <p role="alert">{error}</p>}
-      {question.mode === "multiple_choice" ? (
-        <ul className="answer-tiles">
+      {question.mode !== "type_answer" ? (
+        <ul className={`answer-tiles${question.mode === "true_false" ? " answer-tiles--true-false" : ""}`}>
           {(question.options ?? []).map((opt, i) => (
             <li key={i}>
               <button type="button" disabled={submitting} onClick={() => submit(String(i))}>

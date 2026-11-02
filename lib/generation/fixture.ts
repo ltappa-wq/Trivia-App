@@ -1,4 +1,5 @@
 import "server-only";
+import { mixedModeAt } from "./mix";
 import type { GeneratedQuestion, GenerationParams } from "./schema";
 
 /** Never infer test mode from CI, a request, or a public environment variable. */
@@ -25,12 +26,18 @@ export function fixtureQuestions(params: GenerationParams, offset = 0): Generate
   }
   return Array.from({ length: params.count }, (_, position) => {
     const index = position + offset;
+    const mode = params.mode === "mixed" ? mixedModeAt(index) : params.mode;
+    if (mode === "true_false") return {
+      prompt: `Fixture ${index + 1}: ${index} is an even number.`,
+      mode, options: ["True", "False"], correct_option: index % 2,
+      explanation: `${index} is ${index % 2 ? "odd" : "even"}.`, difficulty: params.difficulty,
+    };
     return {
       prompt: `Fixture ${index + 1}: spell the number ${index}.`,
       explanation: `The number ${index} is written as ${numberWords(index)} in English.`,
-      mode: params.mode,
+      mode,
       difficulty: params.difficulty,
-      ...(params.mode === "multiple_choice"
+      ...(mode === "multiple_choice"
         ? { options: [numberWords(index), "wrong", "other", "neither"], correct_option: 0 }
         : { accepted_variants: [numberWords(index)] }),
     };

@@ -10,7 +10,7 @@ Use the release checkout containing the PR's migrations. Read its migration SQL
 and deployment notes, confirm the target project in the Supabase dashboard, and
 confirm a usable backup/restore plan before production changes. Apply files in
 `supabase/migrations/` by ascending filename number, starting with `0001` for a
-new project. The current sequence ends at `0018_question_explanations.sql`. Apply
+new project. The current sequence ends at `0024_mixed_mode.sql`. Apply
 only files not already successfully applied; do not edit historical migrations.
 
 ## Supabase CLI (preferred)
@@ -277,3 +277,31 @@ No production credentials or automated application of this migration are needed.
 On a disposable local database with all migrations applied, run
 `psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0023_tv_display.sql`.
 The fixture rolls back and checks authorization, phase gates, grants and revocation.
+
+## 0024: mixed games and true/false questions
+
+The owner must apply `0024_mixed_mode.sql` **before merging/deploying R30**, while
+current main is deployed. This extends existing named CHECK constraints on
+`games.answer_mode`, `questions.mode`, and `question_bank.mode`; it adds no columns
+and does not rewrite existing rows. Existing MC/typed data and callers remain
+compatible. True/false stores canonical `['True','False']` options with index 0/1.
+
+The migration replaces exactly these existing functions, preserving signatures,
+grants, role allowlists and phase gates:
+
+- `close_question(text,text,integer,boolean)` — question-mode timer fallback.
+- `resolve_challenge(uuid,uuid,boolean,text)` — question-mode rescoring window.
+- `answer_distribution(text)` — binary per-option counts.
+- `game_recap(text)` — binary answer index rendered as True/False.
+
+`commit_answer` and `auto_advance_question` need no changes: the former validates
+the unchanged finale point cap and the latter uses the review deadline, not an
+answer-mode timer. `reveal_answer` and `hydrate_game_state` already return each
+question's mode/options and need no changes. The db:verify manifest tracks all
+four new definitions. Constraint names were verified by a disposable fresh replay.
+
+Run `supabase/tests/0024_mixed_mode.sql` only against a disposable local database
+with all migrations applied. Fixtures roll back and check default/custom timers,
+legacy modes, challenge scoring, finale caps, role rejection, reveal/distribution
+and recap gating, grants, bank constraints and rematch mode preservation. The
+fixture E2E CI job runs this plus the existing 0019 and 0023 behavior regressions.

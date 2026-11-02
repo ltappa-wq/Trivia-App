@@ -86,7 +86,7 @@ export function QuestionStage({
         // screen shows what players are choosing between; type-answer has
         // nothing to list, and the prompt plus countdown above is the whole
         // question — which is exactly what the phones show too.
-        question.mode === "multiple_choice" && (
+        question.mode !== "type_answer" && (
           <ol className="stage-options">
             {(question.options ?? []).map((opt, i) => (
               <li key={i}>{opt}</li>

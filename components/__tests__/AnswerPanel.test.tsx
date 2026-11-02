@@ -50,3 +50,13 @@ it("resets draft and pending submit state when the question changes", async () =
   expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("");
   expect((screen.getByRole("button", { name: "Submit" }) as HTMLButtonElement).disabled).toBe(true);
 });
+
+it("renders exactly two named binary tile buttons and restores their labels", () => {
+  const binary = { ...question, mode: "true_false" as const, options: ["True", "False"] };
+  const { rerender } = render(<AnswerPanel token="p" question={binary} currentIndex={0} timeUp={false} />);
+  expect(screen.getAllByRole("button")).toHaveLength(2);
+  expect(screen.getByRole("button", { name: "True" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "False" })).toBeTruthy();
+  rerender(<AnswerPanel token="p" question={binary} currentIndex={0} timeUp={false} myAnswer={{ raw_answer: "1", is_correct: true, points: 800, streak: 1 }} />);
+  expect(screen.getByText(/Your answer: False/)).toBeTruthy();
+});

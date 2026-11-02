@@ -75,3 +75,5 @@ This selects only one tiny provider-compatibility smoke spec, disables fixture
 mode on the fresh app server, and creates one MC question through the real xAI
 path. It costs provider usage and is skipped in normal runs/CI. An externally
 started app must also have fixture mode disabled. No live Supabase is allowed.
+
+Mixed fixtures follow MC → typed → true/false → MC. Binary statements use number parity and canonical True/False tiles. `mixed-mode.spec.ts` completes a three-type game, checks keyboard controls and axe, TV/review/recap rendering, hydration errors, and rematch mode. Playwright retries are disabled.

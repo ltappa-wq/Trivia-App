@@ -80,3 +80,12 @@ it("restoring an older version-1 save resets selected pacing options to legacy d
   expect((screen.getByLabelText("Auto-advance after review") as HTMLSelectElement).value).toBe("");
   expect((screen.getByLabelText("Double-points finale") as HTMLInputElement).checked).toBe(false);
 });
+
+it("offers mixed and binary modes and restores remembered mixed setup", async () => {
+  saveSetup({ ...settings, categories: ["Science"], answerMode: "mixed" });
+  render(<SetupPage />);
+  expect(screen.getByLabelText("True/false only")).toBeTruthy();
+  fireEvent.click(await screen.findByText("Use last settings"));
+  await waitFor(() => expect((screen.getByLabelText("Mixed") as HTMLInputElement).checked).toBe(true));
+  expect(screen.getByRole("option", { name: /20s choice.*35s typed.*15s true\/false/ })).toBeTruthy();
+});

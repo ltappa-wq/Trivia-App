@@ -161,12 +161,13 @@ export function useIsGetReady(
 export function useQuestionCountdown(
   game: HydratedState["game"] | null,
   offset: number,
+  question?: HydratedState["current_question"],
 ): number | null {
   const active = !!game && game.current_index >= 0;
   // Hide the answer timer during the get-ready 3–2–1 interstitial (ticking).
   const inGetReady = useIsGetReady(active ? game?.reveal_at : null, offset);
   const timerMs =
-    game && active && !inGetReady ? answerTimerMs(game) : null;
+    game && active && !inGetReady ? answerTimerMs(game, question) : null;
   return useCountdown(game?.reveal_at ?? null, timerMs, offset, game?.paused ?? false);
 }
 

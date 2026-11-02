@@ -204,14 +204,14 @@ function HostView() {
       setBusy(false);
     }
   }
-  const remaining = useQuestionCountdown(game, offset);
+  const remaining = useQuestionCountdown(game, offset, state?.current_question);
   // Ticking heartbeat so the view re-renders when the 3s get-ready window ends
   // (must run every render, before early returns). derivePhase below is the
   // authority on what that means — this hook only supplies the clock.
   useIsGetReady(game && game.current_index >= 0 ? game.reveal_at : null, offset);
 
   useAutoAdvance(code, token, game, offset);
-  useAutoClose(code, token, game, offset, true);
+  useAutoClose(code, token, game, offset, true, state?.current_question);
 
   async function handleCloseNow() {
     if (!token || !game) return;
@@ -377,7 +377,7 @@ function HostView() {
               {challenges.map((c) => {
                 const q = c.question;
                 const answerKey =
-                  q.mode === "multiple_choice"
+                  q.mode !== "type_answer"
                     ? q.options?.[q.correct_option ?? -1] ?? "—"
                     : (q.accepted_variants ?? []).join(", ");
                 return (
@@ -474,7 +474,7 @@ function HostView() {
       )}
       <div className="host-live">
       <GameStage
-        timerMs={answerTimerMs(game)}
+        timerMs={answerTimerMs(game, question)}
         doublePoints={questionMultiplier(game) === 2}
         phase={phase}
         question={question}

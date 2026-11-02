@@ -7,7 +7,7 @@
 // being penalized for being inherently slower (AE2). All timestamps are
 // server-side (KTD4); the client never computes its own score.
 
-import type { AnswerMode } from "@/lib/db/types";
+import type { QuestionMode } from "@/lib/db/types";
 import { answerTimerMs } from "@/lib/gameConfig";
 
 // Range 500–1000: an answer in the first second earns MAX_POINTS; the score then
@@ -21,7 +21,7 @@ export interface ScoreInput {
   timerMs?: number | null;
   multiplier?: number;
   correct: boolean;
-  mode: AnswerMode;
+  mode: QuestionMode;
   revealAtMs: number;
   submitAtMs: number;
 }

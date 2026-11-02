@@ -15,7 +15,7 @@ import type { RevealedAnswer } from "@/lib/db/types";
 export function formatAnswerKey(reveal: RevealedAnswer | null): string {
   if (!reveal) return "—";
 
-  if (reveal.mode === "multiple_choice") {
+  if (reveal.mode !== "type_answer") {
     const options = reveal.options ?? [];
     const idx = reveal.correct_option ?? -1;
     return options[idx] ?? "—";

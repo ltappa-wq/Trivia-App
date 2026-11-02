@@ -45,9 +45,9 @@ export function DisplayStage({ state, token, origin, offset, remaining, reveal, 
     {phase === "question" && question && <section className="tv-question">
       <h1>{question.prompt}</h1>
       {questionMultiplier(game) === 2 && <p>Double points!</p>}
-      {remaining !== null && <Countdown remaining={remaining} total={answerTimerMs(game)} />}
+      {remaining !== null && <Countdown remaining={remaining} total={answerTimerMs(game, question)} />}
       {question.voided ? <p>This question was voided.</p> : <>
-        {question.mode === "multiple_choice" ? <ol className="tv-options">{question.options?.map((option, i) => <li key={i}><strong>{String.fromCharCode(65 + i)}</strong> {option}</li>)}</ol> : <p>Type your answer on your phone.</p>}
+        {question.mode !== "type_answer" ? <ol className="tv-options">{question.options?.map((option, i) => <li key={i}><strong>{String.fromCharCode(65 + i)}</strong> {option}</li>)}</ol> : <p>Type your answer on your phone.</p>}
         <AnswerProgress state={state} token={token} />
         {remaining === 0 && <p>Time’s up — waiting for review.</p>}
       </>}

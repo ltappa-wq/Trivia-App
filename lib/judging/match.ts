@@ -66,3 +66,8 @@ export function judgeTypeAnswer(raw: string, acceptedVariants: string[]): boolea
   }
   return false;
 }
+
+/** Binary tiles submit canonical option indices; never parse partial/fuzzy input. */
+export function judgeTrueFalse(raw: string, correctOption: number): boolean {
+  return (raw === "0" || raw === "1") && raw === String(correctOption);
+}

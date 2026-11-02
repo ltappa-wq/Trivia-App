@@ -1,7 +1,8 @@
 // U2. Shared data-model types — the contract every unit reads and writes.
 // Mirrors the Postgres schema in supabase/migrations/0001_init.sql.
 
-export type AnswerMode = "multiple_choice" | "type_answer";
+export type QuestionMode = "multiple_choice" | "type_answer" | "true_false";
+export type AnswerMode = QuestionMode | "mixed";
 export type Difficulty = "easy" | "medium" | "hard";
 export type GameStatus = "lobby" | "active" | "ended";
 export type ChallengeType = "question" | "answer";
@@ -40,7 +41,7 @@ export interface QuestionRow {
   game_id: string;
   index: number;
   prompt: string;
-  mode: AnswerMode;
+  mode: QuestionMode;
   options: string[] | null;
   correct_option: number | null;
   accepted_variants: string[] | null;
@@ -98,7 +99,7 @@ export interface QuestionBankRow {
    * simply never anchors a match.
    */
   answer_norm: string | null;
-  mode: AnswerMode;
+  mode: QuestionMode;
   options: string[] | null;
   correct_option: number | null;
   accepted_variants: string[] | null;
@@ -118,7 +119,7 @@ export interface LeaderboardEntry {
 export interface ClientQuestion {
   index: number;
   prompt: string;
-  mode: AnswerMode;
+  mode: QuestionMode;
   options: string[] | null;
   voided: boolean;
 }
@@ -163,7 +164,7 @@ export interface HydratedState {
 export interface RevealedAnswer {
   explanation?: string | null;
   index: number;
-  mode: AnswerMode;
+  mode: QuestionMode;
   options: string[] | null;
   correct_option: number | null;
   accepted_variants: string[] | null;
@@ -174,12 +175,12 @@ export interface RevealedAnswer {
 
 export interface AnswerDistribution {
   index: number;
-  mode: AnswerMode;
+  mode: QuestionMode;
   options: string[] | null;
   correct_option: number | null;
   /** Total answers recorded for the current question. */
   total: number;
-  /** Per-option answer counts (multiple_choice only); null for type_answer. */
+  /** Per-option answer counts (choice and true/false); null for type_answer. */
   counts: number[] | null;
 }
 
@@ -193,7 +194,7 @@ export interface OpenChallenge {
   question: {
     index: number;
     prompt: string;
-    mode: AnswerMode;
+    mode: QuestionMode;
     options: string[] | null;
     correct_option: number | null;
     accepted_variants: string[] | null;
