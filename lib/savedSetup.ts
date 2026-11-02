@@ -5,7 +5,7 @@ export interface SavedSetup extends SetupInput {
   hostName: string;
 }
 export const SAVED_SETUP_KEY = "buzzr:last-setup";
-// Pacing options are optional additions to v1; older saves keep legacy defaults.
+// Additive optional fields keep v1 compatible; absent family mode defaults off.
 const VERSION = 1;
 
 function withGameOptions(settings: SavedSetup): SavedSetup {
@@ -14,6 +14,7 @@ function withGameOptions(settings: SavedSetup): SavedSetup {
     answerTimerMs: settings.answerTimerMs ?? null,
     autoAdvanceMs: settings.autoAdvanceMs ?? null,
     doublePointsFinale: settings.doublePointsFinale ?? false,
+    familyFriendly: settings.familyFriendly ?? false,
   };
 }
 

@@ -32,7 +32,7 @@ jobs:
           supabase db reset --local --no-seed
       - name: Mixed-mode SQL behavior and legacy regression
         run: |
-          for fixture in supabase/tests/0019_game_options.sql supabase/tests/0023_tv_display.sql supabase/tests/0024_mixed_mode.sql; do
+          for fixture in supabase/tests/0019_game_options.sql supabase/tests/0023_tv_display.sql supabase/tests/0024_mixed_mode.sql supabase/tests/0025_family_friendly.sql; do
             docker exec -i supabase_db_buzzr-e2e psql -U postgres -v ON_ERROR_STOP=1 < "$fixture"
           done
       - name: Export local-only credentials

@@ -88,6 +88,7 @@ export async function createGame(
         answer_timer_ms: input.answerTimerMs ?? null,
         auto_advance_ms: input.autoAdvanceMs ?? null,
         double_points_finale: input.doublePointsFinale ?? false,
+        family_friendly: input.familyFriendly ?? false,
       })
       .select("id")
       .single();

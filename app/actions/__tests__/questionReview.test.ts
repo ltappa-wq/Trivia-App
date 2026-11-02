@@ -67,3 +67,9 @@ it("rejects unauthorized prepared-status reads", async () => {
   await expect(getPreparedQuestionStatus("12345", "player")).rejects.toThrow("Not authorized");
   expect(m.from).not.toHaveBeenCalled();
 });
+
+it("regenerates using the stored family setting", async () => {
+  m.authorize.mockResolvedValue({ id: "g", status: "lobby", current_index: -1, categories: ["Geography"], answer_mode: "type_answer", difficulty: "easy", family_friendly: true });
+  await editQuestionReview("12345", "host", "q", "regenerate");
+  expect(m.generate.mock.calls[0][1]).toMatchObject({ familyFriendly: true, count: 1 });
+});

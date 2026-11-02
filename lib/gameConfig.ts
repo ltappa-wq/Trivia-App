@@ -82,6 +82,7 @@ export interface GameOptionsInput {
   answerTimerMs?: number | null;
   autoAdvanceMs?: number | null;
   doublePointsFinale?: boolean;
+  familyFriendly?: boolean;
 }
 
 export function answerTimerMs(game: { answer_mode: AnswerMode; answer_timer_ms?: number | null }, question?: { mode: QuestionMode } | null): number {
@@ -189,6 +190,9 @@ export function validateSetupInput(raw: unknown): SetupValidation {
   if (r.autoAdvanceMs != null && !(AUTO_ADVANCE_OPTIONS as readonly unknown[]).includes(r.autoAdvanceMs)) {
     return { ok: false, error: "Choose an auto-advance delay" };
   }
+  if (r.familyFriendly !== undefined && typeof r.familyFriendly !== "boolean") {
+    return { ok: false, error: "Choose a valid family-friendly setting" };
+  }
   if (r.doublePointsFinale !== undefined && typeof r.doublePointsFinale !== "boolean") {
     return { ok: false, error: "Choose a valid finale setting" };
   }
@@ -199,6 +203,7 @@ export function validateSetupInput(raw: unknown): SetupValidation {
       ...(r.answerTimerMs !== undefined ? { answerTimerMs: r.answerTimerMs as number | null } : {}),
       ...(r.autoAdvanceMs !== undefined ? { autoAdvanceMs: r.autoAdvanceMs as number | null } : {}),
       ...(r.doublePointsFinale !== undefined ? { doublePointsFinale: r.doublePointsFinale as boolean } : {}),
+      ...(r.familyFriendly !== undefined ? { familyFriendly: r.familyFriendly as boolean } : {}),
       categories,
       questionCount,
       answerMode: r.answerMode as AnswerMode,

@@ -5,7 +5,7 @@ import { clearSavedSetup, parseSavedSetup, readSavedSetup, saveSetup, SAVED_SETU
 beforeEach(() => { Object.defineProperty(window, "localStorage", { configurable: true, get: () => store }); store.clear(); });
 const store = testStorage();
 const settings = { categories: ["Science", "90s cartoons"], questionCount: 12, answerMode: "type_answer" as const, difficulty: "hard" as const, hostPlays: true, hostName: "Ada" };
-const legacyDefaults = { answerTimerMs: null, autoAdvanceMs: null, doublePointsFinale: false };
+const legacyDefaults = { answerTimerMs: null, autoAdvanceMs: null, doublePointsFinale: false, familyFriendly: false };
 afterEach(() => { vi.unstubAllGlobals(); store.clear(); });
 describe("saved setup", () => {
   it("round trips known fields and ignores future optional fields", () => {
@@ -30,9 +30,15 @@ it("reads settings written before pacing fields existed without changing version
 it("round trips all three pacing options in version 1", () => {
   const configured = { ...settings, answerTimerMs: 60000, autoAdvanceMs: 8000, doublePointsFinale: true };
   saveSetup(configured);
-  expect(JSON.parse(store.getItem(SAVED_SETUP_KEY)!)).toEqual({ version: 1, settings: configured });
-  expect(readSavedSetup()).toEqual(configured);
+  expect(JSON.parse(store.getItem(SAVED_SETUP_KEY)!)).toEqual({ version: 1, settings: { ...configured, familyFriendly: false } });
+  expect(readSavedSetup()).toEqual({ ...configured, familyFriendly: false });
 });
 it.each([{ answerTimerMs: 35000 }, { autoAdvanceMs: 2000 }, { doublePointsFinale: "true" }])("rejects invalid saved pacing options: %j", options => {
   expect(parseSavedSetup(JSON.stringify({ version: 1, settings: { ...settings, ...options } }))).toBeNull();
+});
+
+it("round trips family mode and rejects invalid flags", () => {
+  saveSetup({ ...settings, familyFriendly: true });
+  expect(readSavedSetup()).toMatchObject({ familyFriendly: true });
+  expect(parseSavedSetup(JSON.stringify({ version: 1, settings: { ...settings, familyFriendly: "true" } }))).toBeNull();
 });

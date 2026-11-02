@@ -29,6 +29,7 @@ export type ValidateCategoryResult =
  */
 export async function validateCustomCategory(
   rawCategory: string,
+  familyFriendly = false,
 ): Promise<ValidateCategoryResult> {
   const category = normalizeCategory(rawCategory);
   if (!category) return { ok: false, error: "Enter a category name" };
@@ -66,6 +67,7 @@ export async function validateCustomCategory(
   try {
     const probe = await probeCategoryViability(category, {
       apiKey,
+      familyFriendly: familyFriendly === true,
       baseUrl: process.env.XAI_BASE_URL,
       model: process.env.XAI_MODEL,
       minQuestions: CUSTOM_CATEGORY_MIN_QUESTIONS,

@@ -10,6 +10,8 @@ const authorizeHostByCode = vi.fn();
 const generateAndPersistQuestions = vi.fn();
 const advance = vi.fn();
 const from = vi.fn();
+const probeCategoryViability = vi.fn();
+vi.mock("@/lib/generation/categoryProbe", () => ({ probeCategoryViability: (...args: unknown[]) => probeCategoryViability(...args) }));
 
 vi.mock("@/lib/supabase/server", () => ({
   getServiceClient: () => ({ from }),
@@ -111,9 +113,10 @@ describe("startGame — generation and start (U8, R9)", () => {
     expect(generateAndPersistQuestions).toHaveBeenCalledWith("game-1", {
       categories: ["History", "Science"],
       count: 10,
+      familyFriendly: false,
       mode: "multiple_choice",
       difficulty: "medium",
-    }, expect.any(Function));
+    }, expect.any(Function), undefined, undefined);
     expect(advance).toHaveBeenCalledWith("12345", "host-token", -1);
     expect(result).toMatchObject({ status: "started", index: 0 });
   });
@@ -283,4 +286,43 @@ it("review reload and Start reuse the prepared set and ignore new category sugge
   expect(await startGame("12345", "host-token", ["Music"])).toMatchObject({ status: "started" });
   expect(generateAndPersistQuestions).not.toHaveBeenCalled();
   expect(advance).toHaveBeenCalledOnce();
+});
+
+describe("family mode at Start", () => {
+  it("rechecks stored custom categories and prevents generation when unsuitable", async () => {
+    wireTables();
+    authorizeHostByCode.mockResolvedValue(game({ family_friendly: true, categories: ["Adult topic"] }));
+    probeCategoryViability.mockResolvedValue({ ok: false, familySuitable: false, reason: "Please choose a topic suitable for family play." });
+    const { startGame } = await import("../startGame");
+    expect(await startGame("12345", "host-token")).toMatchObject({ status: "generation_failed", message: expect.stringMatching(/family play/) });
+    expect(probeCategoryViability).toHaveBeenCalledWith("Adult topic", expect.objectContaining({ familyFriendly: true }));
+    expect(generateAndPersistQuestions).not.toHaveBeenCalled();
+    expect(advance).not.toHaveBeenCalled();
+  });
+  it("generates when the custom category is family-suitable even if the new viability estimate is low", async () => {
+    wireTables();
+    authorizeHostByCode.mockResolvedValue(game({ family_friendly: true, categories: ["90s cartoons"] }));
+    probeCategoryViability.mockResolvedValue({ ok: false, familySuitable: true, estimatedQuestions: 3, reason: "Not enough unique questions for this topic" });
+    const { startGame } = await import("../startGame");
+    expect(await startGame("12345", "host-token")).toMatchObject({ status: "started" });
+    expect(generateAndPersistQuestions).toHaveBeenCalledOnce();
+    expect(generateAndPersistQuestions.mock.calls[0][1]).toMatchObject({ familyFriendly: true, categories: ["90s cartoons"] });
+    expect(advance).toHaveBeenCalledOnce();
+  });
+  it("fails closed when the family verdict is missing despite a viable result", async () => {
+    wireTables();
+    authorizeHostByCode.mockResolvedValue(game({ family_friendly: true, categories: ["90s cartoons"] }));
+    probeCategoryViability.mockResolvedValue({ ok: true, estimatedQuestions: 50, reason: "Looks good" });
+    const { startGame } = await import("../startGame");
+    expect(await startGame("12345", "host-token")).toMatchObject({ status: "generation_failed" });
+    expect(generateAndPersistQuestions).not.toHaveBeenCalled();
+  });
+  it("passes the stored flag to generation and skips paid probes for built-ins", async () => {
+    wireTables();
+    authorizeHostByCode.mockResolvedValue(game({ family_friendly: true }));
+    const { startGame } = await import("../startGame");
+    await startGame("12345", "host-token");
+    expect(probeCategoryViability).not.toHaveBeenCalled();
+    expect(generateAndPersistQuestions.mock.calls[0][1].familyFriendly).toBe(true);
+  });
 });

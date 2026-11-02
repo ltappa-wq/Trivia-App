@@ -19,7 +19,7 @@ it("prefills every saved field only after validating custom topics", async () =>
   render(<SetupPage />);
   fireEvent.click(await screen.findByText("Use last settings"));
   await waitFor(() => expect((screen.getByLabelText("Your name") as HTMLInputElement).value).toBe("Ada"));
-  expect(mocks.validate).toHaveBeenCalledWith("90s cartoons");
+  expect(mocks.validate).toHaveBeenCalledWith("90s cartoons", false);
   expect((screen.getByRole("checkbox", { name: /Science/ }) as HTMLInputElement).checked).toBe(true);
   expect((screen.getByLabelText("Number of questions") as HTMLInputElement).value).toBe("12");
   expect((screen.getByLabelText("Type the answer") as HTMLInputElement).checked).toBe(true);
@@ -49,7 +49,7 @@ it("saves only after successful creation, including host-only settings", async (
   mocks.create.mockResolvedValueOnce({ gameId: "g", code: "12345", hostToken: "t" });
   fireEvent.click(screen.getByText("Retry"));
   await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/host?code=12345"));
-  expect(JSON.parse(store.getItem("buzzr:last-setup")!).settings).toEqual({ ...settings, categories: ["Science"], hostPlays: false, questionCount: 15, answerTimerMs: null, autoAdvanceMs: null, doublePointsFinale: false });
+  expect(JSON.parse(store.getItem("buzzr:last-setup")!).settings).toEqual({ ...settings, categories: ["Science"], hostPlays: false, questionCount: 15, answerTimerMs: null, autoAdvanceMs: null, doublePointsFinale: false, familyFriendly: false });
 });
 
 it("restores pacing options and saves changed options only after creation succeeds", async () => {

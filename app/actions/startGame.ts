@@ -21,9 +21,12 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { authorizeHostByCode } from "@/lib/serverAuth";
 import { advance, type AdvanceResult } from "@/app/actions/advance";
 import { generateAndPersistQuestions } from "@/app/actions/generate";
-import { validateSetupInput } from "@/lib/gameConfig";
+import { CATEGORIES, validateSetupInput } from "@/lib/gameConfig";
 import { GenerationError, generationFailureMessage } from "@/lib/generation/xai";
 import { GENERATION_LEASE_MS } from "@/lib/generation/progress";
+import { probeCategoryViability } from "@/lib/generation/categoryProbe";
+import { fixtureGenerationEnabled } from "@/lib/generation/fixture";
+import { FAMILY_CATEGORY_MESSAGE } from "@/lib/familySafety";
 import { hasQuestions } from "@/lib/gameFlow";
 
 // Module-scoped concurrent-generation bound (best-effort per instance, KTD10).
@@ -114,8 +117,26 @@ export async function startGame(
     }
     if (!claimed?.length) throw new Error("Questions are already being prepared. Please wait.");
 
+    // Stored setting is authoritative, including categories added before enabling it.
+    const deadline = Date.now() + 240_000;
+    if (game.family_friendly) {
+      for (const category of categories) {
+        if ((CATEGORIES as readonly string[]).includes(category)) continue;
+        if (fixtureGenerationEnabled()) throw new Error("Choose built-in categories for fixture family games.");
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new GenerationError("Family safety check timed out; please retry.", "provider");
+        const probe = await probeCategoryViability(category, {
+          apiKey: process.env.XAI_API_KEY ?? "", familyFriendly: true,
+          baseUrl: process.env.XAI_BASE_URL, model: process.env.XAI_MODEL,
+          timeoutMs: Math.min(12_000, remaining),
+        });
+        // Setup owns viability; Start rechecks only the stored safety requirement.
+        if (probe.familySuitable !== true) throw new Error(FAMILY_CATEGORY_MESSAGE);
+      }
+    }
     await generateAndPersistQuestions(game.id, {
       categories,
+      familyFriendly: game.family_friendly ?? false,
       count: game.question_count,
       mode: game.answer_mode,
       difficulty: game.difficulty,
@@ -124,7 +145,7 @@ export async function startGame(
         .update({ generation_progress: completed }).eq("id", game.id)
         .eq("generation_started_at", startedAt);
       if (error) throw new Error("Could not save generation progress. Please retry.");
-    });
+    }, undefined, game.family_friendly ? deadline - Date.now() : undefined);
     const { error } = await supabase.from("games")
       .update({ generation_started_at: null, generation_error: null })
       .eq("id", game.id).eq("generation_started_at", startedAt);

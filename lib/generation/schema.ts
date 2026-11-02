@@ -9,6 +9,7 @@ import type { AnswerMode, Difficulty, QuestionMode } from "@/lib/db/types";
 import { normalizeAnswer } from "./dedup";
 
 export interface GenerationParams {
+  familyFriendly?: boolean;
   categories: string[];
   count: number;
   mode: AnswerMode;

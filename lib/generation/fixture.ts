@@ -43,3 +43,28 @@ export function fixtureQuestions(params: GenerationParams, offset = 0): Generate
     };
   });
 }
+
+/** One deterministic flagged candidate, then safe tail replacements through xai.ts. */
+export function fixtureSafetyFetch(params: GenerationParams, offset = 0): typeof fetch {
+  let next = offset;
+  let flagged = false;
+  return (async (_url, init) => {
+    const body = JSON.parse(String(init?.body));
+    let output: unknown;
+    if (body.response_format?.type === "json_schema") {
+      const batch = JSON.parse(body.messages[1].content) as { prompt: string }[];
+      output = { verdicts: batch.map((q, index) => ({ index, safe: !q.prompt.startsWith("Fixture flagged:") })) };
+    } else {
+      const prompt = body.messages[1].content as string;
+      const mode = prompt.includes('"answer" boolean') ? "true_false" : prompt.includes('"options" array') ? "multiple_choice" : "type_answer";
+      const requested = Number(/Generate exactly (\d+)/.exec(prompt)![1]);
+      const count = Math.min(requested, params.count);
+      const questions = fixtureQuestions({ ...params, mode, count }, next).map(q =>
+        q.mode === "true_false" ? { ...q, answer: q.correct_option === 0 } : q);
+      next += count;
+      if (!flagged) { questions[0] = { ...questions[0]!, prompt: "Fixture flagged: adult-only topic placeholder" }; flagged = true; }
+      output = { questions };
+    }
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) } }] }), { status: 200 });
+  }) as typeof fetch;
+}

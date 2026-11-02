@@ -11,6 +11,8 @@ export type PlayerRole = "host" | "player" | "spectator" | "display";
 
 export interface GameRow {
   regeneration_count?: number;
+  family_friendly?: boolean;
+  family_replaced_count?: number;
   id: string;
   code: string;
   host_token_hash: string;

@@ -6,6 +6,7 @@
 // question read-only. State is hydrated from Postgres and reconciled on every
 // Broadcast delta (KTD8); the countdown is server-anchored (KTD9).
 
+import { FamilySafetyNote } from "@/components/FamilySafetyNote";
 import { DisplayLink } from "@/components/DisplayLink";
 import { JoinQrCode } from "@/components/JoinQrCode";
 import { Suspense, useMemo, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -350,6 +351,7 @@ function HostView() {
 
   return (
     <main className="host-view">
+      {token && <FamilySafetyNote key={`${code}:${token}`} code={code} token={token} refreshKey={`${starting}:${busy}:${questionsPrepared}:${game.current_index}`} />}
       <header>
         <h1 tabIndex={-1}>Room {game.code}</h1>
         <p>
