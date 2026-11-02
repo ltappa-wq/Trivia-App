@@ -11,14 +11,14 @@
 // and it re-mounted and re-hydrated the whole app to show standings this page
 // already holds. /results remains for direct links and refreshes.
 
-import { Suspense, useMemo, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { LobbyAccessibility } from "@/components/LobbyAccessibility";
 import { useSearchParams } from "next/navigation";
 import { useScopedState } from "@/lib/useScopedState";
 import { challenge } from "@/app/actions/challenge";
 import type { SubmitResult } from "@/app/actions/submitAnswer";
-import { loadPlayerCredential } from "@/lib/clientSession";
+import { usePlayerCredential } from "@/lib/usePlayerCredential";
 import { revealAnswer } from "@/lib/realtime/channel";
 import { useIsGetReady, useQuestionCountdown, useRoomState } from "@/lib/realtime/hooks";
 import { answerTimerMs, questionMultiplier } from "@/lib/gameConfig";
@@ -39,7 +39,7 @@ import type { RevealedAnswer } from "@/lib/db/types";
 function PlayView() {
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
-  const cred = useMemo(() => loadPlayerCredential(code), [code]);
+  const { credential: cred, ready: credentialReady } = usePlayerCredential(code);
   const token = cred?.token ?? null;
 
   const { state, offset, error, loading } = useRoomState(code, token);
@@ -100,6 +100,7 @@ function PlayView() {
   const experiencePhase = game ? derivePhase(game, state?.current_question ?? null, offset).phase : "lobby";
   const roundBaseline = useRoundSnapshot(state, experiencePhase);
 
+  if (!credentialReady) return <main aria-busy="true"><p>Loading…</p></main>;
   if (!cred) {
     return (
       <main>

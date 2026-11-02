@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { test, expect, localDatabase } from "./test";
-import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
+import { hostCreateGame, playerJoin, questionPrompt, recordHydrationErrors } from "./helpers";
 
 test.use({ actionTimeout: 20_000 });
 
@@ -37,6 +37,7 @@ async function keyboardActivate(page: Page, target: Locator) {
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`home, setup and join: ${reducedMotion}, no serious or critical WCAG violations`, async ({ page }) => {
+    const hydrationErrors = recordHydrationErrors([page.context()]);
     await page.emulateMedia({ reducedMotion });
     for (const route of ["/", "/setup", "/join", "/display?code=12345"]) {
       await page.goto(route);
@@ -48,6 +49,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       if (route.startsWith("/display")) await expect(page.getByRole("heading", { name: "TV display link required" })).toBeFocused();
       await scan(page, route);
     }
+    expect(hydrationErrors).toEqual([]);
   });
 }
 
@@ -57,6 +59,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
     const hostContext = await browser.newContext({ reducedMotion: "reduce" });
     const playerContext = await browser.newContext({ reducedMotion: "reduce" });
     const tvContext = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1920, height: 1080 } });
+    const hydrationErrors = recordHydrationErrors([hostContext, playerContext, tvContext]);
     try {
       const { page: host, code } = await hostCreateGame(hostContext, trackGame, { mode, count: 1, hostPlays: false, answerTimerMs: 60000 });
       const player = await playerJoin(playerContext, code, "Keyboard player");
@@ -173,6 +176,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       await hostContext.close();
       await playerContext.close();
       await tvContext.close();
+      expect.soft(hydrationErrors, "No hydration errors across game phases, reloads and rematch transfer").toEqual([]);
     }
   });
 }
@@ -181,6 +185,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
 test("pre-game review: keyboard regeneration/removal, focus recovery and axe", async ({ browser, trackGame }) => {
   const hostContext = await browser.newContext({ reducedMotion: "reduce" });
   const playerContext = await browser.newContext({ reducedMotion: "reduce" });
+  const hydrationErrors = recordHydrationErrors([hostContext, playerContext]);
   try {
     const { page: host, code } = await hostCreateGame(hostContext, trackGame, { count: 2, hostPlays: false });
     const player = await playerJoin(playerContext, code, "Review spectator");
@@ -199,5 +204,5 @@ test("pre-game review: keyboard regeneration/removal, focus recovery and axe", a
     await scan(host, "question removed from review");
     await keyboardActivate(host, host.getByRole("button", { name: "Start game", exact: true }));
     await expect(questionPrompt(player)).toHaveText("Fixture 101: spell the number 100.");
-  } finally { await hostContext.close(); await playerContext.close(); }
+  } finally { await hostContext.close(); await playerContext.close(); expect.soft(hydrationErrors).toEqual([]); }
 });

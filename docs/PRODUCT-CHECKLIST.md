@@ -292,3 +292,6 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - The display never answers, challenges, adjudicates, closes or advances a question. It uses coalesced room hydration and reconnect recovery; a read-only periodic refresh detects missed revocations. Before review no answer key or distribution is readable; private challenge details and player suggestions remain host-only.
 - Long rosters/standings rotate through presentation pages every eight seconds, preserving full-board ranks without requiring TV controls.
 - Display credentials are hashed separately on games and have no player identity. Replacing/revoking a link invalidates the old credential. Owner applies `0023_tv_display.sql` before deploying this feature.
+- Player play/results restore saved browser credentials after hydration so the
+  server and initial browser loading markup agree. Reload, reconnect and
+  rematch E2E checks fail on hydration errors rather than suppressing warnings.

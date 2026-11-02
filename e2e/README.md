@@ -114,3 +114,10 @@ recap summaries retain focus during disclosure. There are no modal dialogs in
 these flows; inline panels intentionally remain in the document tab order.
 Fredoka font files come from `@fontsource/fredoka`, avoiding a Google font fetch
 while Next compiles the fixture server.
+
+Accessibility rounds, game flow and reconnect tests capture browser page errors
+and error-console messages and fail on hydration mismatches. `/play` and
+`/results` defer credential storage reads until after the initial hydration
+render; SSR and the first browser render show the same loading shell. The unit
+suite exercises actual `renderToString`/`hydrateRoot` with a saved credential and
+checks that React requires no hydration recovery.
