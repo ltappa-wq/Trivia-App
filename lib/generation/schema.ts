@@ -5,7 +5,7 @@
 // to clients (the hydrate RPC omits them, U2).
 
 import { randomInt } from "node:crypto";
-import type { AnswerMode, Difficulty } from "@/lib/db/types";
+import type { AnswerMode, Difficulty, QuestionMode } from "@/lib/db/types";
 import { normalizeAnswer } from "./dedup";
 
 export interface GenerationParams {
@@ -19,7 +19,7 @@ export interface GeneratedQuestion {
   /** Optional enrichment; invalid provider values normalize to null. */
   explanation?: string | null;
   prompt: string;
-  mode: AnswerMode;
+  mode: QuestionMode;
   /** multiple_choice only: the ordered option list. */
   options?: string[];
   /** multiple_choice only: 0-based index of the correct option. */
@@ -81,7 +81,17 @@ export function validateGeneratedQuestion(
     return { ok: false, reason: "missing prompt" };
   }
 
-  if (params.mode === "multiple_choice") {
+  const mode = params.mode === "mixed" ? q.mode : params.mode;
+  if (mode === "true_false") {
+    if (typeof q.answer !== "boolean") return { ok: false, reason: "true/false requires a boolean answer" };
+    return { ok: true, question: {
+      prompt: q.prompt.trim(), mode, options: ["True", "False"],
+      correct_option: q.answer ? 0 : 1, difficulty: params.difficulty,
+      explanation: normalizeExplanation(q.explanation),
+    } };
+  }
+  if (mode !== "multiple_choice" && mode !== "type_answer") return { ok: false, reason: "invalid question mode" };
+  if (mode === "multiple_choice") {
     const options = q.options;
     if (
       !Array.isArray(options) ||

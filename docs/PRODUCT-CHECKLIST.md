@@ -295,3 +295,20 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Player play/results restore saved browser credentials after hydration so the
   server and initial browser loading markup agree. Reload, reconnect and
   rematch E2E checks fail on hydration errors rather than suppressing warnings.
+
+### R30 — Mixed answer modes
+
+- Setup offers Multiple choice, Type the answer, Mixed, and True/false only.
+- Mixed uses a repeating MC → typed → true/false → MC sequence (50% / 25% / 25%
+  over each four questions). Short sets take the sequence prefix: three questions
+  include all three types; one or two questions cannot include every type.
+- Each question owns its mode. True/false uses two large accessible True/False
+  tiles and exact option-index judging, with the same review, distribution,
+  explanation, pregame review, recap and TV support as multiple choice.
+- Default windows follow the current question: MC 20s, typed 35s, true/false 15s.
+  The binary window is shorter because there are only two choices and no typing.
+  A host-selected timer overrides all three; scoring and challenge rescoring use
+  that same window, including the double-points finale.
+- Remembered setup and rematch preserve Mixed. Regeneration preserves the
+  individual question's type. Repeated true/false answer values are allowed;
+  bank dedup compares their prompts without a boolean-answer anchor.

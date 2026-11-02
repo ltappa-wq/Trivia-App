@@ -49,9 +49,9 @@ function PlayView() {
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challenging, setChallenging] = useState(false);
   const [reveal, setReveal] = useScopedState<RevealedAnswer | null>(`${token}:${game?.current_index}:${game?.reviewing}`, null);
-  const remaining = useQuestionCountdown(game, offset);
+  const remaining = useQuestionCountdown(game, offset, state?.current_question);
   useAutoAdvance(code, token, game, offset);
-  useAutoClose(code, token, game, offset, false);
+  useAutoClose(code, token, game, offset, false, state?.current_question);
 
   const reviewing = game?.reviewing ?? false;
   const spectating = state?.role === "spectator";
@@ -150,7 +150,7 @@ function PlayView() {
       {phase.phase === "question" && <AnswerProgress state={state} token={token} />}
 
       <GameStage
-        timerMs={answerTimerMs(game)}
+        timerMs={answerTimerMs(game, question)}
         doublePoints={questionMultiplier(game) === 2}
         phase={phase}
         question={question}

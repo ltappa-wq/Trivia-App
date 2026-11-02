@@ -10,7 +10,7 @@ import type { AnswerDistribution as Distribution } from "@/lib/db/types";
 import { formatNumber } from "@/lib/formatScore";
 
 export function AnswerDistribution({ dist }: { dist: Distribution | null }) {
-  if (!dist || dist.mode !== "multiple_choice" || !dist.counts || !dist.options) {
+  if (!dist || dist.mode === "type_answer" || !dist.counts || !dist.options) {
     return null;
   }
   const total = dist.total;

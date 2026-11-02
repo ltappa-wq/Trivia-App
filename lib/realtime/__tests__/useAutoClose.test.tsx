@@ -80,3 +80,12 @@ describe("useAutoClose", () => {
     expect(close).not.toHaveBeenCalled();
   });
 });
+
+it.each([["type_answer", 35000], ["true_false", 15000]] as const)("mixed auto-close follows the %s question", async (mode, timer) => {
+  vi.setSystemTime(0);
+  renderHook(() => useAutoClose("12345", "host", { ...game, answer_mode: "mixed" }, 0, true, { index: 0, prompt: "Q", mode, options: null, voided: false }));
+  await advance(timer + 700);
+  expect(close).not.toHaveBeenCalled();
+  await advance(100);
+  expect(close).toHaveBeenCalledExactlyOnceWith("12345", "host", 0);
+});

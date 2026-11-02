@@ -1,4 +1,5 @@
 import "server-only";
+import { mixedModeAt } from "./mix";
 // U3. xAI question generation via the OpenAI-compatible Chat Completions API
 // (KTD5). Called once at setup (U4) so the live loop stays AI-free. Whole-set
 // generation risks truncation at high counts, so this regenerates only the
@@ -65,7 +66,9 @@ function buildMessages(
   avoidAnswers: readonly string[] = [],
 ) {
   const modeInstruction =
-    params.mode === "multiple_choice"
+    params.mode === "true_false"
+      ? `Each question is a clear factual statement with an "answer" boolean (true or false). Avoid trick questions, ambiguity, opinions and double negatives. Repeated boolean answers are allowed.`
+      : params.mode === "multiple_choice"
       ? `Each question is multiple choice: provide an "options" array of 4 answer strings and "correct_option" as the 0-based index of the correct one. Vary which index is correct across the set — do not put the correct answer first every time. Every question must have a DISTINCT correct answer — never reuse the same correct answer text on two questions.`
       : `Each question is type-the-answer: provide an "accepted_variants" array of acceptable answers. Every accepted answer MUST be one or two common, easy-to-spell words (letters only, no numbers or punctuation). Reject any question whose natural answer cannot meet this constraint. Every question must have a DISTINCT primary correct answer — never reuse the same answer on two questions.`;
 
@@ -208,6 +211,26 @@ export async function generateQuestions(
   if (!config.apiKey) throw new GenerationError("Missing xAI API key", "configuration");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
 
+  if (params.mode === "mixed") {
+    // Sequential phases share one deadline; unused time carries forward.
+    const deadline = Date.now() + (config.budgetMs ?? GENERATION_BUDGET_MS);
+    const modes = Array.from({ length: params.count }, (_, i) => mixedModeAt(i));
+    const pools = new Map<string, GeneratedQuestion[]>();
+    let completed = 0;
+    const accepted = [...existingQuestions];
+    for (const mode of ["multiple_choice", "type_answer", "true_false"] as const) {
+      const count = modes.filter((m) => m === mode).length;
+      if (!count) continue;
+      const questions = await generateQuestions({ ...params, mode, count }, {
+        ...config, budgetMs: deadline - Date.now(),
+        onProgress: (n) => config.onProgress?.(completed + n),
+      }, exclusions, accepted);
+      pools.set(mode, questions);
+      completed += questions.length;
+      accepted.push(...questions);
+    }
+    return modes.map((mode) => pools.get(mode)!.shift()!);
+  }
   const resolved = {
     apiKey: config.apiKey,
     baseUrl: config.baseUrl ?? DEFAULT_BASE_URL,
@@ -297,7 +320,7 @@ export async function generateQuestions(
         // is prompt similarity paid for. R2 lives here too: a shared answer with a
         // dissimilar prompt falls through and is kept.
         const anchor = normalizedAnswerKey(result.question);
-        const anchored = anchor ? promptsByAnswer.get(anchor) : undefined;
+        const anchored = result.question.mode === "true_false" ? [...usedNorms] : anchor ? promptsByAnswer.get(anchor) : undefined;
         if (anchored && isNearDuplicate(norm, anchored)) {
           rejections.add("near-duplicate");
           continue;

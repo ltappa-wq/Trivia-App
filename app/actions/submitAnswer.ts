@@ -10,7 +10,7 @@
 import { getServiceClient } from "@/lib/supabase/server";
 import { resolvePlayerByToken } from "@/lib/serverAuth";
 import { assertCanSubmitAnswer } from "@/lib/phaseGuards";
-import { judgeMultipleChoice, judgeTypeAnswer } from "@/lib/judging/match";
+import { judgeMultipleChoice, judgeTypeAnswer, judgeTrueFalse } from "@/lib/judging/match";
 import { questionMultiplier } from "@/lib/gameConfig";
 import { computeScore } from "@/lib/scoring/speed";
 import { currentStreak } from "@/lib/scoring/streak";
@@ -65,7 +65,9 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
   if (!question || question.voided) throw new Error("No active question");
 
   const correct =
-    question.mode === "multiple_choice"
+    question.mode === "true_false"
+      ? judgeTrueFalse(rawAnswer, question.correct_option ?? -1)
+      : question.mode === "multiple_choice"
       ? judgeMultipleChoice(Number.parseInt(rawAnswer, 10), question.correct_option ?? -1)
       : judgeTypeAnswer(rawAnswer, question.accepted_variants ?? []);
 
@@ -73,7 +75,7 @@ export async function submitAnswer(token: string, rawAnswer: string): Promise<Su
     correct,
     timerMs: game.answer_timer_ms,
     multiplier: questionMultiplier(game),
-    mode: game.answer_mode,
+    mode: question.mode,
     revealAtMs,
     submitAtMs,
   });

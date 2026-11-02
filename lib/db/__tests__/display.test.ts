@@ -32,7 +32,8 @@ describe("R21 SQL role audit across every latest resolve_token caller", () => {
     expect(display).toContain(`grant execute on function public.${name}(${signature}) to service_role;`);
     // Preserve every line of the previous behavior apart from the new role gate.
     const previous = readFileSync(resolve(directory, "0019_game_options.sql"), "utf8").match(new RegExp(`create or replace function public\\.${name}\\([\\s\\S]*?\\$\\$;`))![0];
-    expect(body.replace("if v_game_id is null or v_role is null or v_role not in ('host', 'player', 'spectator') then\n    raise exception 'Not authorized';\n  end if;", "if v_game_id is null then raise exception 'Not authorized'; end if;")).toBe(previous);
+    const displayBody = display.match(new RegExp(`create or replace function public\\.${name}\\([\\s\\S]*?\\$\\$;`))![0];
+    expect(displayBody.replace("if v_game_id is null or v_role is null or v_role not in ('host', 'player', 'spectator') then\n    raise exception 'Not authorized';\n  end if;", "if v_game_id is null then raise exception 'Not authorized'; end if;")).toBe(previous);
   });
   it("keeps host-only reads and schedule mutation inaccessible to display", () => {
     for (const name of ["list_open_challenges", "list_category_suggestions", "set_review_auto_advance"])

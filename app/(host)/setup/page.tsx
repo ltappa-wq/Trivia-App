@@ -36,6 +36,8 @@ type Status = "editing" | "creating" | "error";
 const MODE_LABELS: Record<AnswerMode, string> = {
   multiple_choice: "Multiple choice",
   type_answer: "Type the answer",
+  mixed: "Mixed",
+  true_false: "True/false only",
 };
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {

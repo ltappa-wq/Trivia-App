@@ -121,3 +121,5 @@ and error-console messages and fail on hydration mismatches. `/play` and
 render; SSR and the first browser render show the same loading shell. The unit
 suite exercises actual `renderToString`/`hydrateRoot` with a saved credential and
 checks that React requires no hydration recovery.
+
+Mixed fixtures follow MC → typed → true/false → MC. Binary statements use number parity and canonical True/False tiles. `mixed-mode.spec.ts` completes a three-type game, checks keyboard controls and axe, TV/review/recap rendering, hydration errors, and rematch mode. Playwright retries are disabled.

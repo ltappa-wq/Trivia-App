@@ -2,7 +2,7 @@
 // setup-input validation. Consumed by the setup UI (U4), createGame (U4), and
 // generation (U3). Hosts may also add free-text custom categories.
 
-import type { AnswerMode, Difficulty } from "@/lib/db/types";
+import type { AnswerMode, Difficulty, QuestionMode } from "@/lib/db/types";
 
 /** Built-in category chips shown on the setup form (~30). Hosts may add custom. */
 export const CATEGORIES = [
@@ -57,7 +57,7 @@ export const CUSTOM_CATEGORY_MAX_COUNT = 5;
 /** Get-ready 3–2–1 interstitial before each question becomes answerable. */
 export const GET_READY_MS = 3000;
 
-export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer"];
+export const ANSWER_MODES: readonly AnswerMode[] = ["multiple_choice", "type_answer", "mixed", "true_false"];
 export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
 
 /**
@@ -68,9 +68,10 @@ export const DIFFICULTIES: readonly Difficulty[] = ["easy", "medium", "hard"];
  * constant — behavior is verified through the U7 scenarios, not hardcoded
  * assertions (Verification Contract).
  */
-export const ANSWER_TIMER_MS: Record<AnswerMode, number> = {
+export const ANSWER_TIMER_MS: Record<QuestionMode, number> = {
   multiple_choice: 20_000,
   type_answer: 35_000,
+  true_false: 15_000,
 };
 
 export const ANSWER_TIMER_OPTIONS = [10000, 20000, 30000, 40000, 50000, 60000] as const;
@@ -83,8 +84,9 @@ export interface GameOptionsInput {
   doublePointsFinale?: boolean;
 }
 
-export function answerTimerMs(game: { answer_mode: AnswerMode; answer_timer_ms?: number | null }): number {
-  return game.answer_timer_ms ?? ANSWER_TIMER_MS[game.answer_mode];
+export function answerTimerMs(game: { answer_mode: AnswerMode; answer_timer_ms?: number | null }, question?: { mode: QuestionMode } | null): number {
+  const mode = question?.mode ?? game.answer_mode;
+  return game.answer_timer_ms ?? (mode === "mixed" ? ANSWER_TIMER_MS.multiple_choice : ANSWER_TIMER_MS[mode]);
 }
 
 export function questionMultiplier(game: {

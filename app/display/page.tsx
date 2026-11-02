@@ -42,7 +42,7 @@ function DisplaySession({ code, token }: { code: string; token: string }) {
   const { state, offset, loading, error, refresh } = useRoomState(code, token);
   const game = state?.game;
   const phase = game ? derivePhase(game, state.current_question, offset).phase : "lobby";
-  const remaining = useQuestionCountdown(game ?? null, offset);
+  const remaining = useQuestionCountdown(game ?? null, offset, state?.current_question);
   const baseline = useRoundSnapshot(state, phase);
   const origin = useSyncExternalStore(subscribeOrigin, readOrigin, () => "");
   const scope = `${token}:${game?.current_index}:${game?.reviewing}:${game?.paused}`;

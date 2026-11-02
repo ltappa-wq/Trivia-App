@@ -91,12 +91,7 @@
     "columns": []
   },
   "0008_answer_distribution.sql": {
-    "functions": [
-      {
-        "signature": "answer_distribution(text)",
-        "access": "client"
-      }
-    ],
+    "functions": [],
     "columns": []
   },
   "0009_phase_auth_hardening.sql": {
@@ -215,10 +210,6 @@
         "access": "service"
       },
       {
-        "signature": "resolve_challenge(uuid,uuid,boolean,text)",
-        "access": "service"
-      },
-      {
         "signature": "set_review_auto_advance(text,text,integer,boolean)",
         "access": "service"
       }
@@ -271,10 +262,6 @@
       {
         "signature": "capture_answer_elapsed()",
         "access": "internal"
-      },
-      {
-        "signature": "game_recap(text)",
-        "access": "client"
       }
     ],
     "columns": [
@@ -288,10 +275,6 @@
         "access": "service"
       },
       {
-        "signature": "close_question(text,text,integer,boolean)",
-        "access": "service"
-      },
-      {
         "signature": "auto_advance_question(text,text,integer)",
         "access": "service"
       }
@@ -299,5 +282,26 @@
     "columns": [
       "games.display_token_hash"
     ]
+  },
+  "0024_mixed_mode.sql": {
+    "functions": [
+      {
+        "signature": "answer_distribution(text)",
+        "access": "client"
+      },
+      {
+        "signature": "resolve_challenge(uuid,uuid,boolean,text)",
+        "access": "service"
+      },
+      {
+        "signature": "game_recap(text)",
+        "access": "client"
+      },
+      {
+        "signature": "close_question(text,text,integer,boolean)",
+        "access": "service"
+      }
+    ],
+    "columns": []
   }
 }

@@ -68,7 +68,7 @@ function QuestionAnswerPanel({
   }
 
   useEffect(() => {
-    if (question.mode !== "multiple_choice" || locked || timeUp || submitting) return;
+    if (question.mode === "type_answer" || locked || timeUp || submitting) return;
     const handleKey = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       const target = event.target as HTMLElement;
@@ -91,7 +91,7 @@ function QuestionAnswerPanel({
         {/* Celebrate a correct answer on this device only (R1). */}
         {result?.correct && <Fireworks />}
         {result?.correct ? "✓ Correct" : "✗ Answer locked in"}
-        {myAnswer && <span> — Your answer: {question.mode === "multiple_choice" ? question.options?.[Number(myAnswer.raw_answer)] ?? myAnswer.raw_answer : myAnswer.raw_answer}</span>}
+        {myAnswer && <span> — Your answer: {question.mode !== "type_answer" ? question.options?.[Number(myAnswer.raw_answer)] ?? myAnswer.raw_answer : myAnswer.raw_answer}</span>}
         {result && result.points > 0 ? ` — +${formatNumber(result.points)}` : ""}
         {result?.correct && (result.streak ?? 0) >= STREAK_BADGE_MIN && (
           <span className="streak-badge">
@@ -106,8 +106,8 @@ function QuestionAnswerPanel({
   return (
     <>
       {error && <p role="alert">{error}</p>}
-      {question.mode === "multiple_choice" ? (
-        <ul ref={tiles} className="answer-tiles" aria-label="Answer choices. Use arrow keys to move, Enter to choose, or number keys 1 to 4.">
+      {question.mode !== "type_answer" ? (
+        <ul ref={tiles} className={`answer-tiles${question.mode === "true_false" ? " answer-tiles--true-false" : ""}`} aria-label={`Answer choices. Use arrow keys to move, Enter to choose, or number keys 1 to ${question.options?.length ?? 0}.`}>
           {(question.options ?? []).map((opt, i) => (
             <li key={i}>
               <button type="button" aria-label={`${String.fromCharCode(65 + i)}, ${TILE_SHAPE_NAMES[i % TILE_SHAPE_NAMES.length]}: ${opt}`} disabled={submitting} onClick={() => submit(String(i))}>

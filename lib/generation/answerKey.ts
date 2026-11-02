@@ -10,7 +10,7 @@
 // "no two questions share a winner" rule (R4). This returns the *one* canonical
 // key a banked row is stored and matched under. One row, one anchor.
 
-import type { AnswerMode } from "@/lib/db/types";
+import type { QuestionMode } from "@/lib/db/types";
 import { normalizeAnswer } from "./dedup";
 
 /**
@@ -19,7 +19,7 @@ import { normalizeAnswer } from "./dedup";
  * generated shape uses `undefined`) work without conversion.
  */
 export interface AnswerKeySource {
-  mode: AnswerMode;
+  mode: QuestionMode;
   options?: string[] | null;
   correct_option?: number | null;
   accepted_variants?: string[] | null;
@@ -67,6 +67,7 @@ export function answerKey(question: AnswerKeySource): string | null {
  * away to nothing (e.g. an answer of only punctuation).
  */
 export function normalizedAnswerKey(question: AnswerKeySource): string | null {
+  if (question.mode === "true_false") return null;
   const raw = answerKey(question);
   if (raw === null) return null;
   return normalizeAnswer(raw) || null;

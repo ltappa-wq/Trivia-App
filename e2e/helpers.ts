@@ -38,7 +38,7 @@ export async function hostCreateGame(
   opts: {
     category?: string;
     count?: number;
-    mode?: "multiple_choice" | "type_answer";
+    mode?: "multiple_choice" | "type_answer" | "mixed" | "true_false";
     hostPlays?: boolean;
     hostName?: string;
     answerTimerMs?: number;
@@ -55,6 +55,8 @@ export async function hostCreateGame(
     await page.getByLabel("I’ll play too").uncheck();
   }
   await page.getByLabel(opts.category ?? "Geography").check();
+  if (opts.mode === "mixed") await page.getByLabel("Mixed", { exact: true }).check();
+  if (opts.mode === "true_false") await page.getByLabel("True/false only", { exact: true }).check();
   if (opts.mode === "type_answer") await page.getByLabel("Type the answer", { exact: true }).check();
   await page.getByLabel("Number of questions").fill(String(opts.count ?? 2));
   if (opts.answerTimerMs) await page.getByRole("combobox", { name: /^Answer timer/ }).selectOption(String(opts.answerTimerMs));

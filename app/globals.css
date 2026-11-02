@@ -1409,3 +1409,7 @@ fieldset label.is-disabled {
 .game-recap__questions > li { border-bottom: 1px solid currentColor; }
 
 .question-review__list > li { display: block; }
+
+/* Binary questions keep two generous, keyboard-accessible tiles. */
+.answer-tiles--true-false { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.answer-tiles--true-false button { min-height: 7rem; }

@@ -1,0 +1,74 @@
+import AxeBuilder from "@axe-core/playwright";
+import { test, expect, localDatabase } from "./test";
+import { answerFirstOption, hostCreateGame, playerJoin, questionPrompt } from "./helpers";
+
+test("mixed fixture game: review, MC, typed, accessible binary tiles, TV, recap and rematch", async ({ browser, trackGame }) => {
+  const hostCtx = await browser.newContext();
+  const playerCtx = await browser.newContext();
+  const tvCtx = await browser.newContext();
+  const errors: string[] = [];
+  for (const context of [hostCtx, playerCtx, tvCtx]) context.on("page", page => {
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("console", message => { if (message.type() === "error" && /hydrat|didn't match|server rendered/i.test(message.text())) errors.push(message.text()); });
+  });
+  try {
+    const { page: host, code } = await hostCreateGame(hostCtx, trackGame, { mode: "mixed", count: 3, hostPlays: false });
+    const player = await playerJoin(playerCtx, code, "Mixed player");
+    await host.getByRole("button", { name: "Review questions first" }).click();
+    const review = host.getByRole("region", { name: "Question review" });
+    await expect(review).toContainText("Fixture 3: 2 is an even number.");
+    await expect(review).toContainText("True — Correct answer");
+    await host.getByRole("button", { name: "Open TV display", exact: true }).click();
+    const url = await host.getByRole("link", { name: "Open read-only TV screen" }).getAttribute("href");
+    const tv = await tvCtx.newPage();
+    await tv.goto(url!);
+    await host.getByRole("button", { name: "Start game", exact: true }).click();
+    await expect(questionPrompt(player)).toHaveText("Fixture 1: spell the number 0.");
+    await expect(player.locator(".answer-tiles button")).toHaveCount(4);
+    await answerFirstOption(player);
+    await expect(host.getByText("Correct answer:")).toBeVisible();
+    await host.getByRole("button", { name: "Next question" }).click();
+    await expect(questionPrompt(player)).toHaveText("Fixture 2: spell the number 1.");
+    await player.getByLabel("Your answer", { exact: true }).fill("one");
+    await player.getByRole("button", { name: "Submit", exact: true }).click();
+    await expect(host.getByText("Correct answer:")).toBeVisible();
+    await host.getByRole("button", { name: "Next question" }).click();
+    await expect(questionPrompt(player)).toHaveText("Fixture 3: 2 is an even number.");
+    const tiles = player.locator(".answer-tiles button");
+    await expect(tiles).toHaveCount(2);
+    await expect(tiles.nth(0)).toHaveAccessibleName("A, triangle: True");
+    await expect(tiles.nth(1)).toHaveAccessibleName("B, diamond: False");
+    await expect(tv.locator(".tv-options li")).toHaveCount(2);
+    expect((await new AxeBuilder({ page: player }).include("main").analyze()).violations).toEqual([]);
+    await tiles.nth(0).focus();
+    await player.keyboard.press("Tab");
+    await expect(tiles.nth(1)).toBeFocused();
+    await player.keyboard.press("Shift+Tab");
+    await expect(tiles.nth(0)).toBeFocused();
+    await player.keyboard.press("ArrowRight");
+    await expect(tiles.nth(1)).toBeFocused();
+    await player.keyboard.press("ArrowLeft");
+    await expect(tiles.nth(0)).toBeFocused();
+    await player.keyboard.press("1");
+    await expect(host.getByText("Correct answer:")).toBeVisible();
+    await expect(tv.getByText("Correct answer:")).toBeVisible();
+    await expect(tv.getByText("2 is even.", { exact: true })).toBeVisible();
+    await expect(host.getByLabel("Answer distribution")).toContainText("True");
+    await host.getByRole("button", { name: "Finish game" }).click();
+    await expect(player.getByRole("heading", { name: "Your recap" })).toBeVisible();
+    await player.getByText("Review all 3 questions", { exact: true }).click();
+    await player.getByText(/Question 3:.*Correct/).click();
+    await expect(player.getByText("True", { exact: true })).toHaveCount(2);
+    await host.getByRole("button", { name: "Play again (same players)" }).click();
+    await expect.poll(() => new URL(host.url()).searchParams.get("code")).not.toBe(code);
+    const nextCode = new URL(host.url()).searchParams.get("code")!;
+    const { data: rematch } = await localDatabase().from("games").select("id,answer_mode").eq("code", nextCode).single();
+    if (!rematch) throw new Error("Rematch was not created");
+    trackGame(rematch.id);
+    expect(rematch.answer_mode).toBe("mixed");
+    await expect.poll(() => new URL(player.url()).searchParams.get("code")).toBe(nextCode);
+    expect(errors).toEqual([]);
+  } finally {
+    await Promise.all([hostCtx.close(), playerCtx.close(), tvCtx.close()]);
+  }
+});

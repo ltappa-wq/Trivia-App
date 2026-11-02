@@ -12,7 +12,7 @@ export function GameOptionsFields({ value, onChange, answerMode }: {
     <legend>Game pacing and finale</legend>
     <label>Answer timer
       <select value={value.answerTimerMs ?? ""} onChange={e => onChange({ ...value, answerTimerMs: e.target.value ? Number(e.target.value) : null })}>
-        <option value="">Mode default ({ANSWER_TIMER_MS[answerMode] / 1000} seconds)</option>
+        <option value="">Mode default ({answerMode === "mixed" ? "20s choice / 35s typed / 15s true/false" : `${ANSWER_TIMER_MS[answerMode] / 1000} seconds`})</option>
         {ANSWER_TIMER_OPTIONS.map(ms => <option key={ms} value={ms}>{ms / 1000} seconds</option>)}
       </select>
     </label>
