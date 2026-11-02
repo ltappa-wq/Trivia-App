@@ -83,7 +83,7 @@ it("shares moderation and generation time across all mixed phases", async () => 
 
 it("family category probes require an explicit suitability verdict with friendly rejection", async () => {
   const fetchImpl = vi.fn<typeof fetch>(async () => response({ viable: true, estimated_questions: 50, reason: "Looks good", family_suitable: false }));
-  expect(await probeCategoryViability("Cocktails", { apiKey: "k", familyFriendly: true, fetchImpl })).toMatchObject({ ok: false, reason: "Please choose a topic suitable for family play." });
+  expect(await probeCategoryViability("Cocktails", { apiKey: "k", familyFriendly: true, fetchImpl })).toMatchObject({ ok: false, familySuitable: false, reason: "Please choose a topic suitable for family play." });
   const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
   expect(body.messages[1].content).toContain(FAMILY_SAFETY_RULES);
   await expect(probeCategoryViability("Topic", { apiKey: "k", familyFriendly: true, fetchImpl: async () => response({ viable: true, estimated_questions: 50 }) })).rejects.toThrow(/incomplete/);
@@ -108,4 +108,11 @@ it("aborts a hung moderation call and accepts none of that batch", async () => {
     await rejected;
     expect(onProgress).not.toHaveBeenCalled();
   } finally { vi.useRealTimers(); }
+});
+it("exposes family suitability independently while setup still rejects a low viability estimate", async () => {
+  const probe = await probeCategoryViability("90s cartoons", {
+    apiKey: "k", familyFriendly: true,
+    fetchImpl: async () => response({ viable: false, estimated_questions: 3, family_suitable: true, reason: "Not enough unique questions for this topic" }),
+  });
+  expect(probe).toMatchObject({ ok: false, familySuitable: true, estimatedQuestions: 3 });
 });

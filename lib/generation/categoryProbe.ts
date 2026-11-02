@@ -14,6 +14,8 @@ export const CUSTOM_CATEGORY_MIN_QUESTIONS = 10;
 
 export interface CategoryProbeResult {
   ok: boolean;
+  /** Explicit family verdict when requested; independent of viability/depth. */
+  familySuitable?: boolean;
   /** Model's rough count of unique easy/medium facts it could generate. */
   estimatedQuestions: number;
   /** Short human reason when not ok (or optional note when ok). */
@@ -113,7 +115,7 @@ export async function probeCategoryViability(
     if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid category check");
     const obj = parsed as Record<string, unknown>;
     if (config.familyFriendly && typeof obj.family_suitable !== "boolean") throw new Error("Family category safety check incomplete. Please retry.");
-    if (config.familyFriendly && !obj.family_suitable) return { ok: false, estimatedQuestions: 0, reason: FAMILY_CATEGORY_MESSAGE };
+    if (config.familyFriendly && !obj.family_suitable) return { ok: false, familySuitable: false, estimatedQuestions: 0, reason: FAMILY_CATEGORY_MESSAGE };
     const estimated =
       typeof obj.estimated_questions === "number" && Number.isFinite(obj.estimated_questions)
         ? Math.max(0, Math.floor(obj.estimated_questions))
@@ -128,6 +130,8 @@ export async function probeCategoryViability(
     const ok = viableFlag && estimated >= minQuestions;
 
     if (controller.signal.aborted) throw new Error("Category check timed out. Please retry.");
-    return { ok, estimatedQuestions: estimated, reason };
+    return { ok, estimatedQuestions: estimated, reason,
+      ...(config.familyFriendly ? { familySuitable: obj.family_suitable as boolean } : {}),
+    };
   } finally { clearTimeout(timer); }
 }

@@ -26,6 +26,7 @@ import { GenerationError, generationFailureMessage } from "@/lib/generation/xai"
 import { GENERATION_LEASE_MS } from "@/lib/generation/progress";
 import { probeCategoryViability } from "@/lib/generation/categoryProbe";
 import { fixtureGenerationEnabled } from "@/lib/generation/fixture";
+import { FAMILY_CATEGORY_MESSAGE } from "@/lib/familySafety";
 import { hasQuestions } from "@/lib/gameFlow";
 
 // Module-scoped concurrent-generation bound (best-effort per instance, KTD10).
@@ -129,7 +130,8 @@ export async function startGame(
           baseUrl: process.env.XAI_BASE_URL, model: process.env.XAI_MODEL,
           timeoutMs: Math.min(12_000, remaining),
         });
-        if (!probe.ok) throw new Error(probe.reason);
+        // Setup owns viability; Start rechecks only the stored safety requirement.
+        if (probe.familySuitable !== true) throw new Error(FAMILY_CATEGORY_MESSAGE);
       }
     }
     await generateAndPersistQuestions(game.id, {
