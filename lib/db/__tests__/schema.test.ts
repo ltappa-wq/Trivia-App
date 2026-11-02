@@ -381,3 +381,26 @@ describe("R23 explanation storage and reveal contract", () => {
     expect(explanations).toContain("grant execute on function public.reveal_answer(text) to anon, authenticated");
   });
 });
+
+const questionReview = readFileSync(fileURLToPath(new URL("../../../supabase/migrations/0020_question_review.sql", import.meta.url)), "utf8");
+describe("R22 pregame question review", () => {
+  it("adds only new functions and backward-compatible columns", () => {
+    expect(questionReview).toContain("regeneration_count integer not null default 0");
+    expect(questionReview).not.toMatch(/function public\.(hydrate_game_state|resolve_token|reveal_answer|answer_distribution|answer_progress)\(/);
+  });
+  it("token-validates mutations, locks the game row, and keeps RPC service-only", () => {
+    expect(questionReview).toContain("host_token_hash = encode(digest(p_host_token, 'sha256'), 'hex') for update");
+    expect(questionReview).toContain("g.status <> 'lobby' or g.current_index <> -1");
+    expect(questionReview).toContain("revoke execute on function public.edit_review_question(uuid,text,text,uuid,uuid,jsonb) from public, anon, authenticated");
+    expect(questionReview).toContain("grant execute on function public.edit_review_question(uuid,text,text,uuid,uuid,jsonb) to service_role");
+  });
+  it("guards Start and category changes, expires leases, caps attempts, and removes in index order", () => {
+    expect(questionReview).toContain("old.current_index = -1 and new.current_index >= 0");
+    expect(questionReview).toContain("old.review_lease_until > clock_timestamp()");
+    expect(questionReview).toContain("g.review_lease is distinct from p_lease");
+    expect(questionReview).toContain("g.regeneration_count >= 20");
+    expect(questionReview).toContain("order by index loop");
+    expect(questionReview).toContain("question_count = (select count(*)");
+    expect(questionReview).toContain("new.categories is distinct from old.categories");
+  });
+});

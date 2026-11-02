@@ -245,5 +245,22 @@
       "games.auto_advance_at",
       "games.double_points_finale"
     ]
+  },
+  "0020_question_review.sql": {
+    "functions": [
+      {
+        "signature": "guard_question_review()",
+        "access": "internal"
+      },
+      {
+        "signature": "edit_review_question(uuid,text,text,uuid,uuid,jsonb)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.review_lease",
+      "games.review_lease_until",
+      "games.regeneration_count"
+    ]
   }
 }
