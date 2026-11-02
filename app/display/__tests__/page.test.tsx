@@ -40,3 +40,24 @@ it("consumes and scrubs a regenerated link pasted into the same TV tab", async (
   await waitFor(() => expect(room).toHaveBeenLastCalledWith("12345", "b".repeat(43)));
   expect(window.location.hash).toBe("");
 });
+
+it("does not erase a regenerated credential while its new room session hydrates", async () => {
+  const { useEffect, useState } = await import("react");
+  // Model the hook's real lifetime: a completed invalid state remains until
+  // another request resolves, while a fresh component starts in loading state.
+  room.mockImplementation(function useTestRoom(_code: string, token: string | null) {
+    const [result, setResult] = useState({ state: null, loading: !!token, error: null, offset: 0, refresh: vi.fn() });
+    useEffect(() => {
+      if (token === "a".repeat(43)) queueMicrotask(() => setResult(previous => ({ ...previous, loading: false })));
+    }, [token]);
+    return result;
+  });
+  render(<Page />);
+  await screen.findByRole("heading", { name: "TV display link required" });
+  await act(async () => {
+    window.history.replaceState(null, "", `/display?code=12345#t=${"b".repeat(43)}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+  await waitFor(() => expect(screen.getByRole("heading", { name: "Connecting TV display…" })).toBeTruthy());
+  expect(sessionStorage.getItem("trivia:display:12345")).toBe("b".repeat(43));
+});

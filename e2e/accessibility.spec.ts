@@ -76,6 +76,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       await expect(displayLink).toBeFocused();
       await tv.goto((await displayLink.getAttribute("href"))!);
       await expect(tv.getByRole("heading", { name: "Join the game" })).toBeVisible();
+      await expect.poll(() => tv.evaluate(room => sessionStorage.getItem(`trivia:display:${room}`), code)).not.toBeNull();
       await scan(host, "display link regenerated");
       await keyboardActivate(host, host.getByRole("button", { name: "Start game" }));
       await expect(host.getByRole("timer", { name: /Next question in/ })).toBeVisible();

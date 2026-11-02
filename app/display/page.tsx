@@ -32,7 +32,13 @@ function DisplayRoom({ code }: { code: string }) {
     window.addEventListener("hashchange", consume);
     return () => window.removeEventListener("hashchange", consume);
   }, [code]);
-  const token = credential?.token ?? null;
+  if (!credential) return <DisplayMessage title="Connecting TV display…" busy />;
+  if (!credential.token) return <DisplayMessage title="TV display link required"><p>Ask the host to open or regenerate the TV display link.</p></DisplayMessage>;
+  // Hydration/revocation state belongs to one credential. A regenerated link
+  // must not inherit a previous token's null state or clear the new credential.
+  return <DisplaySession key={credential.token} code={code} token={credential.token} />;
+}
+function DisplaySession({ code, token }: { code: string; token: string }) {
   const { state, offset, loading, error, refresh } = useRoomState(code, token);
   const game = state?.game;
   const phase = game ? derivePhase(game, state.current_question, offset).phase : "lobby";
@@ -58,8 +64,8 @@ function DisplayRoom({ code }: { code: string }) {
   useEffect(() => {
     if (token && !loading && !error && !state) clearDisplayToken(code);
   }, [token, loading, error, state, code]);
-  if (!credential || loading) return <DisplayMessage title="Connecting TV display…" busy />;
-  if (!token || (!state && !error)) return <DisplayMessage title="TV display link required"><p>Ask the host to open or regenerate the TV display link.</p></DisplayMessage>;
+  if (loading) return <DisplayMessage title="Connecting TV display…" busy />;
+  if (!state && !error) return <DisplayMessage title="TV display link required"><p>Ask the host to open or regenerate the TV display link.</p></DisplayMessage>;
   if (error) return <DisplayMessage title="Reconnecting…"><p>Waiting for the room connection.</p></DisplayMessage>;
   if (!state || state.role !== "display" || state.game.code !== code) return <DisplayMessage title="Invalid TV display link" />;
   return <DisplayStage state={state} token={token!} origin={origin} offset={offset} remaining={remaining}
