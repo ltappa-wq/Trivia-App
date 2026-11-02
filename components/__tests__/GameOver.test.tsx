@@ -13,7 +13,14 @@ vi.mock("@/app/actions/submitFeedback", () => ({
   submitFeedback: vi.fn(async () => undefined),
 }));
 
-afterEach(cleanup);
+const tipConfig = vi.hoisted(() => ({ venmo: null as string | null, stripe: null as string | null }));
+vi.mock("@/lib/tipJar", () => ({ tipJar: tipConfig }));
+
+afterEach(() => {
+  cleanup();
+  tipConfig.venmo = null;
+  tipConfig.stripe = null;
+});
 
 const STANDINGS: LeaderboardEntry[] = [
   { id: "p1", username: "Ada", score: 3000 },
@@ -110,5 +117,34 @@ describe("GameOver — degenerate payloads (U7)", () => {
     ];
     render(<GameOver standings={tied} myPlayerId="p1" />);
     expect(screen.getAllByText(/winner/i).length).toBeGreaterThan(1);
+  });
+});
+
+describe("GameOver — optional tip jar", () => {
+  it("renders no section when unconfigured or invalid", () => {
+    render(<GameOver standings={STANDINGS} />);
+    expect(screen.queryByRole("region", { name: "Tip jar" })).toBeNull();
+    expect(screen.queryByText("Enjoyed the game?")).toBeNull();
+  });
+
+  it.each(["venmo", "stripe", "both"])("renders %s configuration directly after feedback", config => {
+    if (config !== "stripe") tipConfig.venmo = "https://venmo.com/u/buzzr-demo";
+    if (config !== "venmo") tipConfig.stripe = "https://buy.stripe.com/test_buzzr_demo_not_real";
+    const { container } = render(<GameOver standings={STANDINGS} roomCode="PRIVATE" myPlayerId="p2" recapToken={null} />);
+    const section = screen.getByRole("region", { name: "Tip jar" });
+    expect(container.querySelector(".feedback-form")?.nextElementSibling).toBe(section);
+    expect(within(section).getByRole("heading", { name: "Enjoyed the game?" })).toBeTruthy();
+    const links = within(section).getAllByRole("link");
+    expect(links).toHaveLength(config === "both" ? 2 : 1);
+    for (const [destination, name] of [[tipConfig.venmo, "Tip with Venmo (opens Venmo)"], [tipConfig.stripe, "Tip with card (opens Stripe)"]]) {
+      if (!destination) {
+        expect(within(section).queryByRole("link", { name: name! })).toBeNull();
+        continue;
+      }
+      const link = within(section).getByRole("link", { name: name! });
+      expect(link.getAttribute("href")).toBe(destination);
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    }
   });
 });

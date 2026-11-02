@@ -13,6 +13,7 @@ import { Podium } from "@/components/Podium";
 import type { LeaderboardEntry } from "@/lib/db/types";
 import { formatNumber, formatScore } from "@/lib/formatScore";
 import { describeWinners } from "@/lib/results";
+import { tipJar } from "@/lib/tipJar";
 import { submitFeedback } from "@/app/actions/submitFeedback";
 
 export function GameOver({
@@ -130,6 +131,24 @@ export function GameOver({
           </button>
         )}
       </form>
+      {(tipJar.venmo || tipJar.stripe) && (
+        <section className="tip-jar" aria-label="Tip jar">
+          <h2>Enjoyed the game?</h2>
+          <p>BUZZR is free to play. If you had fun, you can leave a tip to help keep it running.</p>
+          <div className="tip-jar__links">
+            {tipJar.venmo && (
+              <a href={tipJar.venmo} target="_blank" rel="noopener noreferrer" aria-label="Tip with Venmo (opens Venmo)">
+                Tip with Venmo
+              </a>
+            )}
+            {tipJar.stripe && (
+              <a href={tipJar.stripe} target="_blank" rel="noopener noreferrer" aria-label="Tip with card (opens Stripe)">
+                Tip with card
+              </a>
+            )}
+          </div>
+        </section>
+      )}
     </section>
   );
 }

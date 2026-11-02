@@ -54,3 +54,13 @@ Then run `npm run dev` and open http://localhost:3000.
 - [Documented solutions](docs/solutions/) — architecture and past fixes.
 - [Agent guidance](AGENTS.md) — repository conventions.
 - [Design handoff](docs/design/README.md) — UX reference and screenshots.
+
+## Tip jar
+
+To show optional tip links below feedback on the end-of-game results screen,
+set `NEXT_PUBLIC_TIP_VENMO_USERNAME` (handle only) and/or
+`NEXT_PUBLIC_TIP_STRIPE_URL` (a `https://buy.stripe.com` Payment Link configured
+for “customer chooses what to pay”) in Vercel → Project Settings → Environment
+Variables for the desired environments. Invalid or empty values are hidden;
+with neither configured, no tip jar appears. These `NEXT_PUBLIC_` values are
+public and require a redeploy to take effect.

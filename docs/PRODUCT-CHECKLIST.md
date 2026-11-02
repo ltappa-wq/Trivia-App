@@ -147,6 +147,8 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 
 ## 7. Results & after-game
 
+- [x] Optional owner-configured Venmo/Stripe tip jar appears only below feedback on unified results; hidden when unconfigured or invalid, with no game data in links and no TV/gameplay prompts.
+
 - [x] R25: ended-only personal recap below standings lists every prompt, own answer (or no answer), correction-aware key, void/correct/wrong status, adjudicated points including double-points finale, and recorded elapsed time. Questions collapse for 100-question games. Historical answers without recorded timing show “Time unavailable”.
 - [x] Personal stats show accuracy (missing answers count as wrong; voids excluded), fastest correct answer, best streak (voids skipped), and authoritative total points. Room highlights include all ties for hardest question (correct / room players), most challenges (including voided questions), and fastest player by single correct answer. Host-only and spectators see room highlights; playing hosts also see their own recap. No other player's raw answers are returned.
 
