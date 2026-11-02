@@ -37,7 +37,7 @@
   --shadow: 0 14px 40px rgba(24, 12, 50, 0.16);
   --shadow-sm: 0 6px 16px rgba(24, 12, 50, 0.1);
   --ring: 0 0 0 3px oklch(0.64 0.19 340 / 0.4);
-  --display: var(--font-display), "Fredoka", ui-rounded, system-ui, sans-serif;
+  --display: "Fredoka", ui-rounded, system-ui, sans-serif;
 }
 
 * {
@@ -1407,3 +1407,5 @@ fieldset label.is-disabled {
 .game-recap summary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
 .game-recap__questions { padding-left: 1.5rem; }
 .game-recap__questions > li { border-bottom: 1px solid currentColor; }
+
+.question-review__list > li { display: block; }

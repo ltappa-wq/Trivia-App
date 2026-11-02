@@ -38,13 +38,14 @@ async function keyboardActivate(page: Page, target: Locator) {
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`home, setup and join: ${reducedMotion}, no serious or critical WCAG violations`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion });
-    for (const route of ["/", "/setup", "/join"]) {
+    for (const route of ["/", "/setup", "/join", "/display?code=12345"]) {
       await page.goto(route);
       if (route === "/setup") {
         const timer = page.getByRole("combobox", { name: /^Answer timer/ });
         await timer.selectOption("60000");
         await expect(timer).toHaveValue("60000");
       }
+      if (route.startsWith("/display")) await expect(page.getByRole("heading", { name: "TV display link required" })).toBeFocused();
       await scan(page, route);
     }
   });
@@ -55,11 +56,27 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
     test.setTimeout(180_000);
     const hostContext = await browser.newContext({ reducedMotion: "reduce" });
     const playerContext = await browser.newContext({ reducedMotion: "reduce" });
+    const tvContext = await browser.newContext({ reducedMotion: "reduce", viewport: { width: 1920, height: 1080 } });
     try {
       const { page: host, code } = await hostCreateGame(hostContext, trackGame, { mode, count: 1, hostPlays: false, answerTimerMs: 60000 });
       const player = await playerJoin(playerContext, code, "Keyboard player");
       await expect(host.getByRole("listitem").filter({ hasText: "Keyboard player" })).toBeVisible();
       await Promise.all([scan(host, "host lobby"), scan(player, "player lobby")]);
+      await keyboardActivate(host, host.getByRole("button", { name: "Open TV display", exact: true }));
+      const displayLink = host.getByRole("link", { name: "Open read-only TV screen" });
+      await expect(displayLink).toBeFocused();
+      await scan(host, "display link ready");
+      const tv = await tvContext.newPage();
+      await tv.goto((await displayLink.getAttribute("href"))!);
+      await expect(tv.getByRole("heading", { name: "Join the game" })).toBeFocused();
+      await scan(tv, "TV lobby");
+      await keyboardActivate(host, host.getByRole("button", { name: "Regenerate TV display link" }));
+      await expect(host.getByRole("status").filter({ hasText: "TV display link ready" })).toBeAttached();
+      await expect(tv.getByRole("heading", { name: "TV display link required" })).toBeFocused();
+      await expect(displayLink).toBeFocused();
+      await tv.goto((await displayLink.getAttribute("href"))!);
+      await expect(tv.getByRole("heading", { name: "Join the game" })).toBeVisible();
+      await scan(host, "display link regenerated");
       await keyboardActivate(host, host.getByRole("button", { name: "Start game" }));
       await expect(host.getByRole("timer", { name: /Next question in/ })).toBeVisible();
       // Extend only this isolated fixture's reveal window: axe must finish
@@ -67,20 +84,23 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       const db = localDatabase();
       const { error: extendError } = await db.from("games").update({ reveal_at: new Date(Date.now() + 60_000).toISOString() }).eq("code", code);
       expect(extendError).toBeNull();
-      await Promise.all([host.reload(), player.reload()]);
+      await Promise.all([host.reload(), player.reload(), tv.reload()]);
       await expect(player.getByRole("timer", { name: /Next question in/ })).toBeVisible();
-      await Promise.all([scan(host, "host get-ready"), scan(player, "player get-ready")]);
+      await expect(tv.getByRole("timer", { name: /Next question in/ })).toBeVisible();
+      await Promise.all([scan(host, "host get-ready"), scan(player, "player get-ready"), scan(tv, "TV get-ready")]);
       const { error: revealError } = await db.from("games").update({ reveal_at: new Date(Date.now() + 1500).toISOString() }).eq("code", code);
       expect(revealError).toBeNull();
-      await Promise.all([host.reload(), player.reload()]);
+      await Promise.all([host.reload(), player.reload(), tv.reload()]);
       await expect(questionPrompt(player)).toBeVisible();
       await expect(questionPrompt(player)).toBeFocused();
-      await Promise.all([scan(host, `host ${mode}`), scan(player, `player ${mode}`)]);
+      await expect(tv.getByRole("heading", { name: "Fixture 1: spell the number 0." })).toBeFocused();
+      await Promise.all([scan(host, `host ${mode}`), scan(player, `player ${mode}`), scan(tv, `TV ${mode}`)]);
 
       // Challenge and resolve entirely with the keyboard, before answering.
       await keyboardActivate(player, player.getByRole("button", { name: "Challenge this question" }));
       await expect(host.getByRole("button", { name: "Reject" })).toBeVisible();
-      await Promise.all([scan(host, "host paused"), scan(player, "player paused")]);
+      await expect(tv.getByRole("heading", { name: "Paused", exact: true })).toBeFocused();
+      await Promise.all([scan(host, "host paused"), scan(player, "player paused"), scan(tv, "TV paused")]);
       await keyboardActivate(host, host.getByRole("button", { name: "Reject" }));
       await expect(player.getByText(/Paused for review/i)).toBeHidden();
       await expect(questionPrompt(player)).toBeFocused();
@@ -98,10 +118,12 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       for (const page of [host, player]) {
         await expect(page.getByRole("heading", { name: "Question review" })).toBeFocused();
       }
-      await Promise.all([scan(host, "host review"), scan(player, "player review")]);
+      await expect(tv.getByText("Correct answer:", { exact: true })).toBeVisible();
+      await Promise.all([scan(host, "host review"), scan(player, "player review"), scan(tv, "TV review")]);
       await keyboardActivate(host, host.getByRole("button", { name: "Finish game" }));
       for (const page of [host, player]) {
         await expect(page.getByRole("heading", { name: "Final results" })).toBeFocused();
+        await expect(page.getByRole("heading", { name: "Room highlights" })).toBeVisible();
         await scan(page, "results");
         const motion = await page.locator(".podium-step").evaluateAll(elements => elements.map(el => {
           const style = getComputedStyle(el);
@@ -109,9 +131,70 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
         }));
         for (const style of motion) expect(style).toEqual({ animation: "none", opacity: "1", transition: "0s" });
       }
+      await expect(tv.getByRole("heading", { name: "Final standings" })).toBeFocused();
+      await scan(tv, "TV results");
+      await expect(player.getByRole("heading", { name: "Your recap" })).toBeVisible();
+      const summary = player.locator(".game-recap > details > summary");
+      await keyboardActivate(player, summary);
+      await expect(player.locator(".game-recap > details")).toHaveAttribute("open", "");
+      const questionSummary = player.locator(".game-recap__questions summary").first();
+      await keyboardActivate(player, questionSummary);
+      await expect(questionSummary).toBeFocused();
+      await expect(player.locator(".game-recap__questions details").first()).toHaveAttribute("open", "");
+      await scan(player, "personal recap expanded");
+      await player.keyboard.press("Enter");
+      await expect(questionSummary).toBeFocused();
+      await expect(player.locator(".game-recap__questions details").first()).not.toHaveAttribute("open", "");
+      await player.goto(`/results?code=${code}`);
+      await expect(player.getByRole("heading", { name: "Final results" })).toBeFocused();
+      await expect(player.getByRole("heading", { name: "Your recap" })).toBeVisible();
+      await scan(player, "standalone results and recap");
+      await keyboardActivate(host, host.getByRole("button", { name: "Revoke TV display link", exact: true }));
+      await expect(host.getByRole("button", { name: "Open TV display", exact: true })).toBeFocused();
+      await expect(tv.getByRole("heading", { name: "TV display link required" })).toBeFocused();
+      await scan(tv, "TV revoked link");
+      await scan(host, "display link revoked");
+      await keyboardActivate(host, host.getByRole("button", { name: "Play again (same players)" }));
+      await expect.poll(() => new URL(host.url()).searchParams.get("code")).not.toBe(code);
+      const nextCode = new URL(host.url()).searchParams.get("code")!;
+      const nextId = await host.evaluate(room => JSON.parse(sessionStorage.getItem(`trivia:host:${room}`)!).gameId as string, nextCode);
+      trackGame(nextId);
+      await expect.poll(() => new URL(player.url()).searchParams.get("code")).toBe(nextCode);
+      await expect(host.getByRole("heading", { name: `Room ${nextCode}` })).toBeFocused();
+      await expect(player.getByRole("heading", { name: "Keyboard player" })).toBeFocused();
+      for (const page of [host, player]) {
+        await expect(page.getByRole("status").filter({ hasText: `Room ${nextCode}.` })).toBeAttached();
+        await scan(page, "rematch lobby transfer");
+      }
     } finally {
       await hostContext.close();
       await playerContext.close();
+      await tvContext.close();
     }
   });
 }
+
+
+test("pre-game review: keyboard regeneration/removal, focus recovery and axe", async ({ browser, trackGame }) => {
+  const hostContext = await browser.newContext({ reducedMotion: "reduce" });
+  const playerContext = await browser.newContext({ reducedMotion: "reduce" });
+  try {
+    const { page: host, code } = await hostCreateGame(hostContext, trackGame, { count: 2, hostPlays: false });
+    const player = await playerJoin(playerContext, code, "Review spectator");
+    await expect(host.getByRole("button", { name: "Review questions first" })).toBeEnabled();
+    await keyboardActivate(host, host.getByRole("button", { name: "Review questions first" }));
+    const review = host.getByRole("region", { name: "Question review" });
+    await expect(review.getByRole("heading", { name: "Review questions (2)" })).toBeFocused();
+    await Promise.all([scan(host, "pre-game question review"), scan(player, "waiting while host reviews")]);
+    await keyboardActivate(host, review.getByRole("button", { name: "Regenerate question 1", exact: true }));
+    await expect(review.getByRole("heading", { name: /Fixture 101:/ })).toBeFocused();
+    await scan(host, "regenerated question review");
+    await keyboardActivate(host, review.getByRole("button", { name: "Remove question 2", exact: true }));
+    await expect(review.getByRole("heading", { name: "Review questions (1)" })).toBeFocused();
+    await expect(review.getByRole("button", { name: "Remove question 1" })).toBeDisabled();
+    await expect(review.getByRole("status")).toContainText("Question edit finished");
+    await scan(host, "question removed from review");
+    await keyboardActivate(host, host.getByRole("button", { name: "Start game", exact: true }));
+    await expect(questionPrompt(player)).toHaveText("Fixture 101: spell the number 100.");
+  } finally { await hostContext.close(); await playerContext.close(); }
+});

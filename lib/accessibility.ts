@@ -28,7 +28,7 @@ export function answerKeyIndex(key: string, current: number, count: number): num
   return null;
 }
 
-export function focusPhase(container: HTMLElement | null) {
-  const target = container?.querySelector<HTMLElement>("h2, [data-phase-focus]");
+export function focusPhase(container: HTMLElement | null, selector = "h2, [data-phase-focus]") {
+  const target = container?.querySelector<HTMLElement>(selector);
   target?.focus({ preventScroll: true });
 }

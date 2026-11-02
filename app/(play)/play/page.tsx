@@ -13,6 +13,7 @@
 
 import { Suspense, useMemo, useEffect, useState } from "react";
 import Link from "next/link";
+import { LobbyAccessibility } from "@/components/LobbyAccessibility";
 import { useSearchParams } from "next/navigation";
 import { useScopedState } from "@/lib/useScopedState";
 import { challenge } from "@/app/actions/challenge";
@@ -120,10 +121,11 @@ function PlayView() {
   return (
     <main>
       <header>
-        <h1>{cred.username}</h1>
+        <h1 tabIndex={-1}>{cred.username}</h1>
         <p>Room {game.code}</p>
         {phase.phase !== "ended" && <SoundToggle />}
       </header>
+      {phase.phase === "lobby" && <LobbyAccessibility code={game.code} />}
       <GameFeedback phase={phase.phase} remaining={remaining}
         roundKey={`${game.id}:${game.current_index}`} answer={state?.my_answer ?? null}
         voided={state?.current_question?.voided ?? false} spectating={state?.role === "spectator" || !state?.player} />

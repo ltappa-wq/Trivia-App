@@ -48,3 +48,11 @@ it("preserves old credentials and permits retry on a failed transfer", async () 
   fireEvent.click(screen.getByRole("button"));
   await waitFor(() => expect(m.replace).toHaveBeenCalled());
 });
+it("announces automatic transfer while the next-game request is pending", async () => {
+  let release!: (value: { code: string; token: string; username: string; playerId: string; isSpectator: boolean }) => void;
+  m.join.mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+  render(<Rematch code="12345" rematchCode="54321" />);
+  expect(screen.getByRole("status").textContent).toContain("Joining the next game");
+  release({ code: "54321", token: "new-player", username: "Alex", playerId: "p", isSpectator: false });
+  await waitFor(() => expect(m.replace).toHaveBeenCalledWith("/play?code=54321"));
+});

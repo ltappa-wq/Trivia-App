@@ -52,7 +52,8 @@ export function Rematch({ code, rematchCode, host = false }: {
     if (rematchCode) void moveRef.current();
   }, [rematchCode]);
 
-  return <section>
+  return <section aria-label="Rematch">
+    <p role="status" aria-atomic="true">{busy ? "Joining the next game. Please wait." : ""}</p>
     {(host || rematchCode) && <button type="button" disabled={busy} onClick={() => void move()}>
       {busy ? "Joining next game…" : host ? "Play again (same players)" : "Join next game"}
     </button>}

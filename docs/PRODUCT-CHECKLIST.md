@@ -256,8 +256,18 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
   respect the preference and are covered by unit tests.
 - Fixture E2E axe scans fail on serious/critical WCAG A/AA findings across home,
   setup, join and both roles' game phases, with no rule exceptions. MC and typed
-  rounds exercise keyboard controls. New wave 4 screens require a final pass
-  after merging main; no migration is needed.
+  rounds exercise keyboard controls. Coverage includes pre-game review and
+  regenerate/remove focus recovery, recap disclosures and standalone results,
+  display-link mint/regenerate/revoke, all TV phases, and rematch transfer into
+  the next lobby. No migration is needed.
+- Question edits name their question and announce completion. New room/lobby
+  focus and announcements identify the rematch destination. TV headings receive
+  focus on phase changes and invalid/revoked links; timer ticks preserve focus.
+- Display link controls announce success/revocation and focus the ready link or
+  return to Open TV display. These are inline panels, not modal dialogs; native
+  recap disclosures preserve summary focus when expanded/collapsed.
+- Fredoka is bundled from npm so fixture CI and app builds require no external
+  Google font request.
 
 ### R22 — Optional pre-game question review
 

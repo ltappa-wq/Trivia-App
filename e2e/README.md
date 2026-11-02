@@ -102,3 +102,15 @@ text on white are 6.49:1 and 6.48:1 respectively. Decorative celebration gold
 is retained; chart bars use darker gold/green, and correct answers have text.
 Disabled controls are exempt from WCAG contrast requirements; no axe exclusions
 are used for them.
+
+
+The final wave 4 pass also scans the pre-game review list before/after keyboard
+regeneration and removal, display-link controls after mint/regenerate/revoke,
+personal recap expanded and collapsed, standalone `/results`, and rematch lobby
+transfer for both roles. Each answer-mode round includes a TV context scanning
+lobby, get-ready, question, pause, review, results and revoked-link states. TV
+phase headings and new rematch lobby headings have focus assertions; native
+recap summaries retain focus during disclosure. There are no modal dialogs in
+these flows; inline panels intentionally remain in the document tab order.
+Fredoka font files come from `@fontsource/fredoka`, avoiding a Google font fetch
+while Next compiles the fixture server.

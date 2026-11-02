@@ -18,6 +18,7 @@ it("consumes and scrubs the fragment before passing credentials to room hydratio
   await waitFor(() => expect(room).toHaveBeenLastCalledWith("12345", "a".repeat(43)));
   expect(window.location.hash).toBe("");
   expect(screen.getByText("TV display link required")).toBeTruthy();
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "TV display link required" }));
   expect(reveal).not.toHaveBeenCalled(); expect(distribution).not.toHaveBeenCalled();
 });
 it("never reads challenge details or review keys when paused", async () => {
