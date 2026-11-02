@@ -55,3 +55,38 @@ it("requests each type, enforces the ratio and interleaves live output", async (
   expect(result.map(q => q.mode)).toEqual(["multiple_choice", "type_answer", "true_false", "multiple_choice"]);
   expect(progress).toEqual([2, 3, 4]);
 });
+
+it.each([undefined, 120_000])("shares the overall mixed deadline across retries and later phases (budget=%s)", async (budgetMs) => {
+  const budget = budgetMs ?? 240_000;
+  let now = 0;
+  const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+  const timers = vi.spyOn(globalThis, "setTimeout");
+  // MC needs a second request after spending more than a third of the budget.
+  const batches = [
+    [{ prompt: "Which city is the capital of France?", options: ["Paris", "Rome", "Oslo"], correct_option: 0 }],
+    [{ prompt: "Which element has the symbol Au?", options: ["Gold", "Silver", "Iron"], correct_option: 0 }],
+    [{ prompt: "Name the largest ocean.", accepted_variants: ["Pacific"] }],
+    [{ prompt: "Penguins are flightless birds.", answer: true }],
+  ];
+  const spent = [budget * 0.375, budget / 24, budget / 24, 1000];
+  let call = 0;
+  const fetchImpl = vi.fn(async () => {
+    const index = call++;
+    now += spent[index];
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ questions: batches[index] }) } }] }));
+  });
+  try {
+    const result = await generateQuestions(params, { apiKey: "test", fetchImpl, budgetMs, timeoutMs: budget });
+    expect(result.map(q => q.mode)).toEqual(["multiple_choice", "type_answer", "true_false", "multiple_choice"]);
+    expect(timers.mock.calls.map(([, timeout]) => timeout)).toEqual([
+      budget,
+      budget - spent[0],
+      budget - spent[0] - spent[1],
+      budget - spent[0] - spent[1] - spent[2],
+    ]);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  } finally {
+    clock.mockRestore();
+    timers.mockRestore();
+  }
+});

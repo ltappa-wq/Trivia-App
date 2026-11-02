@@ -212,6 +212,8 @@ export async function generateQuestions(
   if (params.count < 1) throw new GenerationError("count must be >= 1");
 
   if (params.mode === "mixed") {
+    // Sequential phases share one deadline; unused time carries forward.
+    const deadline = Date.now() + (config.budgetMs ?? GENERATION_BUDGET_MS);
     const modes = Array.from({ length: params.count }, (_, i) => mixedModeAt(i));
     const pools = new Map<string, GeneratedQuestion[]>();
     let completed = 0;
@@ -220,7 +222,7 @@ export async function generateQuestions(
       const count = modes.filter((m) => m === mode).length;
       if (!count) continue;
       const questions = await generateQuestions({ ...params, mode, count }, {
-        ...config, budgetMs: (config.budgetMs ?? GENERATION_BUDGET_MS) / 3,
+        ...config, budgetMs: deadline - Date.now(),
         onProgress: (n) => config.onProgress?.(completed + n),
       }, exclusions, accepted);
       pools.set(mode, questions);
