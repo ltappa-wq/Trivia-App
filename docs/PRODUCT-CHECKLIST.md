@@ -241,3 +241,9 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - The host can regenerate individual questions with the same settings, in-set answer uniqueness and bank dedup, or remove questions (contiguous numbering, count updated, at least one remains). Start reuses the prepared set, including after reload.
 - Regeneration is limited to 20 attempts per room, including failed attempts, plus five requests per minute. Concurrent host tabs and Start are serialized using a database lease/row lock; expired work cannot overwrite the set.
 - Once generated, category suggestions cannot change the prepared set; the lobby explains this and hides acceptance controls. Hosts who review while also playing will know the answers.
+
+### Rematches (R26)
+
+- [x] The host can choose **Play again (same players)** on the end screen. A new room copies categories, question count, answer mode, difficulty, timer, auto-advance and finale options; questions and scores start fresh.
+- [x] Players still viewing results automatically enter the new lobby with their username and a new credential. Reloading results also discovers the rematch. Taken names receive a deterministic numbered suffix. The host retains hosting and playing participation.
+- [x] Repeated host requests return the same rematch; only the old host can create it, using the shared create-game rate limit. Players can transfer only from their own old game; host credentials are never exposed through hydration or broadcasts. Players who left can join normally by the new code.

@@ -223,10 +223,6 @@
         "access": "service"
       },
       {
-        "signature": "hydrate_game_state(text)",
-        "access": "client"
-      },
-      {
         "signature": "close_question(text,text,integer,boolean)",
         "access": "service"
       },
@@ -261,6 +257,25 @@
       "games.review_lease",
       "games.review_lease_until",
       "games.regeneration_count"
+    ]
+  },
+  "0021_rematch.sql": {
+    "functions": [
+      {
+        "signature": "hydrate_game_state(text)",
+        "access": "client"
+      },
+      {
+        "signature": "create_rematch(text,text,text)",
+        "access": "service"
+      },
+      {
+        "signature": "join_rematch(text,text)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.rematch_game_id"
     ]
   }
 }

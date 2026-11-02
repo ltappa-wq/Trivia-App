@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { loadPlayerCredential } from "@/lib/clientSession";
 import { useRoomState } from "@/lib/realtime/hooks";
+import { Rematch } from "@/components/Rematch";
 import { GameOver } from "@/components/GameOver";
 
 function ResultsView() {
@@ -27,6 +28,7 @@ function ResultsView() {
         myPlayerId={state?.player?.id}
         roomCode={code}
       />
+      <Rematch code={code} rematchCode={state?.game.rematch_code} />
     </main>
   );
 }

@@ -248,3 +248,7 @@ On a disposable local database, verify with
 `psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0020_question_review.sql`.
 The fixture rolls back and checks authorization, leases, Start/edits exclusion,
 renumbering/counts, category freeze, the regeneration cap, and grants.
+
+## 0021: rematches
+
+Apply `0021_rematch.sql` before merging/deploying R26. Adds a nullable game link, service-only token-authorized create/transfer RPCs, and an additive `rematch_code` hydration field. Existing RPC signatures and fields remain unchanged; current deployed code can ignore the new field. No backfill is needed. On an isolated local database with migrations applied, run `psql -X -v ON_ERROR_STOP=1 -f supabase/tests/0021_rematch.sql`; fixtures roll back. Never run fixtures against a live project.
