@@ -236,6 +236,40 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
   during get-ready. Correct final answers earn 1000–2000 points, including
   upheld disputes; wrong/late answers still earn zero.
 
+
+### R29 — accessibility
+
+- Shared gameplay moves focus to the phase heading on get-ready, question,
+  review and next-question transitions; results focus their heading. Timer ticks
+  preserve the player's current focus.
+- Dedicated polite announcements describe phases and challenge pauses. Timer
+  warnings change only at 10 seconds, 5 seconds and expiry. Countdown rings have
+  textual accessible names; results and correct/locked answers use text.
+- MC buttons expose letter, shape and answer names. Arrow/Home/End keys move
+  among tiles (forward from the prompt enters A, backward enters the last tile);
+  1–4 select from the question heading or tiles. Typed answers submit
+  with Enter. Inline host adjudication controls follow the document tab order.
+- Visible focus outlines, dark answer text, darker pink primary buttons and
+  success/error text, and contrasting input borders support the BUZZR palette.
+  Shapes, text and correctness symbols supplement colour.
+- Reduced motion disables CSS animation/transitions throughout the app and
+  reveals the podium immediately. Leaderboard movement and haptics already
+  respect the preference and are covered by unit tests.
+- Fixture E2E axe scans fail on serious/critical WCAG A/AA findings across home,
+  setup, join and both roles' game phases, with no rule exceptions. MC and typed
+  rounds exercise keyboard controls. Coverage includes pre-game review and
+  regenerate/remove focus recovery, recap disclosures and standalone results,
+  display-link mint/regenerate/revoke, all TV phases, and rematch transfer into
+  the next lobby. No migration is needed.
+- Question edits name their question and announce success or failure accurately. New room/lobby
+  focus and announcements identify the rematch destination. TV headings receive
+  focus on phase changes and invalid/revoked links; timer ticks preserve focus.
+- Display link controls announce success/revocation and focus the ready link or
+  return to Open TV display. These are inline panels, not modal dialogs; native
+  recap disclosures preserve summary focus when expanded/collapsed.
+- Fredoka is bundled from npm so fixture CI and app builds require no external
+  Google font request.
+
 ### R22 — Optional pre-game question review
 
 - Default **Start game** still generates and reveals Q1 in one step.
@@ -258,6 +292,9 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - The display never answers, challenges, adjudicates, closes or advances a question. It uses coalesced room hydration and reconnect recovery; a read-only periodic refresh detects missed revocations. Before review no answer key or distribution is readable; private challenge details and player suggestions remain host-only.
 - Long rosters/standings rotate through presentation pages every eight seconds, preserving full-board ranks without requiring TV controls.
 - Display credentials are hashed separately on games and have no player identity. Replacing/revoking a link invalidates the old credential. Owner applies `0023_tv_display.sql` before deploying this feature.
+- Player play/results restore saved browser credentials after hydration so the
+  server and initial browser loading markup agree. Reload, reconnect and
+  rematch E2E checks fail on hydration errors rather than suppressing warnings.
 
 ### R30 — Mixed answer modes
 

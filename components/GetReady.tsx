@@ -36,8 +36,8 @@ export function GetReady({
     until <= 0 ? 0 : msInSecond === 0 ? 100 : (msInSecond / 1000) * 100;
 
   return (
-    <div className="get-ready" aria-live="polite" role="timer" aria-label={`${digit}`}>
-      <p className="get-ready__label">{doublePoints ? "Final question — double points!" : "Get ready"}</p>
+    <div className="get-ready" role="timer" aria-label={`Next question in ${digit} seconds`}>
+      <p className="get-ready__label" tabIndex={-1} data-phase-focus>{doublePoints ? "Final question — double points!" : "Get ready"}</p>
       <div
         className="get-ready__ring"
         style={{ ["--pct" as string]: pctInSecond }}

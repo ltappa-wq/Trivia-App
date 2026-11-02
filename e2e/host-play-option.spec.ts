@@ -33,7 +33,7 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   await expect(questionPrompt(host)).toHaveText(prompt);
 
   // Host view shows the options read-only — no answer buttons for the host.
-  const hostQuestion = host.locator('section[aria-live="polite"]');
+  const hostQuestion = host.locator('section.stage');
   await expect(hostQuestion.locator("ol li").first()).toBeVisible();
   await expect(hostQuestion.locator("ol li button")).toHaveCount(0);
 

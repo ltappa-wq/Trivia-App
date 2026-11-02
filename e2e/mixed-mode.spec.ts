@@ -36,8 +36,8 @@ test("mixed fixture game: review, MC, typed, accessible binary tiles, TV, recap 
     await expect(questionPrompt(player)).toHaveText("Fixture 3: 2 is an even number.");
     const tiles = player.locator(".answer-tiles button");
     await expect(tiles).toHaveCount(2);
-    await expect(tiles.nth(0)).toHaveAccessibleName("True");
-    await expect(tiles.nth(1)).toHaveAccessibleName("False");
+    await expect(tiles.nth(0)).toHaveAccessibleName("A, triangle: True");
+    await expect(tiles.nth(1)).toHaveAccessibleName("B, diamond: False");
     await expect(tv.locator(".tv-options li")).toHaveCount(2);
     expect((await new AxeBuilder({ page: player }).include("main").analyze()).violations).toEqual([]);
     await tiles.nth(0).focus();
@@ -45,7 +45,11 @@ test("mixed fixture game: review, MC, typed, accessible binary tiles, TV, recap 
     await expect(tiles.nth(1)).toBeFocused();
     await player.keyboard.press("Shift+Tab");
     await expect(tiles.nth(0)).toBeFocused();
-    await player.keyboard.press("Enter");
+    await player.keyboard.press("ArrowRight");
+    await expect(tiles.nth(1)).toBeFocused();
+    await player.keyboard.press("ArrowLeft");
+    await expect(tiles.nth(0)).toBeFocused();
+    await player.keyboard.press("1");
     await expect(host.getByText("Correct answer:")).toBeVisible();
     await expect(tv.getByText("Correct answer:")).toBeVisible();
     await expect(tv.getByText("2 is even.", { exact: true })).toBeVisible();

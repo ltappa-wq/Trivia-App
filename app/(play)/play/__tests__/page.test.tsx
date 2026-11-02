@@ -34,7 +34,7 @@ describe("reload dispute", () => {
   it("restores the wrongly-marked dispute alongside live progress and submits with the player token", async () => {
     mocks.state = state();
     render(<PlayPage />);
-    fireEvent.click(screen.getByRole("button", { name: "My answer was wrongly marked" }));
+    fireEvent.click(await screen.findByRole("button", { name: "My answer was wrongly marked" }));
     expect(mocks.challenge).toHaveBeenCalledWith("player", "answer");
     expect(screen.getByText(/Answer locked in/)).toBeTruthy();
     expect(await screen.findByText("1 of 2 answered")).toBeTruthy();

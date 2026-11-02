@@ -14,11 +14,11 @@ test("host reviews, regenerates, removes, reloads, and starts the saved set", as
     await expect(questionPrompt(player)).toBeHidden();
     const { data: game } = await db.from("games").select("id,current_index").eq("code", code).eq("status", "lobby").single();
     expect(game?.current_index).toBe(-1);
-    await review.getByRole("button", { name: "Regenerate", exact: true }).first().click();
+    await review.getByRole("button", { name: /Regenerate question/ }).first().click();
     await expect(review).toContainText("Fixture 101: spell the number 100.");
-    await review.getByRole("button", { name: "Remove", exact: true }).last().click();
+    await review.getByRole("button", { name: /Remove question/ }).last().click();
     await expect(review.getByRole("heading", { name: "Review questions (1)" })).toBeVisible();
-    await expect(review.getByRole("button", { name: "Remove" })).toBeDisabled();
+    await expect(review.getByRole("button", { name: /Remove question/ })).toBeDisabled();
     await host.reload();
     await expect(review).toContainText("Fixture 101: spell the number 100.");
     await host.getByRole("button", { name: "Start game" }).click();

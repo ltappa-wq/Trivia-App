@@ -17,17 +17,18 @@
   --text: #201c33;
   --muted: #716c88;
   --border: #e7e2f5;
+  --control-border: #827a96;
   /* Accents */
-  --accent: oklch(0.64 0.19 340);
-  --accent-strong: oklch(0.52 0.19 340);
+  --accent: #ac2478;
+  --accent-strong: #8d1c63;
   --accent-soft: #f5f2fb;
   --accent-b: oklch(0.8 0.15 95); /* gold — 1st place / celebration */
   --blue: oklch(0.62 0.16 250); /* 2nd answer-tile color */
   /* Semantic */
   --success: oklch(0.7 0.17 150);
-  --success-strong: oklch(0.55 0.15 150);
+  --success-strong: #226b3b;
   --success-soft: oklch(0.95 0.04 150);
-  --danger: oklch(0.6 0.2 25);
+  --danger: #b32632;
   --danger-soft: oklch(0.95 0.03 25);
   /* Shape */
   --radius: 20px;
@@ -36,7 +37,7 @@
   --shadow: 0 14px 40px rgba(24, 12, 50, 0.16);
   --shadow-sm: 0 6px 16px rgba(24, 12, 50, 0.1);
   --ring: 0 0 0 3px oklch(0.64 0.19 340 / 0.4);
-  --display: var(--font-display), "Fredoka", ui-rounded, system-ui, sans-serif;
+  --display: "Fredoka", ui-rounded, system-ui, sans-serif;
 }
 
 * {
@@ -302,7 +303,7 @@ select {
   font: inherit;
   padding: 0.65rem 0.8rem;
   min-height: 46px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text);
@@ -784,8 +785,8 @@ section p.result.wrong {
 }
 .answer-dist__row:nth-child(1) { --bar-color: var(--accent); --tile-color: var(--accent); }
 .answer-dist__row:nth-child(2) { --bar-color: var(--blue); --tile-color: var(--blue); }
-.answer-dist__row:nth-child(3) { --bar-color: var(--accent-b); --tile-color: var(--accent-b); }
-.answer-dist__row:nth-child(4) { --bar-color: var(--success); --tile-color: var(--success); }
+.answer-dist__row:nth-child(3) { --bar-color: #916600; --tile-color: var(--accent-b); }
+.answer-dist__row:nth-child(4) { --bar-color: var(--success-strong); --tile-color: var(--success); }
 .answer-dist__label {
   grid-column: 1 / -1;
   display: flex;
@@ -818,7 +819,7 @@ section p.result.wrong {
   white-space: nowrap;
 }
 .answer-dist__row.is-correct {
-  --bar-color: var(--success);
+  --bar-color: var(--success-strong);
 }
 .answer-dist__row.is-correct .answer-dist__label {
   color: var(--success-strong);
@@ -1205,7 +1206,7 @@ section p.overlay {
   width: 100%;
   min-height: 100px;
   padding: 0.75rem 0.9rem;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--control-border);
   border-radius: var(--radius-sm);
   resize: vertical;
 }
@@ -1243,7 +1244,7 @@ fieldset label.is-disabled {
 }
 
 /* The live question prompt (an h2 inside the live grid) reads largest. */
-.host-view .host-live > section[aria-live="polite"] h2 {
+.host-view .host-live .stage h2 {
   font-size: clamp(1.9rem, 4vw, 2.8rem);
 }
 
@@ -1264,19 +1265,17 @@ fieldset label.is-disabled {
 }
 
 @media (min-width: 880px) {
-  .host-live:has(> section[aria-live="polite"]) {
+  .host-live:has(.stage) {
     grid-template-columns: 1.5fr 1fr;
     align-items: start;
   }
 
-  .host-live > section {
+  .host-live .stage {
     margin-top: 0;
   }
 }
 
-/* U6. Shared in-game stage — one implementation for host and player. Layout
-   selectors above key on `section[aria-live="polite"]`, which .stage still is,
-   so the host's two-column live grid keeps working unchanged. */
+/* Shared in-game stage for both roles, independent of live-region markup. */
 .stage {
   display: grid;
   gap: 1rem;
@@ -1364,7 +1363,7 @@ fieldset label.is-disabled {
 }
 
 .answer-progress__players { display: flex; flex-wrap: wrap; gap: 0.5rem; list-style: none; padding: 0; }
-.answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 0.6; }
+.answer-progress__player { padding: 0.4rem 0.75rem; border: 1px solid currentColor; border-radius: 999px; opacity: 1; }
 .answer-progress__player--answered { background: var(--success-soft); color: var(--success-strong); opacity: 1; }
 
 /* Round feedback remains readable when motion is disabled. */
@@ -1383,6 +1382,23 @@ fieldset label.is-disabled {
   .round-leaderboard li { animation: none; transition: none; }
 }
 
+/* R29: shared safeguards also cover UI added after this accessibility pass. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.stage-accessibility { display: contents; }
+:focus-visible { outline: 3px solid #201c33; outline-offset: 4px; }
+.answer-tiles li button { color: var(--text); border-color: var(--control-border); }
+.answer-tile__shape { color: var(--text); }
+.adjudication .uphold, .copy-link button.is-copied { background: #226b3b; color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+  .podium-step { opacity: 1; transform: none; }
+}
+
 /* Personal end-of-game recap */
 .game-recap { margin-block: 2rem; text-align: left; overflow-wrap: anywhere; }
 .game-recap__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -1391,6 +1407,8 @@ fieldset label.is-disabled {
 .game-recap summary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
 .game-recap__questions { padding-left: 1.5rem; }
 .game-recap__questions > li { border-bottom: 1px solid currentColor; }
+
+.question-review__list > li { display: block; }
 
 /* Binary questions keep two generous, keyboard-accessible tiles. */
 .answer-tiles--true-false { grid-template-columns: repeat(2, minmax(0, 1fr)); }

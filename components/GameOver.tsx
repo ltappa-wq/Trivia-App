@@ -2,7 +2,7 @@
 // Unified end screen for host and player: podium, full standings, home CTA,
 // and optional feedback form (emailed via submitFeedback).
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { GameRecap } from "@/components/GameRecap";
 import { ShareResult } from "@/components/ShareResult";
@@ -26,6 +26,9 @@ export function GameOver({
   myPlayerId?: string | null;
   roomCode?: string;
 }) {
+  const summaryId = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus({ preventScroll: true }); }, []);
   const sorted = rankedStandings(standings);
   const { winnerIds, label } = describeWinners(sorted);
   const myRank = (myPlayerId && rankMovement(sorted, null, myPlayerId)?.rank) || 0;
@@ -54,10 +57,10 @@ export function GameOver({
   }
 
   return (
-    <section className="game-over" aria-live="polite">
-      <h1>Final results</h1>
+    <section className="game-over">
+      <h1 ref={heading} tabIndex={-1} aria-describedby={summaryId}>Final results</h1>
       <SoundToggle />
-      <p>{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
+      <p id={summaryId} role="status" aria-atomic="true">{label ? `${label} 🎉` : "No winner — nobody scored."}</p>
 
       {myRank > 0 && (
         <div className={`placement-card${iWon ? " placement-card--winner" : ""}`}>

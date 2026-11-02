@@ -82,6 +82,18 @@ it("retains absolute ranks when rotating long standings", async () => {
     noControls();
   } finally { vi.useRealTimers(); }
 });
+it("focuses TV phase changes and announces them without refocusing countdown ticks", () => {
+  const props = { state, token: "display", origin: "http://localhost", offset: 0, remaining: 15000, reveal: null, distribution: null, baseline: null };
+  const { rerender } = render(<DisplayStage {...props} />);
+  const question = screen.getByRole("heading", { name: "Capital of France?" });
+  expect(document.activeElement).toBe(question);
+  question.blur();
+  rerender(<DisplayStage {...props} remaining={14000} />);
+  expect(document.activeElement).not.toBe(question);
+  rerender(<DisplayStage {...props} state={{ ...state, game: { ...state.game, paused: true } }} />);
+  expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Paused" }));
+  expect(screen.getByRole("status").textContent).toContain("Game paused");
+});
 
 it("renders true/false options on the TV without answer controls", () => {
   show({ answer_mode: "mixed" }, { current_question: { ...state.current_question!, mode: "true_false", options: ["True", "False"] } });

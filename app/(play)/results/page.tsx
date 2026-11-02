@@ -4,7 +4,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { loadPlayerCredential } from "@/lib/clientSession";
+import { usePlayerCredential } from "@/lib/usePlayerCredential";
 import { useRoomState } from "@/lib/realtime/hooks";
 import { Rematch } from "@/components/Rematch";
 import { GameOver } from "@/components/GameOver";
@@ -12,11 +12,12 @@ import { GameOver } from "@/components/GameOver";
 function ResultsView() {
   const params = useSearchParams();
   const code = (params.get("code") ?? "").toUpperCase();
-  const cred = loadPlayerCredential(code);
+  const { credential: cred, ready: credentialReady } = usePlayerCredential(code);
   const token = cred?.token ?? null;
 
   const { state, error, loading } = useRoomState(code, token);
 
+  if (!credentialReady) return <main aria-busy="true"><p>Tallying results…</p></main>;
   if (!cred) return <main><p>Not in this game.</p></main>;
   if (loading) return <main aria-busy="true"><p>Tallying results…</p></main>;
   if (error) return <main><p role="alert">{error}</p></main>;

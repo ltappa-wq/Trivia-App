@@ -2,3 +2,5 @@
 // (▲ ◆ ● ★). Shared by the answer tiles (AnswerPanel) and the review-phase
 // answer-distribution bars so options stay distinguishable beyond color alone.
 export const TILE_SHAPES = ["▲", "◆", "●", "★"] as const;
+
+export const TILE_SHAPE_NAMES = ["triangle", "diamond", "circle", "star"] as const;

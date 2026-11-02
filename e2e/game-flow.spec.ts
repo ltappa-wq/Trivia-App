@@ -1,5 +1,5 @@
 import { test, expect } from "./test";
-import { answerFirstOption, hostCreateGame, playerJoin, questionPrompt } from "./helpers";
+import { answerFirstOption, hostCreateGame, playerJoin, questionPrompt, recordHydrationErrors } from "./helpers";
 
 // Full multi-client happy path (Verification Contract: U5, U6, U8, U9).
 // Exercises fixture generation, live-lobby roster, host-authoritative reveal,
@@ -10,6 +10,7 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
   const hostCtx = await browser.newContext();
   const adaCtx = await browser.newContext();
   const bobCtx = await browser.newContext();
+  const hydrationErrors = recordHydrationErrors([hostCtx, adaCtx, bobCtx]);
 
   const { page: host, code } = await hostCreateGame(hostCtx, trackGame, {
     category: "Sports",
@@ -71,4 +72,5 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
   await hostCtx.close();
   await adaCtx.close();
   await bobCtx.close();
+  expect(hydrationErrors).toEqual([]);
 });

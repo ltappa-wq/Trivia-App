@@ -54,7 +54,7 @@ export function QuestionStage({
 
   return (
     <>
-      <h2>{question.prompt}</h2>
+      <h2 tabIndex={-1} data-question-heading>{question.prompt}</h2>
       {remaining !== null && (
         <Countdown remaining={remaining} total={timerMs ?? ANSWER_TIMER_MS[question.mode]} />
       )}
@@ -64,7 +64,7 @@ export function QuestionStage({
           This question was voided — waiting for the host.
         </p>
       ) : paused ? (
-        <p className="overlay" aria-live="assertive">
+        <p className="overlay">
           ⏸ Paused for review — answering is disabled.
         </p>
       ) : spectating ? (
