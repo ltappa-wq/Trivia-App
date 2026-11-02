@@ -268,3 +268,19 @@ it("R5: persists accepted-question progress from the generation callback", async
   expect(update).toHaveBeenCalledWith({ generation_progress: 36 });
   expect(update).toHaveBeenCalledWith({ generation_progress: 100 });
 });
+
+it("review-first generates without revealing Q1", async () => {
+  wireTables(); authorizeHostByCode.mockResolvedValue(game());
+  const { startGame } = await import("../startGame");
+  expect(await startGame("12345", "host-token", [], true)).toEqual({ status: "ready" });
+  expect(generateAndPersistQuestions).toHaveBeenCalledOnce();
+  expect(advance).not.toHaveBeenCalled();
+});
+it("review reload and Start reuse the prepared set and ignore new category suggestions", async () => {
+  wireTables({ questionCount: 10 }); authorizeHostByCode.mockResolvedValue(game());
+  const { startGame } = await import("../startGame");
+  expect(await startGame("12345", "host-token", ["Music"], true)).toEqual({ status: "ready" });
+  expect(await startGame("12345", "host-token", ["Music"])).toMatchObject({ status: "started" });
+  expect(generateAndPersistQuestions).not.toHaveBeenCalled();
+  expect(advance).toHaveBeenCalledOnce();
+});

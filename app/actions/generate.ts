@@ -11,7 +11,7 @@ import { generateQuestions } from "@/lib/generation/xai";
 import { normalizePrompt } from "@/lib/generation/dedup";
 import { normalizedAnswerKey } from "@/lib/generation/answerKey";
 import { buildBankExclusions, fetchBankEntries, type BankQueryClient } from "@/lib/generation/bankQuery";
-import type { GenerationParams } from "@/lib/generation/schema";
+import type { GeneratedQuestion, GenerationParams } from "@/lib/generation/schema";
 
 /**
  * Generate a calibrated question set and persist it to `questions` for a game.
@@ -26,6 +26,7 @@ export async function generateAndPersistQuestions(
   gameId: string,
   params: GenerationParams,
   onProgress?: (completed: number) => Promise<void>,
+  replacement?: { existing: GeneratedQuestion[]; fixtureOffset: number; persist: (question: GeneratedQuestion) => Promise<void> },
 ): Promise<number> {
   const fixture = fixtureGenerationEnabled();
   if (fixture) console.warn("[E2E FIXTURE MODE ACTIVE] Serving canned questions; xAI and question bank are bypassed.");
@@ -45,7 +46,7 @@ export async function generateAndPersistQuestions(
   );
   const exclusions = buildBankExclusions(entries);
 
-  const questions = fixture ? fixtureQuestions(params) : await generateQuestions(
+  const questions = fixture ? fixtureQuestions(params, replacement?.fixtureOffset) : await generateQuestions(
     params,
     {
       apiKey: apiKey!,
@@ -54,6 +55,7 @@ export async function generateAndPersistQuestions(
       model: process.env.XAI_MODEL,
     },
     exclusions,
+    replacement?.existing,
   );
 
   if (fixture) await onProgress?.(questions.length);
@@ -70,9 +72,11 @@ export async function generateAndPersistQuestions(
     explanation: q.explanation ?? null,
   }));
 
-  const { error } = await supabase.from("questions").insert(rows);
-  if (error) {
-    throw new Error(`Failed to persist questions: ${error.message}`);
+  if (replacement) {
+    await replacement.persist(questions[0]!);
+  } else {
+    const { error } = await supabase.from("questions").insert(rows);
+    if (error) throw new Error(`Failed to persist questions: ${error.message}`);
   }
 
   if (fixture) return rows.length;

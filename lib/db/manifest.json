@@ -102,10 +102,6 @@
   "0009_phase_auth_hardening.sql": {
     "functions": [
       {
-        "signature": "resolve_token(text)",
-        "access": "service"
-      },
-      {
         "signature": "adjust_player_score(uuid,integer)",
         "access": "service"
       },
@@ -223,18 +219,6 @@
         "access": "service"
       },
       {
-        "signature": "hydrate_game_state(text)",
-        "access": "client"
-      },
-      {
-        "signature": "close_question(text,text,integer,boolean)",
-        "access": "service"
-      },
-      {
-        "signature": "auto_advance_question(text,text,integer)",
-        "access": "service"
-      },
-      {
         "signature": "set_review_auto_advance(text,text,integer,boolean)",
         "access": "service"
       }
@@ -244,6 +228,76 @@
       "games.auto_advance_ms",
       "games.auto_advance_at",
       "games.double_points_finale"
+    ]
+  },
+  "0020_question_review.sql": {
+    "functions": [
+      {
+        "signature": "guard_question_review()",
+        "access": "internal"
+      },
+      {
+        "signature": "edit_review_question(uuid,text,text,uuid,uuid,jsonb)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.review_lease",
+      "games.review_lease_until",
+      "games.regeneration_count"
+    ]
+  },
+  "0021_rematch.sql": {
+    "functions": [
+      {
+        "signature": "hydrate_game_state(text)",
+        "access": "client"
+      },
+      {
+        "signature": "create_rematch(text,text,text)",
+        "access": "service"
+      },
+      {
+        "signature": "join_rematch(text,text)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.rematch_game_id"
+    ]
+  },
+  "0022_game_recap.sql": {
+    "functions": [
+      {
+        "signature": "capture_answer_elapsed()",
+        "access": "internal"
+      },
+      {
+        "signature": "game_recap(text)",
+        "access": "client"
+      }
+    ],
+    "columns": [
+      "answers.elapsed_ms"
+    ]
+  },
+  "0023_tv_display.sql": {
+    "functions": [
+      {
+        "signature": "resolve_token(text)",
+        "access": "service"
+      },
+      {
+        "signature": "close_question(text,text,integer,boolean)",
+        "access": "service"
+      },
+      {
+        "signature": "auto_advance_question(text,text,integer)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.display_token_hash"
     ]
   }
 }

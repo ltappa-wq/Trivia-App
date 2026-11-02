@@ -38,7 +38,10 @@ the database safety check or load credentials from `.env` into Playwright.
 
 Fixture prompts are `Fixture 1: spell the number 0.` through `Fixture 100: spell
 the number 99.`. MC answers use fixed options with the spelled number first;
-typed answers accept that spelling. Fixture generation bypasses question-bank
+typed answers accept that spelling. Review regeneration uses distinct fixture numbers 100–119, deterministically keyed
+to the room regeneration attempt. The review spec verifies regenerate → remove →
+reload → Start reuses the saved set and keeps players waiting during review.
+Fixture generation bypasses question-bank
 reads/writes, so repeated runs cannot exhaust or pollute it. Each spec registers
 created game IDs from the host credential immediately after setup redirects; a fixture deletes those
 games (including dependent rows via cascade) even if assertions fail. A killed

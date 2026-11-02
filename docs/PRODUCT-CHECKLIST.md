@@ -147,6 +147,9 @@ Live, Kahoot-style multiplayer trivia for a large group or a small group of frie
 
 ## 7. Results & after-game
 
+- [x] R25: ended-only personal recap below standings lists every prompt, own answer (or no answer), correction-aware key, void/correct/wrong status, adjudicated points including double-points finale, and recorded elapsed time. Questions collapse for 100-question games. Historical answers without recorded timing show “Time unavailable”.
+- [x] Personal stats show accuracy (missing answers count as wrong; voids excluded), fastest correct answer, best streak (voids skipped), and authoritative total points. Room highlights include all ties for hardest question (correct / room players), most challenges (including voided questions), and fastest player by single correct answer. Host-only and spectators see room highlights; playing hosts also see their own recap. No other player's raw answers are returned.
+
 - [x] Host and players both see a **unified end experience**: sequenced **podium** (3rd → 2nd → 1st where applicable) plus **full standings** with scores.
 - [x] Players may see personal placement (“you placed Nth”) when their identity is known.
 - [x] Ties for a podium rank **share the step**.
@@ -255,3 +258,26 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
   setup, join and both roles' game phases, with no rule exceptions. MC and typed
   rounds exercise keyboard controls. New wave 4 screens require a final pass
   after merging main; no migration is needed.
+
+### R22 — Optional pre-game question review
+
+- Default **Start game** still generates and reveals Q1 in one step.
+- **Review questions first** uses the same generation/progress/retry flow, leaves players in the lobby, and shows the host the full prompts, options/correct answers or accepted answers, explanations, and game categories. Answer keys use a dedicated host-token-authorized server action, never player hydration.
+- Answer keys appear only after this host screen explicitly chooses review; that choice persists across reloads in browser session storage. Default Start never fetches or displays the review panel, even if prepared questions remain in the lobby after a failed reveal. Other host tabs must opt in separately.
+- The host can regenerate individual questions with the same settings, in-set answer uniqueness and bank dedup, or remove questions (contiguous numbering, count updated, at least one remains). Start reuses the prepared set, including after reload.
+- Regeneration is limited to 20 attempts per room, including failed attempts, plus five requests per minute. Concurrent host tabs and Start are serialized using a database lease/row lock; expired work cannot overwrite the set.
+- Once generated, category suggestions cannot change the prepared set; the lobby explains this and hides acceptance controls. Hosts who review while also playing will know the answers.
+
+### Rematches (R26)
+
+- [x] The host can choose **Play again (same players)** on the end screen. A new room copies categories, question count, answer mode, difficulty, timer, auto-advance and finale options; questions and scores start fresh.
+- [x] Players still viewing results automatically enter the new lobby with their username and a new credential. Reloading results also discovers the rematch. Taken names receive a deterministic numbered suffix. The host retains hosting and playing participation.
+- [x] Repeated host requests return the same rematch; only the old host can create it, using the shared create-game rate limit. Players can transfer only from their own old game; host credentials are never exposed through hydration or broadcasts. Players who left can join normally by the new code.
+
+### R21 — Presenter / TV display
+
+- The host can open, regenerate, or revoke a private TV display link from the host header (including the lobby). The private link/QR carries a separate display token only in its URL fragment; opening it scrubs the fragment and keeps the credential in tab storage.
+- `/display?code=12345` is a read-only screen for a TV/projector, with viewport-scaled, high-contrast type for 1080p/4K: lobby join QR/code/roster, 3–2–1, question/options/timer, anonymous answered count, review answer/distribution/explanation, round leaderboard/rank movement, generic challenge pause, and podium/final standings.
+- The display never answers, challenges, adjudicates, closes or advances a question. It uses coalesced room hydration and reconnect recovery; a read-only periodic refresh detects missed revocations. Before review no answer key or distribution is readable; private challenge details and player suggestions remain host-only.
+- Long rosters/standings rotate through presentation pages every eight seconds, preserving full-board ranks without requiring TV controls.
+- Display credentials are hashed separately on games and have no player identity. Replacing/revoking a link invalidates the old credential. Owner applies `0023_tv_display.sql` before deploying this feature.

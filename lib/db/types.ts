@@ -6,9 +6,10 @@ export type Difficulty = "easy" | "medium" | "hard";
 export type GameStatus = "lobby" | "active" | "ended";
 export type ChallengeType = "question" | "answer";
 export type ChallengeStatus = "open" | "upheld" | "rejected";
-export type PlayerRole = "host" | "player" | "spectator";
+export type PlayerRole = "host" | "player" | "spectator" | "display";
 
 export interface GameRow {
+  regeneration_count?: number;
   id: string;
   code: string;
   host_token_hash: string;
@@ -123,6 +124,7 @@ export interface ClientQuestion {
 }
 
 export interface ClientGame {
+  rematch_code?: string | null;
   id: string;
   code: string;
   status: GameStatus;

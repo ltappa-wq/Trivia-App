@@ -35,7 +35,7 @@ it("coalesces broadcasts while keeping phase events, reconnect, and refresh imme
   await act(async () => { await vi.advanceTimersByTimeAsync(250); });
   expect(mocks.hydrate).toHaveBeenCalledTimes(1);
   for (const event of [ROOM_EVENTS.question, ROOM_EVENTS.review, ROOM_EVENTS.pause,
-    ROOM_EVENTS.resume, ROOM_EVENTS.void, ROOM_EVENTS.results]) {
+    ROOM_EVENTS.resume, ROOM_EVENTS.void, ROOM_EVENTS.results, ROOM_EVENTS.rematch]) {
     mocks.hydrate.mockClear();
     await act(async () => { mocks.handlers[event]?.({}); });
     expect(mocks.hydrate).toHaveBeenCalledTimes(1);

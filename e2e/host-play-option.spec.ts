@@ -52,6 +52,10 @@ test("host-only gamemaster: not seated, read-only question, runs to results", as
   expect(new URL(ada.url()).pathname).toBe("/play");
   await expect(host.getByRole("heading", { name: "Final results" })).toBeVisible();
 
+  await expect(host.getByRole("heading", { name: "Room highlights" })).toBeVisible();
+  await expect(host.getByRole("heading", { name: "Your recap" })).toHaveCount(0);
+  await expect(ada.getByRole("heading", { name: "Your recap" })).toBeVisible();
+
   await hostCtx.close();
   await adaCtx.close();
 });

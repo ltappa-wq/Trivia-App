@@ -49,3 +49,23 @@ it("persists explanations and nulls to both question storage and the durable ban
     ]);
   }
 });
+
+it("replacement persists through the guarded callback and appends the normal bank row", async () => {
+  vi.stubEnv("GENERATION_MODE", "live"); vi.stubEnv("XAI_API_KEY", "test-key");
+  mocks.bank.mockResolvedValue({ entries: [] });
+  const question = { prompt: "Fresh", mode: "type_answer" as const, accepted_variants: ["Tokyo"], difficulty: "easy" as const };
+  mocks.generate.mockResolvedValue([question]);
+  const upsert = vi.fn(async () => ({ error: null })); mocks.from.mockReturnValue({ upsert });
+  const persist = vi.fn(async () => {});
+  await generateAndPersistQuestions("g", { categories: ["Geography"], count: 1, mode: "type_answer", difficulty: "easy" }, undefined, { existing: [question], fixtureOffset: 100, persist });
+  expect(persist).toHaveBeenCalledWith(question);
+  expect(mocks.insert).not.toHaveBeenCalled();
+  expect(upsert).toHaveBeenCalledWith([expect.objectContaining({ prompt_norm: "fresh", answer_norm: "tokyo", categories: ["Geography"] })], expect.objectContaining({ ignoreDuplicates: true }));
+  expect(mocks.generate.mock.calls[0]?.[3]).toEqual([question]);
+});
+it("does not bank a replacement when its guarded persistence loses a race", async () => {
+  vi.stubEnv("GENERATION_MODE", "live"); vi.stubEnv("XAI_API_KEY", "test-key");
+  mocks.bank.mockResolvedValue({ entries: [] }); mocks.generate.mockResolvedValue([{ prompt: "Fresh" }]);
+  await expect(generateAndPersistQuestions("g", { categories: [], count: 1, mode: "type_answer", difficulty: "easy" }, undefined, { existing: [], fixtureOffset: 100, persist: async () => { throw new Error("Lease expired"); } })).rejects.toThrow("Lease expired");
+  expect(mocks.from).not.toHaveBeenCalled();
+});

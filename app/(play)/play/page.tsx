@@ -27,6 +27,7 @@ import { AnswerProgress } from "@/components/AnswerProgress";
 import { derivePhase } from "@/lib/gamePhase";
 import { rankedStandings } from "@/lib/roundRecap";
 import { formatScore } from "@/lib/formatScore";
+import { Rematch } from "@/components/Rematch";
 import { GameOver } from "@/components/GameOver";
 import { GameFeedback, SoundToggle } from "@/components/GameFeedback";
 import { RoundRecap, useRoundSnapshot } from "@/components/RoundRecap";
@@ -183,11 +184,15 @@ function PlayView() {
       )}
 
       {phase.phase === "ended" && (
-        <GameOver
-          standings={leaderboard}
-          myPlayerId={state?.player?.id}
-          roomCode={game.code}
-        />
+        <>
+          <GameOver
+            recapToken={token}
+            standings={leaderboard}
+            myPlayerId={state?.player?.id}
+            roomCode={game.code}
+          />
+          <Rematch code={game.code} rematchCode={state?.game.rematch_code} />
+        </>
       )}
     </main>
   );
