@@ -277,5 +277,20 @@
     "columns": [
       "games.rematch_game_id"
     ]
+  },
+  "0022_game_recap.sql": {
+    "functions": [
+      {
+        "signature": "capture_answer_elapsed()",
+        "access": "internal"
+      },
+      {
+        "signature": "game_recap(text)",
+        "access": "client"
+      }
+    ],
+    "columns": [
+      "answers.elapsed_ms"
+    ]
   }
 }

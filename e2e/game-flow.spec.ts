@@ -60,6 +60,14 @@ test("host + two players: lobby, sync, challenge/adjudicate, results", async ({ 
   expect(new URL(ada.url()).pathname).toBe("/play");
   await expect(host.getByRole("heading", { name: "Final results" })).toBeVisible();
 
+  await expect(host.getByRole("heading", { name: "Your recap" })).toBeVisible();
+  await expect(host.getByRole("heading", { name: "Room highlights" })).toBeVisible();
+  await expect(ada.getByRole("heading", { name: "Your recap" })).toBeVisible();
+  await ada.getByText("Review all 2 questions", { exact: true }).click();
+  await expect(ada.getByText(/Question 1:.*Voided/)).toBeVisible();
+  await ada.getByText(/Question 2:.*Wrong/).click();
+  await expect(ada.getByText("No answer", { exact: true }).first()).toBeVisible();
+
   await hostCtx.close();
   await adaCtx.close();
   await bobCtx.close();

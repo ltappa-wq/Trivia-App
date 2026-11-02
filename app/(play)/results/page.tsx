@@ -24,6 +24,7 @@ function ResultsView() {
   return (
     <main>
       <GameOver
+        recapToken={token}
         standings={state?.leaderboard ?? []}
         myPlayerId={state?.player?.id}
         roomCode={code}

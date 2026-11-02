@@ -404,3 +404,29 @@ describe("R22 pregame question review", () => {
     expect(questionReview).toContain("new.categories is distinct from old.categories");
   });
 });
+
+const recap = readFileSync(fileURLToPath(new URL('../../../supabase/migrations/0022_game_recap.sql', import.meta.url)), 'utf8');
+describe('R25 recap security contract', () => {
+  it('adds only new RPCs and nullable timing, preserving existing function signatures', () => {
+    expect(recap).not.toContain('create or replace');
+    expect(recap).toContain('add column elapsed_ms double precision check (elapsed_ms >= 0)');
+    expect(recap).toContain('new.submitted_at - g.reveal_at');
+  });
+  it('authorizes by token and returns nothing before ended or for invalid credentials', () => {
+    expect(recap).toContain('from public.resolve_token(p_token) t');
+    expect(recap).toContain('if v_game_id is null then return null;');
+    expect(recap).toContain("where id = v_game_id and status = 'ended'");
+    expect(recap).toContain('security definer');
+    expect(recap).toContain('set search_path = public, extensions');
+    expect(recap).toContain('revoke execute on function public.game_recap(text) from public, anon, authenticated');
+    expect(recap).toContain('grant execute on function public.game_recap(text) to anon, authenticated');
+  });
+  it('scopes personal answer join to caller, excludes host/spectator personal rows, aggregates other answers', () => {
+    expect(recap).toContain("if v_role <> 'player' then v_pid := null;");
+    expect(recap).toContain('a.question_id = q.id and a.player_id = v_pid');
+    expect(recap).toContain('q.game_id = v_game_id');
+    expect(recap).toContain("'personal', case when v_pid is null then null");
+    expect(recap).toContain('left join answer_counts');
+    expect(recap).toContain('left join challenge_counts');
+  });
+});

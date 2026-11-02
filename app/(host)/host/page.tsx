@@ -512,6 +512,7 @@ function HostView() {
       {ended && (
         <>
           <GameOver
+            recapToken={cred?.playerToken ?? token}
             standings={leaderboard}
             myPlayerId={state?.player?.id}
             roomCode={game.code}
