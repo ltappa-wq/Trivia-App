@@ -1,5 +1,5 @@
 import { test, expect } from "./test";
-import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
+import { hostCreateGame, playerJoin, questionPrompt, recordHydrationErrors } from "./helpers";
 
 // Hydrate-on-reconnect (KTD8; Verification Contract: U6). A client that drops
 // and reconnects must recover the live question from Postgres via the hydrate
@@ -8,6 +8,7 @@ import { hostCreateGame, playerJoin, questionPrompt } from "./helpers";
 test("player re-hydrates to the live question after a reload", async ({ browser, trackGame }) => {
   const hostCtx = await browser.newContext();
   const playerCtx = await browser.newContext();
+  const hydrationErrors = recordHydrationErrors([hostCtx, playerCtx]);
 
   const { page: host, code } = await hostCreateGame(hostCtx, trackGame, {
     category: "History",
@@ -31,4 +32,5 @@ test("player re-hydrates to the live question after a reload", async ({ browser,
 
   await hostCtx.close();
   await playerCtx.close();
+  expect(hydrationErrors).toEqual([]);
 });

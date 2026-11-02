@@ -5,6 +5,8 @@
 // accessible seconds count is preserved via aria-label so screen readers and the
 // existing e2e selectors keep working.
 
+import { timeWarning } from "@/lib/accessibility";
+
 const URGENT_SECONDS = 3;
 
 export function Countdown({
@@ -19,6 +21,8 @@ export function Countdown({
   const urgent = seconds <= URGENT_SECONDS;
 
   return (
+    <>
+    <p className="sr-only" role="status" aria-atomic="true">{timeWarning(remaining)}</p>
     <div
       className={`countdown-ring${urgent ? " is-urgent" : ""}`}
       style={{ ["--pct" as string]: pct }}
@@ -27,5 +31,6 @@ export function Countdown({
     >
       <span className="countdown-ring__face">{seconds}s</span>
     </div>
+    </>
   );
 }

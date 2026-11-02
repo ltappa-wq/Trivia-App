@@ -58,8 +58,7 @@ production app. Host-token authorization and all normal game writes remain activ
 GitHub's Ubuntu runner, resets it with repository migrations, obtains generated
 local credentials, installs Chromium, and runs Playwright. No GitHub secrets or
 Supabase link/login are used. It follows the [Supabase local CI workflow](https://supabase.com/docs/guides/deployment/managing-environments).
-The separate job initially has `continue-on-error: true`; unit/lint/typecheck CI
-remains blocking. Failures retain Playwright traces for seven days. Cold image
+The fixture E2E job is blocking, including accessibility scans. Failures retain Playwright traces for seven days. Cold image
 pulls make this slower than unit tests; the stack is stopped in an always step.
 
 ## Opt-in real xAI smoke
@@ -75,3 +74,50 @@ This selects only one tiny provider-compatibility smoke spec, disables fixture
 mode on the fresh app server, and creates one MC question through the real xAI
 path. It costs provider usage and is skipped in normal runs/CI. An externally
 started app must also have fixture mode disabled. No live Supabase is allowed.
+
+
+## Accessibility (R29)
+
+`accessibility.spec.ts` runs axe WCAG A/AA checks on home, setup, join, and
+host/player lobby, get-ready, MC/typed question, challenge pause, review and
+results. Serious and critical violations fail the job. There are no rule or
+selector exceptions. Axe cannot establish complete WCAG compliance; manual
+screen-reader and visual checks remain useful, especially after new UI merges.
+The spec extends only its own local fixture's reveal timestamp while scanning
+get-ready, then restores a near-future reveal. Answer windows use the supported
+60-second setting. No hosted database is accepted.
+
+Both answer modes include a keyboard-controlled round: Tab/Enter for host and
+challenge controls, arrows and numbers for MC, and Enter for typed submission.
+Reduced-motion contexts verify the podium is visible without animation/delay.
+Inline challenge panels remain in the normal tab order and do not trap focus;
+there are currently no modal dialogs. Any future modal must contain focus while
+open, handle Escape where dismissible, and restore focus to its trigger.
+
+Measured sRGB shared palette pairs (WCAG relative luminance): primary text on
+`#f5f2fb` is 14.88:1, muted text on that surface is 4.52:1, white text on pink
+`#ac2478` is 6.41:1 (and 8.47:1 on the darker gradient endpoint), and the
+`#827a96` input/tile border on the secondary surface is 3.67:1. Green and red
+text on white are 6.49:1 and 6.48:1 respectively. Decorative celebration gold
+is retained; chart bars use darker gold/green, and correct answers have text.
+Disabled controls are exempt from WCAG contrast requirements; no axe exclusions
+are used for them.
+
+
+The final wave 4 pass also scans the pre-game review list before/after keyboard
+regeneration and removal, display-link controls after mint/regenerate/revoke,
+personal recap expanded and collapsed, standalone `/results`, and rematch lobby
+transfer for both roles. Each answer-mode round includes a TV context scanning
+lobby, get-ready, question, pause, review, results and revoked-link states. TV
+phase headings and new rematch lobby headings have focus assertions; native
+recap summaries retain focus during disclosure. There are no modal dialogs in
+these flows; inline panels intentionally remain in the document tab order.
+Fredoka font files come from `@fontsource/fredoka`, avoiding a Google font fetch
+while Next compiles the fixture server.
+
+Accessibility rounds, game flow and reconnect tests capture browser page errors
+and error-console messages and fail on hydration mismatches. `/play` and
+`/results` defer credential storage reads until after the initial hydration
+render; SSR and the first browser render show the same loading shell. The unit
+suite exercises actual `renderToString`/`hydrateRoot` with a saved credential and
+checks that React requires no hydration recovery.

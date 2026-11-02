@@ -42,7 +42,7 @@ function PodiumReveal({ steps: initialSteps }: { steps: ReturnType<typeof podium
   if (steps.length === 0) return null;
 
   return (
-    <div className="podium" aria-label="Top finishers">
+    <div className="podium" role="group" aria-label="Top finishers">
       {steps.map((step) => (
         <div
           key={step.rank}

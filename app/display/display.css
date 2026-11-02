@@ -48,3 +48,10 @@ main.tv-display {
 .tv-display .answer-dist__row.is-correct .answer-dist__label { color: #90ffcd; }
 
 .tv-display .tv-page { color: #c4cee9; font-size: .75em; }
+
+/* Shared light-card styles need explicit high-contrast TV counterparts. */
+.tv-display h1, .tv-display h2, .tv-display h3 { color: #fff; }
+.tv-display .round-leaderboard li { background: #202d50; color: #fff; border-color: #7385b9; }
+.tv-display .answer-tile__shape { color: #ffe27a; }
+.tv-display :focus-visible { outline-color: #ffe27a; }
+.tv-display > p:first-of-type { color: #fff; }

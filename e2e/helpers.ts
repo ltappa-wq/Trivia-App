@@ -5,9 +5,26 @@ import { type BrowserContext, type Page, expect } from "@playwright/test";
 // its own BrowserContext so sessionStorage credentials (host/player tokens,
 // keyed by room code) stay isolated — the real "different devices" model.
 
+/** Capture actual hydration failures without suppressing console/page errors. */
+export function recordHydrationErrors(contexts: BrowserContext[]) {
+  const errors: string[] = [];
+  const record = (message: string) => {
+    if (/hydration|hydrated|server rendered HTML/i.test(message)) errors.push(message);
+  };
+  const observe = (page: Page) => {
+    page.on("pageerror", error => record(error.message));
+    page.on("console", message => { if (message.type() === "error") record(message.text()); });
+  };
+  for (const context of contexts) {
+    context.pages().forEach(observe);
+    context.on("page", observe);
+  }
+  return errors;
+}
+
 /** Locator for the active question prompt on either the host or a play view. */
 export function questionPrompt(page: Page) {
-  return page.locator('section[aria-live="polite"] h2');
+  return page.locator('.stage [data-question-heading]');
 }
 
 /**
@@ -24,6 +41,7 @@ export async function hostCreateGame(
     mode?: "multiple_choice" | "type_answer";
     hostPlays?: boolean;
     hostName?: string;
+    answerTimerMs?: number;
   } = {},
 ): Promise<{ page: Page; code: string }> {
   // Isolate the real per-IP create limit across local retries without changing app guards.
@@ -39,6 +57,7 @@ export async function hostCreateGame(
   await page.getByLabel(opts.category ?? "Geography").check();
   if (opts.mode === "type_answer") await page.getByLabel("Type the answer", { exact: true }).check();
   await page.getByLabel("Number of questions").fill(String(opts.count ?? 2));
+  if (opts.answerTimerMs) await page.getByRole("combobox", { name: /^Answer timer/ }).selectOption(String(opts.answerTimerMs));
   await page.getByRole("button", { name: "Create game" }).click();
 
   // Setup creates the lobby; generation happens on Start game.

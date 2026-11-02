@@ -27,7 +27,7 @@ export function SessionRecovery({ code }: { code?: string }) {
     return () => { active = false; };
   }, [code]);
   const visible = offers.filter(o => code === undefined || o.cred.code === code);
-  return <div aria-label="Saved games">{visible.map(({ kind, cred }) =>
+  return <div role="group" aria-label="Saved games">{visible.map(({ kind, cred }) =>
     <p key={`${kind}:${cred.code}`}><Link href={`/${kind === "host" ? "host" : "play"}?code=${encodeURIComponent(cred.code)}`}>
       {kind === "host" ? `Resume hosting room ${cred.code}` : code === undefined ? `Rejoin room ${cred.code} as ${cred.username}` : `Rejoin as ${cred.username}`}
     </Link></p>)}</div>;

@@ -24,3 +24,14 @@ it("reports link update errors", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Open TV display" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
 });
+it("focuses the ready link, announces updates and restores focus after revoke", async () => {
+  update.mockResolvedValueOnce("c".repeat(43)).mockResolvedValueOnce(null);
+  render(<DisplayLink code="12345" token="host" />);
+  const opener = screen.getByRole("button", { name: "Open TV display" });
+  fireEvent.click(opener);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("link", { name: "Open read-only TV screen" })));
+  expect(screen.getByRole("status").textContent).toContain("link ready");
+  fireEvent.click(screen.getByRole("button", { name: "Revoke TV display link" }));
+  await waitFor(() => expect(document.activeElement).toBe(opener));
+  expect(screen.getByRole("status").textContent).toContain("revoked");
+});

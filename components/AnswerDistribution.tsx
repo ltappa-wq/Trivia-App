@@ -16,7 +16,7 @@ export function AnswerDistribution({ dist }: { dist: Distribution | null }) {
   const total = dist.total;
 
   return (
-    <div className="answer-dist" aria-label="Answer distribution">
+    <div className="answer-dist" role="group" aria-label="Answer distribution">
       {dist.options.map((opt, i) => {
         const count = dist.counts?.[i] ?? 0;
         const pct = total > 0 ? Math.round((count / total) * 100) : 0;
@@ -28,7 +28,7 @@ export function AnswerDistribution({ dist }: { dist: Distribution | null }) {
                 {TILE_SHAPES[i % TILE_SHAPES.length]}
               </span>
               {opt}
-              {isCorrect && <span aria-hidden="true"> ✅</span>}
+              {isCorrect && <span> — ✓ Correct</span>}
             </span>
             <span className="answer-dist__track">
               <span className="answer-dist__bar" style={{ width: `${pct}%` }} />

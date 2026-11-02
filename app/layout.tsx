@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Fredoka } from "next/font/google";
+import "@fontsource/fredoka/latin-500.css";
+import "@fontsource/fredoka/latin-600.css";
+import "@fontsource/fredoka/latin-700.css";
 import "./globals.css";
 
-// Fredoka (rounded, playful) drives headings, buttons, and scores per the UX
-// refresh; body/inputs keep the existing system stack. Self-hosted via next/font
-// so there is no external font request at runtime.
-const fredoka = Fredoka({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-  display: "swap",
-});
-
+// Bundle Fredoka locally so builds and fixture tests need no Google font fetch.
 export const metadata: Metadata = {
   title: "Buzzr",
   description: "Live, AI-generated multiplayer trivia.",
@@ -20,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={fredoka.variable}>
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

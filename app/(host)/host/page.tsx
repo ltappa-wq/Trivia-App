@@ -10,6 +10,7 @@ import { DisplayLink } from "@/components/DisplayLink";
 import { JoinQrCode } from "@/components/JoinQrCode";
 import { Suspense, useMemo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { LobbyAccessibility } from "@/components/LobbyAccessibility";
 import { SaveHostLink, SessionRecovery } from "@/components/SessionRecovery";
 import { useSearchParams } from "next/navigation";
 import { useScopedState } from "@/lib/useScopedState";
@@ -272,13 +273,14 @@ function HostView() {
   }
 
   async function handleQuestionEdit(id: string, operation: "remove" | "regenerate") {
-    if (!token) return;
+    if (!token) return false;
     setBusy(true); setActionError(null);
     try {
       const result = await editQuestionReview(code, token, id, operation);
       if (result.error) setActionError(result.error);
       if (result.review) setQuestionReview(result.review);
-    } catch { setActionError("Could not edit questions. Please retry."); }
+      return !result.error;
+    } catch { setActionError("Could not edit questions. Please retry."); return false; }
     finally { setBusy(false); }
   }
 
@@ -349,7 +351,7 @@ function HostView() {
   return (
     <main className="host-view">
       <header>
-        <h1>Room {game.code}</h1>
+        <h1 tabIndex={-1}>Room {game.code}</h1>
         <p>
           {game.status === "lobby"
             ? "Waiting to start"
@@ -360,6 +362,7 @@ function HostView() {
         {phase.phase !== "ended" && <SoundToggle />}
         <DisplayLink key={token} code={code} token={token!} />
       </header>
+      {phase.phase === "lobby" && <LobbyAccessibility code={game.code} />}
       <GameFeedback phase={phase.phase} remaining={remaining}
         roundKey={`${game.id}:${game.current_index}`} answer={state?.my_answer ?? null}
         voided={state?.current_question?.voided ?? false} spectating={state?.role === "spectator" || !state?.player} />
