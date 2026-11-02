@@ -96,3 +96,28 @@ it.each(["HTTP", "network"])("enables Start after an initial %s progress failure
   fireEvent.click(button);
   expect(onStart).toHaveBeenCalledOnce();
 });
+
+it("offers optional review beside default Start, and hides it once prepared", async () => {
+  vi.stubGlobal("fetch", fetchProgress); fetchProgress.mockResolvedValue(progress(0, false));
+  const onReview = vi.fn(async () => {});
+  const props = { code: "12345", token: "host", total: 2, starting: false, disabled: false, onStart: vi.fn(), onReview };
+  const view = await act(async () => render(<GenerationProgressButton {...props} />));
+  expect(screen.getByRole("button", { name: "Start game" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Review questions first" }));
+  expect(onReview).toHaveBeenCalledOnce();
+  view.rerender(<GenerationProgressButton {...props} prepared />);
+  expect(screen.queryByRole("button", { name: "Review questions first" })).toBeNull();
+});
+it("allows review before players join and preserves review mode on Retry", async () => {
+  vi.stubGlobal("fetch", fetchProgress);
+  fetchProgress.mockResolvedValue(progress(0, false, "Please retry"));
+  const onReview = vi.fn(async () => {}); const onStart = vi.fn(async () => {});
+  const props = { code: "12345", token: "host", total: 2, starting: false, disabled: true, reviewDisabled: false, onStart, onReview };
+  const view = await act(async () => render(<GenerationProgressButton {...props} />));
+  expect((screen.getByRole("button", { name: "Review questions first" }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Review questions first" }));
+  await act(async () => { view.rerender(<GenerationProgressButton {...props} starting disabled={false} />); });
+  await act(async () => { view.rerender(<GenerationProgressButton {...props} disabled={false} />); });
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  expect(onReview).toHaveBeenCalledTimes(2); expect(onStart).not.toHaveBeenCalled();
+});

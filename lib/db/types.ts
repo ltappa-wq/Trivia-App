@@ -9,6 +9,7 @@ export type ChallengeStatus = "open" | "upheld" | "rejected";
 export type PlayerRole = "host" | "player" | "spectator";
 
 export interface GameRow {
+  regeneration_count?: number;
   id: string;
   code: string;
   host_token_hash: string;

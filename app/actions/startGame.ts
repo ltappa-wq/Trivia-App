@@ -33,6 +33,7 @@ let activeGenerations = 0;
 
 export type StartGameResult =
   | { status: "generation_failed"; message: string }
+  | { status: "ready" }
   | { status: "started"; index: number; revealAt: string; timerMs: number }
   /** Already started — a double-tap must not generate a second set. */
   | { status: "already_started"; index: number };
@@ -51,6 +52,7 @@ export async function startGame(
   code: string,
   hostToken: string,
   acceptedSuggestions?: string[],
+  reviewFirst = false,
 ): Promise<StartGameResult> {
   const supabase = getServiceClient();
   const game = await authorizeHostByCode(supabase, code, hostToken);
@@ -69,7 +71,7 @@ export async function startGame(
     if (game.current_index >= 0) {
       return { status: "already_started", index: game.current_index };
     }
-    return revealFirstQuestion(code, hostToken, game.current_index);
+    return reviewFirst ? { status: "ready" } : revealFirstQuestion(code, hostToken, game.current_index);
   }
 
   // Persist the host's final category set before generating against it, so a
@@ -103,7 +105,7 @@ export async function startGame(
     const { data: claimed, error: claimError } = await supabase.from("games")
       .update({ generation_started_at: startedAt, generation_progress: 0, generation_error: null,
         ...(categories !== game.categories ? { categories } : {}) })
-      .eq("id", game.id)
+      .eq("id", game.id).eq("status", "lobby").eq("current_index", -1)
       .or(`generation_started_at.is.null,generation_started_at.lt.${staleBefore}`)
       .select("id");
     if (claimError) {
@@ -143,7 +145,7 @@ export async function startGame(
     activeGenerations--;
   }
 
-  return revealFirstQuestion(code, hostToken, game.current_index);
+  return reviewFirst ? { status: "ready" } : revealFirstQuestion(code, hostToken, game.current_index);
 }
 
 /**

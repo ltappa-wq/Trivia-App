@@ -16,6 +16,9 @@ import { ReviewAutoAdvance } from "@/components/ReviewAutoAdvance";
 import { setReviewAutoAdvance } from "@/app/actions/autoAdvance";
 import { advance } from "@/app/actions/advance";
 import { GenerationProgressButton } from "@/components/GenerationProgressButton";
+import { getQuestionReview, editQuestionReview } from "@/app/actions/questionReview";
+import { QuestionReviewPanel } from "@/components/QuestionReviewPanel";
+import { useQuestionReview } from "@/lib/useQuestionReview";
 import { startGame } from "@/app/actions/startGame";
 import { closeQuestion } from "@/app/actions/closeQuestion";
 import { adjudicate, type Ruling } from "@/app/actions/adjudicate";
@@ -97,6 +100,9 @@ function HostView() {
     );
   }
   const game = state?.game ?? null;
+  const { review: questionReview, prepared: questionsPrepared, requestReview, setReview: setQuestionReview } = useQuestionReview({
+    code, token, gameId: game?.id ?? null, lobby: game?.status === "lobby", starting, busy,
+  });
   const challengeScope = `${token}:${game?.current_index}:${game?.paused}`;
   const reviewScope = `${token}:${game?.current_index}:${game?.reviewing}`;
   const [challenges, setChallenges] = useScopedState<OpenChallenge[]>(challengeScope, []);
@@ -244,14 +250,16 @@ function HostView() {
   // U8 / AE8. Start now carries generation, so it is the long operation and it
   // can fail. On failure the room stays in the lobby with its players seated and
   // the host free to retry — nothing is torn down.
-  async function handleStart() {
+  async function handleStart(reviewFirst = false) {
     if (!token) return;
+    if (reviewFirst) requestReview();
     setStarting(true);
     setActionError(null);
     try {
       // Only the accepted suggestions travel; startGame merges them with the
       // host's stored categories server-side.
-      const result = await startGame(code, token, accepted);
+      const result = await startGame(code, token, accepted, reviewFirst);
+      if (result.status === "ready") setQuestionReview(await getQuestionReview(code, token));
       if (result.status === "generation_failed") setActionError(result.message);
     } catch (err) {
       setActionError(
@@ -260,6 +268,17 @@ function HostView() {
     } finally {
       setStarting(false);
     }
+  }
+
+  async function handleQuestionEdit(id: string, operation: "remove" | "regenerate") {
+    if (!token) return;
+    setBusy(true); setActionError(null);
+    try {
+      const result = await editQuestionReview(code, token, id, operation);
+      if (result.error) setActionError(result.error);
+      if (result.review) setQuestionReview(result.review);
+    } catch { setActionError("Could not edit questions. Please retry."); }
+    finally { setBusy(false); }
   }
 
   async function handleFinish() {
@@ -421,11 +440,13 @@ function HostView() {
               ))}
             </ul>
           )}
-          <SuggestionsPanel
+          {!questionsPrepared && !questionReview && <SuggestionsPanel
             suggestions={suggestions}
             accepted={accepted}
             onToggle={toggleAccepted}
-          />
+          />}
+          {questionsPrepared && !questionReview && <p>Questions are prepared. Category suggestions can no longer change this set. Choose review to show answers on this screen.</p>}
+          {questionReview && <QuestionReviewPanel review={questionReview} busy={busy || starting} onEdit={handleQuestionEdit} />}
           {/* U8: Start now generates the question set, so it is a long operation
               with a real failure mode — reported here, in the lobby, instead of
               on the setup form it used to block. */}
@@ -435,7 +456,10 @@ function HostView() {
             total={game.question_count}
             starting={starting}
             disabled={busy || leaderboard.length === 0}
-            onStart={handleStart}
+            onStart={() => handleStart()}
+            onReview={() => handleStart(true)}
+            prepared={Boolean(questionReview)}
+            reviewDisabled={busy}
           />
         </section>
       )}

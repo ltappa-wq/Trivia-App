@@ -203,6 +203,7 @@ export async function generateQuestions(
   params: GenerationParams,
   config: XaiConfig,
   exclusions: BankExclusions = NO_EXCLUSIONS,
+  existingQuestions: readonly GeneratedQuestion[] = [],
 ): Promise<GeneratedQuestion[]> {
   if (!config.apiKey) throw new GenerationError("Missing xAI API key", "configuration");
   if (params.count < 1) throw new GenerationError("count must be >= 1");
@@ -224,7 +225,8 @@ export async function generateQuestions(
   // ones accepted so far this run (so a single batch can't self-duplicate).
   const usedNorms = new Set<string>(exclusions.seen);
   // Correct-answer keys already used this set — no two questions share a winner.
-  const usedAnswers = new Set<string>();
+  const usedAnswers = new Set<string>(existingQuestions.flatMap(correctAnswerKeys));
+  for (const q of existingQuestions) usedNorms.add(normalizePrompt(q.prompt));
   // Answer anchor index (U2/U3): normalized answer -> normalized prompts banked
   // under it. Seeded from the bank and extended with questions accepted this run
   // so a later candidate is measured against earlier ones too, not just the bank.
@@ -232,8 +234,8 @@ export async function generateQuestions(
   for (const [answer, prompts] of exclusions.promptsByAnswer) {
     promptsByAnswer.set(answer, [...prompts]);
   }
-  const avoid = [...exclusions.avoidPrompts];
-  const avoidAnswerLabels: string[] = [];
+  const avoid = [...exclusions.avoidPrompts, ...existingQuestions.map((q) => q.prompt)];
+  const avoidAnswerLabels: string[] = [...usedAnswers];
   // Track why questions were rejected so an exhausted-attempts failure reports
   // the actual cause instead of only a bare count (diagnosability).
   const rejections = new Set<string>();
