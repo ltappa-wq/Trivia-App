@@ -31,7 +31,14 @@ export default defineConfig({
         command: "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: false,
-        env: { GENERATION_MODE: process.env.E2E_LIVE_XAI === "1" ? "live" : "fixture", E2E_TEST_MODE: "1" },
+        env: {
+          GENERATION_MODE: process.env.E2E_LIVE_XAI === "1" ? "live" : "fixture",
+          E2E_TEST_MODE: "1",
+          ...(process.env.E2E_LIVE_XAI === "1" ? {} : {
+            NEXT_PUBLIC_TIP_VENMO_USERNAME: "buzzr-demo",
+            NEXT_PUBLIC_TIP_STRIPE_URL: "https://buy.stripe.com/test_buzzr_demo_not_real",
+          }),
+        },
         timeout: 180_000,
       },
 });

@@ -130,6 +130,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       for (const page of [host, player]) {
         await expect(page.getByRole("heading", { name: "Final results" })).toBeFocused();
         await expect(page.getByRole("heading", { name: "Room highlights" })).toBeVisible();
+        await expect(page.getByRole("region", { name: "Tip jar" })).toBeVisible();
         await scan(page, "results");
         const motion = await page.locator(".podium-step").evaluateAll(elements => elements.map(el => {
           const style = getComputedStyle(el);
@@ -138,6 +139,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
         for (const style of motion) expect(style).toEqual({ animation: "none", opacity: "1", transition: "0s" });
       }
       await expect(tv.getByRole("heading", { name: "Final standings" })).toBeFocused();
+      await expect(tv.getByRole("region", { name: "Tip jar" })).toHaveCount(0);
       await scan(tv, "TV results");
       await expect(player.getByRole("heading", { name: "Your recap" })).toBeVisible();
       const summary = player.locator(".game-recap > details > summary");
@@ -154,6 +156,7 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       await player.goto(`/results?code=${code}`);
       await expect(player.getByRole("heading", { name: "Final results" })).toBeFocused();
       await expect(player.getByRole("heading", { name: "Your recap" })).toBeVisible();
+      await expect(player.getByRole("region", { name: "Tip jar" })).toBeVisible();
       await scan(player, "standalone results and recap");
       await keyboardActivate(host, host.getByRole("button", { name: "Revoke TV display link", exact: true }));
       await expect(host.getByRole("button", { name: "Open TV display", exact: true })).toBeFocused();
