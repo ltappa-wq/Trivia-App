@@ -107,6 +107,8 @@ for (const mode of ["multiple_choice", "type_answer"] as const) {
       await expect(questionPrompt(player)).toBeFocused();
       if (mode === "multiple_choice") {
         await player.keyboard.press("ArrowRight");
+        await expect(player.getByRole("button", { name: /^A, triangle:/ })).toBeFocused();
+        await player.keyboard.press("ArrowRight");
         await expect(player.getByRole("button", { name: /^B, diamond:/ })).toBeFocused();
         await player.keyboard.press("ArrowLeft");
         await player.keyboard.press("1");

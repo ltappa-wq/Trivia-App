@@ -27,6 +27,10 @@ describe("phase accessibility policies", () => {
     expect(() => focusPhase(null)).not.toThrow();
   });
   it("wraps arrow navigation and bounds numbered shortcuts", () => {
+    expect(answerKeyIndex("ArrowRight", -1, 4)).toBe(0);
+    expect(answerKeyIndex("ArrowDown", -1, 4)).toBe(0);
+    expect(answerKeyIndex("ArrowLeft", -1, 4)).toBe(3);
+    expect(answerKeyIndex("ArrowUp", -1, 4)).toBe(3);
     expect(answerKeyIndex("ArrowLeft", 0, 4)).toBe(3);
     expect(answerKeyIndex("ArrowDown", 3, 4)).toBe(0);
     expect(answerKeyIndex("Home", 2, 4)).toBe(0);

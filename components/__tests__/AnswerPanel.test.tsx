@@ -59,6 +59,9 @@ it("names shapes and letters, moves focus with arrows and submits with a number"
   const heading = screen.getByRole("heading", { name: "Question" });
   heading.focus();
   fireEvent.keyDown(heading, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "A, triangle: Paris" }));
+  heading.focus();
+  fireEvent.keyDown(heading, { key: "ArrowUp" });
   expect(document.activeElement).toBe(screen.getByRole("button", { name: "B, diamond: Rome" }));
   const first = screen.getByRole("button", { name: "A, triangle: Paris" });
   const second = screen.getByRole("button", { name: "B, diamond: Rome" });

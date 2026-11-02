@@ -24,7 +24,7 @@ it("disables regeneration at the room limit and all edits while busy", () => {
 it("focuses the review on arrival and returns focus after removing a question", async () => {
   const second = { ...review.questions[0]!, id: "q2", index: 1, prompt: "Second question?" };
   const full = { ...review, questions: [...review.questions, second] };
-  const onEdit = vi.fn(async () => {});
+  const onEdit = vi.fn(async () => true);
   const { rerender } = render(<QuestionReviewPanel review={full} busy={false} onEdit={onEdit} />);
   expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review questions (2)" }));
   fireEvent.click(screen.getByRole("button", { name: "Remove question 2" }));
@@ -33,4 +33,13 @@ it("focuses the review on arrival and returns focus after removing a question", 
   const { waitFor } = await import("@testing-library/react");
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Review questions (1)" })));
   expect(screen.getByRole("status").textContent).toContain("edit finished");
+});
+
+it.each([false, "throw"])("announces failed edits without a contradictory success status (%s)", async outcome => {
+  const onEdit = vi.fn(async () => { if (outcome === "throw") throw new Error("Offline"); return false; });
+  render(<QuestionReviewPanel review={review} busy={false} onEdit={onEdit} />);
+  fireEvent.click(screen.getByRole("button", { name: "Regenerate question 1" }));
+  const { waitFor } = await import("@testing-library/react");
+  await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Question edit failed."));
+  expect(screen.queryByText(/Question edit finished/)).toBeNull();
 });

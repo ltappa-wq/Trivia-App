@@ -246,7 +246,8 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
   warnings change only at 10 seconds, 5 seconds and expiry. Countdown rings have
   textual accessible names; results and correct/locked answers use text.
 - MC buttons expose letter, shape and answer names. Arrow/Home/End keys move
-  among tiles; 1–4 select from the question heading or tiles. Typed answers submit
+  among tiles (forward from the prompt enters A, backward enters the last tile);
+  1–4 select from the question heading or tiles. Typed answers submit
   with Enter. Inline host adjudication controls follow the document tab order.
 - Visible focus outlines, dark answer text, darker pink primary buttons and
   success/error text, and contrasting input borders support the BUZZR palette.
@@ -260,7 +261,7 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
   regenerate/remove focus recovery, recap disclosures and standalone results,
   display-link mint/regenerate/revoke, all TV phases, and rematch transfer into
   the next lobby. No migration is needed.
-- Question edits name their question and announce completion. New room/lobby
+- Question edits name their question and announce success or failure accurately. New room/lobby
   focus and announcements identify the rematch destination. TV headings receive
   focus on phase changes and invalid/revoked links; timer ticks preserve focus.
 - Display link controls announce success/revocation and focus the ready link or

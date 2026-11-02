@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { QuestionReview } from "@/lib/questionReview";
 
-export function QuestionReviewPanel({ review, busy, onEdit }: { review: QuestionReview; busy: boolean; onEdit: (id: string, operation: "regenerate" | "remove") => Promise<void> }) {
+export function QuestionReviewPanel({ review, busy, onEdit }: { review: QuestionReview; busy: boolean; onEdit: (id: string, operation: "regenerate" | "remove") => Promise<boolean> }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLElement>(null);
   const pending = useRef<{ id: string; operation: "regenerate" | "remove" } | null>(null);
@@ -20,8 +20,10 @@ export function QuestionReviewPanel({ review, busy, onEdit }: { review: Question
   async function edit(id: string, operation: "regenerate" | "remove") {
     pending.current = { id, operation };
     setMessage(operation === "regenerate" ? "Regenerating question. Please wait." : "Removing question. Please wait.");
-    try { await onEdit(id, operation); }
-    finally { setMessage("Question edit finished. Review the updated question list."); }
+    try {
+      const success = await onEdit(id, operation);
+      setMessage(success ? "Question edit finished. Review the updated question list." : "Question edit failed.");
+    } catch { setMessage("Question edit failed."); }
   }
   return <section ref={panel} aria-label="Question review">
     <h2 ref={heading} tabIndex={-1}>Review questions ({review.questions.length})</h2>

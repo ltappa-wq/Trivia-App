@@ -56,7 +56,8 @@ export function GameStage(props: GameStageProps) {
   const container = useRef<HTMLDivElement>(null);
   const phase = props.phase.phase;
   const hasQuestion = props.question !== null;
-  useEffect(() => { focusPhase(container.current); }, [phase, props.currentIndex, hasQuestion]);
+  const hasReveal = Boolean(props.revealAt);
+  useEffect(() => { focusPhase(container.current); }, [phase, props.currentIndex, hasQuestion, hasReveal]);
   if (phase === "lobby" || phase === "ended" ||
       (phase === "get_ready" ? !props.revealAt : !props.question)) return null;
   return <div ref={container} className="stage-accessibility">

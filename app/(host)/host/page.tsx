@@ -273,13 +273,14 @@ function HostView() {
   }
 
   async function handleQuestionEdit(id: string, operation: "remove" | "regenerate") {
-    if (!token) return;
+    if (!token) return false;
     setBusy(true); setActionError(null);
     try {
       const result = await editQuestionReview(code, token, id, operation);
       if (result.error) setActionError(result.error);
       if (result.review) setQuestionReview(result.review);
-    } catch { setActionError("Could not edit questions. Please retry."); }
+      return !result.error;
+    } catch { setActionError("Could not edit questions. Please retry."); return false; }
     finally { setBusy(false); }
   }
 

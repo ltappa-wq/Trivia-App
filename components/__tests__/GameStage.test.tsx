@@ -296,3 +296,9 @@ it("focuses phase headings once per transition, preserving answer focus during t
   rerender(<GameStage {...props({ currentIndex: 3 })} />);
   expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2 }));
 });
+
+it("focuses get-ready when its reveal timestamp arrives after the phase", () => {
+  const { rerender } = render(<GameStage {...props({ phase: { phase: "get_ready" }, revealAt: null })} />);
+  rerender(<GameStage {...props({ phase: { phase: "get_ready" }, revealAt: new Date(Date.now() + 3000).toISOString() })} />);
+  expect(document.activeElement).toBe(screen.getByText("Get ready"));
+});

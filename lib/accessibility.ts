@@ -21,8 +21,8 @@ export function timeWarning(remaining: number): string {
 export function answerKeyIndex(key: string, current: number, count: number): number | null {
   if (count <= 0) return null;
   if (/^[1-9]$/.test(key)) return Number(key) <= count ? Number(key) - 1 : null;
-  if (key === "ArrowRight" || key === "ArrowDown") return (current + 1) % count;
-  if (key === "ArrowLeft" || key === "ArrowUp") return (current - 1 + count) % count;
+  if (key === "ArrowRight" || key === "ArrowDown") return current < 0 ? 0 : (current + 1) % count;
+  if (key === "ArrowLeft" || key === "ArrowUp") return current < 0 ? count - 1 : (current - 1 + count) % count;
   if (key === "Home") return 0;
   if (key === "End") return count - 1;
   return null;

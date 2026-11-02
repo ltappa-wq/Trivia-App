@@ -74,7 +74,7 @@ function QuestionAnswerPanel({
       const target = event.target as HTMLElement;
       if (!tiles.current?.contains(target) && !target.matches("[data-question-heading]")) return;
       const buttons = Array.from(tiles.current?.querySelectorAll("button") ?? []);
-      const current = Math.max(0, buttons.indexOf(target as HTMLButtonElement));
+      const current = buttons.indexOf(target as HTMLButtonElement);
       const next = answerKeyIndex(event.key, current, buttons.length);
       if (next === null) return;
       event.preventDefault();
