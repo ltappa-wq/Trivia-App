@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { GameRecap } from "@/components/GameRecap";
 import { ShareResult } from "@/components/ShareResult";
 import { SoundToggle } from "@/components/GameFeedback";
 import { gameSound } from "@/lib/sound";
@@ -15,10 +16,12 @@ import { describeWinners } from "@/lib/results";
 import { submitFeedback } from "@/app/actions/submitFeedback";
 
 export function GameOver({
+  recapToken,
   standings,
   myPlayerId,
   roomCode,
 }: {
+  recapToken?: string | null;
   standings: LeaderboardEntry[];
   myPlayerId?: string | null;
   roomCode?: string;
@@ -87,6 +90,8 @@ export function GameOver({
           </li>
         ))}
       </ol>
+
+      {recapToken && <GameRecap token={recapToken} />}
 
       <ShareResult standings={standings} playerId={myPlayerId} />
 

@@ -6,7 +6,7 @@ const migrations = readdirSync(directory).filter(f => f.endsWith(".sql")).sort()
 const definitions = new Map<string, string>();
 for (const file of migrations) {
   const sql = readFileSync(resolve(directory, file), "utf8");
-  for (const match of sql.matchAll(/create or replace function public\.(\w+)\([\s\S]*?\$\$;/gi)) definitions.set(match[1], match[0]);
+  for (const match of sql.matchAll(/create (?:or replace )?function public\.(\w+)\([\s\S]*?\$\$;/gi)) definitions.set(match[1], match[0]);
 }
 const display = readFileSync(resolve(directory, "0023_tv_display.sql"), "utf8");
 describe("R21 SQL role audit across every latest resolve_token caller", () => {
@@ -18,7 +18,7 @@ describe("R21 SQL role audit across every latest resolve_token caller", () => {
   });
   it("has an explicit audit entry for every resolver consumer (new callers fail closed in this audit)", () => {
     expect([...definitions].filter(([, body]) => body.includes("public.resolve_token(p_token)")).map(([name]) => name).sort()).toEqual([
-      "answer_distribution", "answer_progress", "auto_advance_question", "close_question", "hydrate_game_state",
+      "answer_distribution", "answer_progress", "auto_advance_question", "close_question", "game_recap", "hydrate_game_state",
       "list_category_suggestions", "list_open_challenges", "reveal_answer", "set_review_auto_advance",
     ]);
   });
@@ -49,6 +49,14 @@ describe("R21 SQL role audit across every latest resolve_token caller", () => {
     expect(hydrate).not.toContain("accepted_variants");
     expect(hydrate).not.toContain("display_token_hash");
     expect(hydrate).toContain("a.player_id = v_pid");
+  });
+  it("keeps recap ended-only with personal rows restricted to players", () => {
+    const recap = definitions.get("game_recap")!;
+    expect(recap).toContain("from public.resolve_token(p_token) t");
+    expect(recap).toContain("status = 'ended'");
+    expect(recap).toContain("if v_role <> 'player' then v_pid := null; end if;");
+    expect(recap).toContain("'personal', case when v_pid is null then null");
+    expect(recap.indexOf("status = 'ended'")).toBeLessThan(recap.indexOf("'personal'"));
   });
   it("keeps UUID-based mutation RPCs service-only (no display caller can invoke them)", () => {
     const sql = migrations.map(f => readFileSync(resolve(directory, f), "utf8")).join("\n");

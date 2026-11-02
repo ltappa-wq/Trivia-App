@@ -186,6 +186,7 @@ function PlayView() {
       {phase.phase === "ended" && (
         <>
           <GameOver
+            recapToken={token}
             standings={leaderboard}
             myPlayerId={state?.player?.id}
             roomCode={game.code}
