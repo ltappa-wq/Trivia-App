@@ -312,3 +312,18 @@ Those files were removed to avoid conflicting/outdated requirement lists. Archit
 - Remembered setup and rematch preserve Mixed. Regeneration preserves the
   individual question's type. Repeated true/false answer values are allowed;
   bank dedup compares their prompts without a boolean-answer anchor.
+
+### Family-friendly mode (R32)
+
+- Setup offers a default-off Family-friendly option; remembered settings and
+  rematches preserve it. Old remembered settings default off.
+- When enabled, prompt constraints and a separate batched safety classification
+  cover questions, every option/accepted answer and explanations. Rejected items
+  use tail regeneration; unavailable/malformed safety checks fail closed with a
+  retryable error within the shared 240-second generation budget.
+- Custom categories are checked for family suitability at setup and rechecked
+  against the stored setting at Start. The broad built-in catalog has no
+  inherently excluded topics; family rules constrain its generated content.
+- The host sees a Family-friendly badge and a persisted replacement count after
+  generation (including review regeneration). Rejected content is never saved
+  or shown. Mode off makes no additional classification calls.

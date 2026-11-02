@@ -9,7 +9,10 @@ export function GameOptionsFields({ value, onChange, answerMode }: {
   answerMode: AnswerMode;
 }) {
   return <fieldset>
-    <legend>Game pacing and finale</legend>
+    <legend>Game options</legend>
+    <label><input type="checkbox" checked={value.familyFriendly ?? false}
+      onChange={e => onChange({ ...value, familyFriendly: e.target.checked })} />Family-friendly</label>
+    <p>Keep questions and answers suitable for a mixed-age audience.</p>
     <label>Answer timer
       <select value={value.answerTimerMs ?? ""} onChange={e => onChange({ ...value, answerTimerMs: e.target.value ? Number(e.target.value) : null })}>
         <option value="">Mode default ({answerMode === "mixed" ? "20s choice / 35s typed / 15s true/false" : `${ANSWER_TIMER_MS[answerMode] / 1000} seconds`})</option>

@@ -30,7 +30,7 @@ export function SavedSetupControls({ onRestore, onBusy }: {
       for (const category of saved.categories) {
         if ((CATEGORIES as readonly string[]).includes(category)) categories.push(category);
         else {
-          const result = await validateCustomCategory(category);
+          const result = await validateCustomCategory(category, saved.familyFriendly ?? false);
           if (!result.ok) throw new Error(`${category}: ${result.error}`);
           categories.push(result.category);
         }

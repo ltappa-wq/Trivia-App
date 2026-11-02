@@ -51,7 +51,7 @@ export async function editQuestionReview(code: string, token: string, questionId
       lease = claim.lease;
       // Re-read under the lease: another tab may have edited before we claimed.
       const locked = await getQuestionReview(code, token);
-      await generateAndPersistQuestions(game.id, { categories: game.categories, count: 1, mode: locked.questions.find((q) => q.id === questionId)!.mode, difficulty: game.difficulty }, undefined, {
+      await generateAndPersistQuestions(game.id, { categories: game.categories, familyFriendly: game.family_friendly ?? false, count: 1, mode: locked.questions.find((q) => q.id === questionId)!.mode, difficulty: game.difficulty }, undefined, {
         existing: generationQuestions(locked.questions), fixtureOffset: 100 + claim.attempt - 1,
         persist: async (question) => { await mutate("replace", { p_lease: lease, p_question: question }); },
       });

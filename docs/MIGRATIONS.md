@@ -10,7 +10,7 @@ Use the release checkout containing the PR's migrations. Read its migration SQL
 and deployment notes, confirm the target project in the Supabase dashboard, and
 confirm a usable backup/restore plan before production changes. Apply files in
 `supabase/migrations/` by ascending filename number, starting with `0001` for a
-new project. The current sequence ends at `0024_mixed_mode.sql`. Apply
+new project. The current sequence ends at `0025_family_friendly.sql`. Apply
 only files not already successfully applied; do not edit historical migrations.
 
 ## Supabase CLI (preferred)
@@ -305,3 +305,14 @@ with all migrations applied. Fixtures roll back and check default/custom timers,
 legacy modes, challenge scoring, finale caps, role rejection, reveal/distribution
 and recap gating, grants, bank constraints and rematch mode preservation. The
 fixture E2E CI job runs this plus the existing 0019 and 0023 behavior regressions.
+
+## 0025: family-friendly content safety
+
+Apply `0025_family_friendly.sql` manually **before merging/deploying R32**, while
+current main is deployed. Adds `games.family_friendly` (default false) and
+`games.family_replaced_count` (default zero). Existing games/callers keep their
+behavior. Only `create_rematch(text,text,text)` is redefined: it copies the flag
+and preserves authorization, grants, retry idempotence and all existing settings.
+The new room starts with a zero replacement count. No hydration RPC is changed.
+Run `supabase/tests/0025_family_friendly.sql` only on disposable local Supabase;
+fixtures roll back. The E2E job replays every migration and runs this behavior test.

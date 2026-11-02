@@ -112,6 +112,7 @@ export default function SetupPage() {
       answerTimerMs: settings.answerTimerMs ?? null,
       autoAdvanceMs: settings.autoAdvanceMs ?? null,
       doublePointsFinale: settings.doublePointsFinale ?? false,
+      familyFriendly: settings.familyFriendly ?? false,
     });
     setCategories(settings.categories);
     setQuestionCount(settings.questionCount);
@@ -161,7 +162,7 @@ export default function SetupPage() {
     // AI depth check: only add when the topic can support enough unique questions.
     setCustomChecking(true);
     try {
-      const result = await validateCustomCategory(c);
+      const result = await validateCustomCategory(c, gameOptions.familyFriendly ?? false);
       if (!result.ok) {
         setCustomError(result.error);
         return;

@@ -245,10 +245,6 @@
         "access": "client"
       },
       {
-        "signature": "create_rematch(text,text,text)",
-        "access": "service"
-      },
-      {
         "signature": "join_rematch(text,text)",
         "access": "service"
       }
@@ -303,5 +299,17 @@
       }
     ],
     "columns": []
+  },
+  "0025_family_friendly.sql": {
+    "functions": [
+      {
+        "signature": "create_rematch(text,text,text)",
+        "access": "service"
+      }
+    ],
+    "columns": [
+      "games.family_friendly",
+      "games.family_replaced_count"
+    ]
   }
 }

@@ -6,7 +6,7 @@ import "server-only";
 // question-count ceiling abuse guard (KTD10).
 
 import { getServiceClient } from "@/lib/supabase/server";
-import { fixtureGenerationEnabled, fixtureQuestions } from "@/lib/generation/fixture";
+import { fixtureGenerationEnabled, fixtureQuestions, fixtureSafetyFetch } from "@/lib/generation/fixture";
 import { generateQuestions } from "@/lib/generation/xai";
 import { normalizePrompt } from "@/lib/generation/dedup";
 import { normalizedAnswerKey } from "@/lib/generation/answerKey";
@@ -27,7 +27,9 @@ export async function generateAndPersistQuestions(
   params: GenerationParams,
   onProgress?: (completed: number) => Promise<void>,
   replacement?: { existing: GeneratedQuestion[]; fixtureOffset: number; persist: (question: GeneratedQuestion) => Promise<void> },
+  budgetMs?: number,
 ): Promise<number> {
+  const deadline = params.familyFriendly ? Date.now() + (budgetMs ?? 240_000) : undefined;
   const fixture = fixtureGenerationEnabled();
   if (fixture) console.warn("[E2E FIXTURE MODE ACTIVE] Serving canned questions; xAI and question bank are bypassed.");
   const apiKey = process.env.XAI_API_KEY;
@@ -46,11 +48,15 @@ export async function generateAndPersistQuestions(
   );
   const exclusions = buildBankExclusions(entries);
 
-  const questions = fixture ? fixtureQuestions(params, replacement?.fixtureOffset) : await generateQuestions(
+  let safetyRejections = 0;
+  const questions = fixture && !params.familyFriendly ? fixtureQuestions(params, replacement?.fixtureOffset) : await generateQuestions(
     params,
     {
-      apiKey: apiKey!,
+      apiKey: fixture ? "fixture" : apiKey!,
+      ...(fixture ? { fetchImpl: fixtureSafetyFetch(params, replacement?.fixtureOffset) } : {}),
+      onSafetyRejections: (count) => { safetyRejections += count; },
       onProgress,
+      budgetMs: deadline === undefined ? budgetMs : deadline - Date.now(),
       baseUrl: process.env.XAI_BASE_URL,
       model: process.env.XAI_MODEL,
     },
@@ -79,6 +85,13 @@ export async function generateAndPersistQuestions(
     if (error) throw new Error(`Failed to persist questions: ${error.message}`);
   }
 
+  if (params.familyFriendly) {
+    const { data: game, error: readError } = await supabase.from("games").select("family_replaced_count").eq("id", gameId).single();
+    if (readError) throw new Error("Could not save family-friendly summary. Please retry.");
+    const { error } = await supabase.from("games").update({ family_replaced_count:
+      (replacement ? game?.family_replaced_count ?? 0 : 0) + safetyRejections }).eq("id", gameId);
+    if (error) throw new Error("Could not save family-friendly summary. Please retry.");
+  }
   if (fixture) return rows.length;
 
   // Append to the durable bank (R7.1). Conflicts on prompt_norm are ignored so a
